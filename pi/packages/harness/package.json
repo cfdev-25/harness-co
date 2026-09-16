@@ -1,0 +1,34 @@
+{
+	"name": "@harness/pi-harness",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist",
+		"themes"
+	],
+	"pi": {
+		"extensions": [
+			"./dist/index.js"
+		],
+		"themes": [
+			"./themes/harness-dark.json"
+		]
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"clean": "shx rm -rf dist",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@earendil-works/pi-coding-agent": "^0.85.1"
+	},
+	"devDependencies": {
+		"@types/node": "22.19.19",
+		"shx": "0.4.0",
+		"typescript": "5.9.3",
+		"vitest": "4.1.9"
+	}
+}
