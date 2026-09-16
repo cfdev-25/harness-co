@@ -1,0 +1,14 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+node_modules/
+dist/
+coverage/
+.pytest_cache/
+.ruff_cache/
+.vite/
+*.log
