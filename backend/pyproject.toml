@@ -1,0 +1,42 @@
+[project]
+name = "harness-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "asyncpg>=0.30,<0.31",
+  "fastapi>=0.116,<0.117",
+  "httpx>=0.28,<0.29",
+  "pyjwt[crypto]>=2.10,<2.11",
+  "pynacl>=1.5,<1.6",
+  "pydantic>=2.11,<2.12",
+  "pydantic-settings>=2.10,<2.11",
+  "python-multipart>=0.0.20,<0.1",
+  "pyyaml>=6.0,<6.1",
+  "uvicorn[standard]>=0.35,<0.36",
+]
+
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.4,<8.5",
+  "pytest-asyncio>=1.1,<1.2",
+  "ruff>=0.12,<0.13",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["supabase"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
