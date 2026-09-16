@@ -1,11 +1,10 @@
-import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { createRoot } from "react-dom/client";
-import "./styles.css";
+"use client";
 
-const TOKEN_KEY = "harness_admin_pat";
+import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { accessToken, supabase } from "@/lib/supabase";
 
 type JsonRecord = Record<string, unknown>;
-type Tab = "assets" | "boundary" | "keys" | "audit";
+type Tab = "assets" | "boundary" | "keys" | "members" | "audit";
 
 interface TreeNode {
   id: string;
@@ -57,6 +56,13 @@ interface Version {
   created_at?: string;
 }
 
+interface Invite {
+  id: string;
+  email: string;
+  accepted_at?: string | null;
+  admin_level?: string | null;
+}
+
 class ApiError extends Error {
   constructor(
     message: string,
@@ -66,11 +72,9 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(
-  path: string,
-  token: string,
-  init: RequestInit = {},
-): Promise<T> {
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = await accessToken();
+  if (!token) throw new ApiError("Please sign in to continue.", 401);
   const response = await fetch(path, {
     ...init,
     headers: {
@@ -103,36 +107,102 @@ function records<T>(value: unknown, keys: string[]): T[] {
   return [];
 }
 
-function Login({ onLogin }: { onLogin: (token: string) => void }) {
-  const [token, setToken] = useState("");
+function Login() {
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
-    if (token.trim()) onLogin(token.trim());
+    setBusy(true);
+    setError("");
+    const action =
+      mode === "signin"
+        ? supabase.auth.signInWithPassword({ email, password })
+        : supabase.auth.signUp({ email, password });
+    const { error: cause } = await action;
+    setBusy(false);
+    if (cause) setError(cause.message);
   }
 
   return (
     <main className="login-shell">
       <section className="login-card">
         <div className="brand-mark">H</div>
-        <p className="eyebrow">Harness control plane</p>
-        <h1>Admin access</h1>
-        <p className="muted">
-          Use a personal access token to manage your organization.
-        </p>
+        <p className="eyebrow">Harness</p>
+        <h1>{mode === "signin" ? "Sign in" : "Create account"}</h1>
         <form onSubmit={submit}>
-          <label htmlFor="pat">Personal access token</label>
+          <label htmlFor="email">Email</label>
           <input
-            id="pat"
-            type="password"
-            autoComplete="current-password"
-            value={token}
-            onChange={(event) => setToken(event.target.value)}
-            placeholder="pat_••••••••••••"
+            id="email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
             autoFocus
           />
-          <button className="primary full" type="submit" disabled={!token.trim()}>
-            Continue
+          <label htmlFor="password">Password</label>
+          <input
+            id="password"
+            type="password"
+            autoComplete={mode === "signin" ? "current-password" : "new-password"}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+          />
+          {error && <p className="alert">{error}</p>}
+          <button className="primary full" type="submit" disabled={busy}>
+            {mode === "signin" ? "Sign in" : "Sign up"}
+          </button>
+        </form>
+        <button
+          className="ghost full"
+          type="button"
+          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+        >
+          {mode === "signin" ? "Need an account?" : "Have an account?"}
+        </button>
+      </section>
+    </main>
+  );
+}
+
+function Onboarding({ onCreated }: { onCreated: () => void }) {
+  const [error, setError] = useState("");
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    try {
+      await request("/v1/orgs", {
+        method: "POST",
+        body: JSON.stringify({
+          org_name: form.get("org_name"),
+          team_name: form.get("team_name") || "General",
+        }),
+      });
+      onCreated();
+    } catch (cause) {
+      setError((cause as Error).message);
+    }
+  }
+
+  return (
+    <main className="login-shell">
+      <section className="login-card">
+        <h1>Create an organization</h1>
+        <p className="muted">Or ask an admin to invite this email to their team.</p>
+        <form onSubmit={submit}>
+          <label htmlFor="org_name">Organization name</label>
+          <input id="org_name" name="org_name" required autoFocus />
+          <label htmlFor="team_name">First team</label>
+          <input id="team_name" name="team_name" defaultValue="General" />
+          {error && <p className="alert">{error}</p>}
+          <button className="primary full" type="submit">
+            Create
           </button>
         </form>
       </section>
@@ -230,8 +300,9 @@ function Modal({
   );
 }
 
-function App() {
-  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) ?? "");
+export function AdminApp() {
+  const [signedIn, setSignedIn] = useState(false);
+  const [needsOrg, setNeedsOrg] = useState(false);
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [selected, setSelected] = useState<TreeNode>();
   const [tab, setTab] = useState<Tab>("assets");
@@ -242,11 +313,13 @@ function App() {
   const [rotateKey, setRotateKey] = useState<ApiKey>();
   const [historyAsset, setHistoryAsset] = useState<Asset>();
   const [history, setHistory] = useState<Version[]>([]);
+  const [cliToken, setCliToken] = useState("");
   const loadSequence = useRef(0);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
-    setToken("");
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
+    setSignedIn(false);
+    setNeedsOrg(false);
     setSelected(undefined);
     setTree([]);
   }, []);
@@ -254,34 +327,50 @@ function App() {
   const api = useCallback(
     async <T,>(path: string, init?: RequestInit) => {
       try {
-        return await request<T>(path, token, init);
+        return await request<T>(path, init);
       } catch (cause) {
-        if (cause instanceof ApiError && cause.status === 401) logout();
+        if (cause instanceof ApiError && cause.status === 401) void logout();
         throw cause;
       }
     },
-    [logout, token],
+    [logout],
   );
 
-  useEffect(() => {
-    if (!token) return;
+  const loadWorkspace = useCallback(async () => {
     setLoading(true);
     setError("");
-    api<unknown>("/v1/tree")
-      .then((value) => {
-        const nodes = records<TreeNode>(value, ["tree", "roots", "items", "org_units"]);
-        const root =
-          nodes.length > 0
-            ? nodes
-            : value && typeof value === "object" && "id" in value
-              ? [value as TreeNode]
-              : [];
-        setTree(root);
-        setSelected((current) => current ?? root[0]);
-      })
-      .catch((cause: Error) => setError(cause.message))
-      .finally(() => setLoading(false));
-  }, [api, token]);
+    try {
+      await api("/v1/me");
+      setNeedsOrg(false);
+      const value = await api<unknown>("/v1/tree");
+      const nodes = records<TreeNode>(value, ["tree", "roots", "items", "org_units"]);
+      const root =
+        nodes.length > 0
+          ? nodes
+          : value && typeof value === "object" && "id" in value
+            ? [value as TreeNode]
+            : [];
+      setTree(root);
+      setSelected((current) => current ?? root[0]);
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 404) {
+        setNeedsOrg(true);
+        return;
+      }
+      setError((cause as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [api]);
+
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      const next = Boolean(session);
+      setSignedIn(next);
+      if (next) void loadWorkspace();
+    });
+    return () => data.subscription.unsubscribe();
+  }, [loadWorkspace]);
 
   const loadTab = useCallback(() => {
     if (!selected) return;
@@ -290,6 +379,7 @@ function App() {
       assets: `/v1/org-units/${encodeURIComponent(selected.id)}/assets`,
       boundary: `/v1/org-units/${encodeURIComponent(selected.id)}/boundary`,
       keys: `/v1/org-units/${encodeURIComponent(selected.id)}/api-keys`,
+      members: `/v1/org-units/${encodeURIComponent(selected.id)}/invites`,
       audit: `/v1/org-units/${encodeURIComponent(selected.id)}/audit`,
     };
     setLoading(true);
@@ -307,7 +397,11 @@ function App() {
       });
   }, [api, selected, tab]);
 
-  useEffect(loadTab, [loadTab]);
+  useEffect(() => {
+    if (!selected) return;
+    const frame = window.requestAnimationFrame(() => loadTab());
+    return () => window.cancelAnimationFrame(frame);
+  }, [loadTab, selected]);
 
   async function createKey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -392,19 +486,43 @@ function App() {
     }
   }
 
-  if (!token) {
-    return (
-      <Login
-        onLogin={(value) => {
-          localStorage.setItem(TOKEN_KEY, value);
-          setToken(value);
-        }}
-      />
-    );
+  async function mintCliToken() {
+    try {
+      const created = await api<{ token: string }>("/v1/personal-access-tokens", {
+        method: "POST",
+        body: JSON.stringify({ name: "CLI" }),
+      });
+      setCliToken(created.token);
+    } catch (cause) {
+      setError((cause as Error).message);
+    }
   }
+
+  async function createInvite(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selected) return;
+    const form = new FormData(event.currentTarget);
+    try {
+      await api(`/v1/org-units/${encodeURIComponent(selected.id)}/invites`, {
+        method: "POST",
+        body: JSON.stringify({
+          email: form.get("email"),
+          admin_level: form.get("admin") === "on" ? "admin" : null,
+          admin_unit_id: form.get("admin") === "on" ? selected.id : null,
+        }),
+      });
+      loadTab();
+    } catch (cause) {
+      setError((cause as Error).message);
+    }
+  }
+
+  if (!signedIn) return <Login />;
+  if (needsOrg) return <Onboarding onCreated={() => void loadWorkspace()} />;
 
   const assets = records<Asset>(data, ["assets", "items"]);
   const keys = records<ApiKey>(data, ["api_keys", "keys", "items"]);
+  const invites = records<Invite>(data, ["invites", "items"]);
   const events = records<AuditEvent>(data, ["events", "audit", "items"]);
 
   return (
@@ -417,7 +535,10 @@ function App() {
             <span>Admin</span>
           </div>
         </div>
-        <button className="ghost" onClick={logout}>
+        <button className="ghost" onClick={() => void mintCliToken()}>
+          CLI token
+        </button>
+        <button className="ghost" onClick={() => void logout()}>
           Sign out
         </button>
       </header>
@@ -457,7 +578,7 @@ function App() {
         </header>
 
         <div className="tabs" role="tablist">
-          {(["assets", "boundary", "keys", "audit"] as Tab[]).map((item) => (
+          {(["assets", "boundary", "keys", "members", "audit"] as Tab[]).map((item) => (
             <button
               key={item}
               role="tab"
@@ -562,6 +683,57 @@ function App() {
               </div>
             ) : (
               <EmptyState>No keys exist for this unit.</EmptyState>
+            )}
+          </section>
+        )}
+
+        {!loading && selected && tab === "members" && (
+          <section className="panel">
+            <div className="panel-title">
+              <div>
+                <h2>Invites</h2>
+                <p>Invite an email to this team. They get a workspace after signup.</p>
+              </div>
+            </div>
+            {selected.role === "team" ? (
+              <form className="modal-form" onSubmit={createInvite}>
+                <label>
+                  Email
+                  <input name="email" type="email" required />
+                </label>
+                <label>
+                  <input name="admin" type="checkbox" /> Team admin
+                </label>
+                <button className="primary" type="submit">
+                  Send invite
+                </button>
+              </form>
+            ) : (
+              <p className="muted">Select a team to invite people.</p>
+            )}
+            {invites.length ? (
+              <div className="card-list">
+                {invites.map((invite) => (
+                  <article key={invite.id}>
+                    <h3>{invite.email}</h3>
+                    <p>{invite.accepted_at ? "Accepted" : "Pending"}</p>
+                    {invite.admin_level && <p>Admin: {invite.admin_level}</p>}
+                    {!invite.accepted_at && (
+                      <button
+                        onClick={() =>
+                          api(`/v1/invites/${invite.id}`, { method: "DELETE" })
+                            .then(loadTab)
+                            .catch((cause: Error) => setError(cause.message))
+                        }
+                      >
+                        Revoke
+                      </button>
+                    )}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <EmptyState>No invites yet.</EmptyState>
             )}
           </section>
         )}
@@ -675,8 +847,20 @@ function App() {
           )}
         </Modal>
       )}
+
+      {cliToken && (
+        <Modal title="CLI token" onClose={() => setCliToken("")}>
+          <p className="muted">Paste this into `harness login`. It is shown once.</p>
+          <p className="mono">{cliToken}</p>
+          <button
+            className="primary"
+            onClick={() => void navigator.clipboard.writeText(cliToken)}
+          >
+            Copy
+          </button>
+        </Modal>
+      )}
     </div>
   );
 }
 
-createRoot(document.getElementById("root")!).render(<App />);

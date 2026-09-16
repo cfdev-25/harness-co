@@ -22,7 +22,13 @@ async def create_pool(settings: Settings) -> asyncpg.Pool:
             "jsonb", schema="pg_catalog", encoder=encode, decoder=json.loads
         )
 
-    pool = await asyncpg.create_pool(settings.database_url, min_size=1, max_size=10, init=configure)
+    pool = await asyncpg.create_pool(
+        settings.database_url,
+        min_size=1,
+        max_size=10,
+        init=configure,
+        statement_cache_size=0,
+    )
     await ensure_audit_partitions(pool)
     return pool
 

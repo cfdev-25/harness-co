@@ -199,6 +199,11 @@ input:focus {
   background: transparent;
 }
 
+.login-card .ghost {
+  color: var(--ink);
+  border-color: var(--line);
+}
+
 .sidebar {
   padding: 28px 16px;
   border-right: 1px solid var(--line);

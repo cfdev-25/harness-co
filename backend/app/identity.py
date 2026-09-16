@@ -1,6 +1,7 @@
 import hashlib
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import lru_cache
 from typing import Protocol
 from uuid import UUID
 
@@ -38,6 +39,11 @@ class PatProvider:
         return Principal(row["auth_user_id"]) if row else None
 
 
+@lru_cache
+def _jwks_client(url: str) -> jwt.PyJWKClient:
+    return jwt.PyJWKClient(url)
+
+
 class SupabaseJwtProvider:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -46,12 +52,20 @@ class SupabaseJwtProvider:
         if token.startswith("hpat_"):
             return None
         try:
+            issuer = (
+                f"{self.settings.supabase_url.rstrip('/')}/auth/v1"
+                if self.settings.supabase_url
+                else None
+            )
             if self.settings.supabase_jwks_url:
-                key = jwt.PyJWKClient(self.settings.supabase_jwks_url).get_signing_key_from_jwt(
-                    token
-                )
+                key = _jwks_client(self.settings.supabase_jwks_url).get_signing_key_from_jwt(token)
                 claims = jwt.decode(
-                    token, key.key, algorithms=["RS256", "ES256"], audience="authenticated"
+                    token,
+                    key.key,
+                    algorithms=["ES256", "RS256"],
+                    audience="authenticated",
+                    issuer=issuer,
+                    options={"verify_iss": issuer is not None},
                 )
             elif self.settings.supabase_jwt_secret:
                 claims = jwt.decode(
@@ -59,7 +73,8 @@ class SupabaseJwtProvider:
                     self.settings.supabase_jwt_secret,
                     algorithms=["HS256"],
                     audience="authenticated",
-                    options={"verify_aud": False},
+                    issuer=issuer,
+                    options={"verify_iss": issuer is not None},
                 )
             else:
                 return None

@@ -2,10 +2,12 @@ import json
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request, status
+import asyncpg
+from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel, Field
 
 from app.api.deps import current_principal, current_user_unit, require_admin
+from app.config import get_settings
 from app.db import get_pool, transaction
 from app.domain.audit import append_event
 from app.domain.org_tree import (
@@ -16,6 +18,7 @@ from app.domain.org_tree import (
     validate_tightening,
 )
 from app.errors import ApiError
+from app.gotrue import invite_email
 from app.identity import Principal
 
 router = APIRouter(tags=["org units"])
@@ -30,6 +33,17 @@ class OrgUnitCreate(BaseModel):
 class MemberCreate(BaseModel):
     auth_user_id: UUID
     name: str = Field(min_length=1, max_length=200)
+
+
+class OrgCreate(BaseModel):
+    org_name: str = Field(min_length=1, max_length=200)
+    team_name: str = Field(default="General", min_length=1, max_length=200)
+
+
+class InviteCreate(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    admin_level: Literal["admin", "platform"] | None = None
+    admin_unit_id: UUID | None = None
 
 
 @router.get("/tree")
@@ -87,6 +101,161 @@ async def tree(
         else:
             roots.append(tree_units[row["id"]])
     return roots[0] if len(roots) == 1 else {"children": roots}
+
+
+@router.post("/orgs", status_code=status.HTTP_201_CREATED)
+async def create_org(
+    body: OrgCreate,
+    request: Request,
+    principal: Annotated[Principal, Depends(current_principal)],
+) -> dict:
+    async with transaction(get_pool(request)) as connection:
+        existing = await connection.fetchval(
+            "select user_unit_id from org_unit_members where auth_user_id=$1",
+            principal.auth_user_id,
+        )
+        if existing:
+            raise ApiError(409, "already_member", "You already belong to an organization.")
+        org = await connection.fetchrow(
+            """insert into org_units(parent_id,role,name,path)
+               values(null,'org',$1,$2) returning *""",
+            body.org_name,
+            slugify(body.org_name),
+        )
+        team = await connection.fetchrow(
+            """insert into org_units(parent_id,role,name,path,region)
+               values($1,'team',$2,$3,$4) returning *""",
+            org["id"],
+            body.team_name,
+            f"{org['path']}.{slugify(body.team_name)}",
+            org["region"],
+        )
+        user_name = (principal.email or str(principal.auth_user_id)).lower()
+        user_unit = await connection.fetchrow(
+            """insert into org_units(parent_id,role,name,path,region)
+               values($1,'user',$2,$3,$4) returning *""",
+            team["id"],
+            user_name,
+            f"{team['path']}.{slugify(user_name)}",
+            team["region"],
+        )
+        await connection.execute(
+            "insert into org_unit_members(auth_user_id,user_unit_id) values($1,$2)",
+            principal.auth_user_id,
+            user_unit["id"],
+        )
+        await connection.execute(
+            """insert into org_unit_admins(auth_user_id,org_unit_id,level)
+               values($1,$2,'platform')""",
+            principal.auth_user_id,
+            org["id"],
+        )
+        await append_event(
+            connection,
+            org_unit_id=org["id"],
+            actor_type="user",
+            actor_id=principal.auth_user_id,
+            event_class="authoritative",
+            action="org.create",
+            payload={"team_id": str(team["id"]), "user_unit_id": str(user_unit["id"])},
+        )
+        return {**dict(org), "team_id": team["id"], "user_unit_id": user_unit["id"]}
+
+
+@router.post("/org-units/{org_unit_id}/invites", status_code=status.HTTP_201_CREATED)
+async def create_invite(
+    org_unit_id: UUID,
+    body: InviteCreate,
+    request: Request,
+    principal: Annotated[Principal, Depends(current_principal)],
+) -> dict:
+    email = body.email.strip().lower()
+    async with transaction(get_pool(request)) as connection:
+        team = await connection.fetchrow("select * from org_units where id=$1", org_unit_id)
+        if not team:
+            raise ApiError(404, "org_unit_not_found", "This org unit could not be found.")
+        if team["role"] != "team":
+            raise ApiError(422, "invite_target_not_team", "Invites must target a team.")
+        await require_admin(connection, principal, org_unit_id)
+        if body.admin_level and body.admin_unit_id:
+            await require_admin(connection, principal, body.admin_unit_id)
+        elif body.admin_level or body.admin_unit_id:
+            raise ApiError(
+                422,
+                "invalid_invite_admin",
+                "Admin level and admin unit must be set together.",
+            )
+        try:
+            invite = await connection.fetchrow(
+                """insert into org_invites
+                   (team_unit_id,admin_unit_id,admin_level,email,invited_by)
+                   values($1,$2,$3,$4,$5) returning *""",
+                org_unit_id,
+                body.admin_unit_id,
+                body.admin_level,
+                email,
+                principal.auth_user_id,
+            )
+        except asyncpg.UniqueViolationError as exc:
+            raise ApiError(
+                409, "invite_pending", "That email already has a pending invite."
+            ) from exc
+        await append_event(
+            connection,
+            org_unit_id=org_unit_id,
+            actor_type="user",
+            actor_id=principal.auth_user_id,
+            event_class="authoritative",
+            action="member.invite",
+            payload={"invite_id": str(invite["id"]), "email": email},
+        )
+    try:
+        await invite_email(get_settings(), email)
+    except ApiError:
+        pass
+    return dict(invite)
+
+
+@router.get("/org-units/{org_unit_id}/invites")
+async def list_invites(
+    org_unit_id: UUID,
+    request: Request,
+    principal: Annotated[Principal, Depends(current_principal)],
+) -> list[dict]:
+    await require_admin(get_pool(request), principal, org_unit_id)
+    rows = await get_pool(request).fetch(
+        """select * from org_invites
+           where team_unit_id=$1
+           order by created_at desc""",
+        org_unit_id,
+    )
+    return [dict(row) for row in rows]
+
+
+@router.delete("/invites/{invite_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_invite(
+    invite_id: UUID,
+    request: Request,
+    principal: Annotated[Principal, Depends(current_principal)],
+) -> Response:
+    async with transaction(get_pool(request)) as connection:
+        invite = await connection.fetchrow("select * from org_invites where id=$1", invite_id)
+        if not invite:
+            raise ApiError(404, "invite_not_found", "This invite could not be found.")
+        if invite["accepted_at"] is not None:
+            raise ApiError(409, "invite_accepted", "This invite has already been accepted.")
+        await require_admin(connection, principal, invite["team_unit_id"])
+        await connection.execute("delete from org_invites where id=$1", invite_id)
+        await append_event(
+            connection,
+            org_unit_id=invite["team_unit_id"],
+            actor_type="user",
+            actor_id=principal.auth_user_id,
+            event_class="authoritative",
+            action="member.invite_revoke",
+            payload={"invite_id": str(invite_id)},
+        )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/org-units", status_code=status.HTTP_201_CREATED)

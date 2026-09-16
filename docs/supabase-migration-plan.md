@@ -34,12 +34,14 @@ exists), `backend/supabase/migrations/0001_org_units.sql` (membership tables alr
   to a team; a database trigger links the new `auth.users` row to the invite at signup. A
   signed-in user with no workspace may instead create a brand-new organization
   (`POST /v1/orgs`), becoming its platform admin.
-- **D5 — Migrations stay plain SQL in `backend/supabase/migrations/`**, renamed to the
-  Supabase CLI's `<14-digit-timestamp>_name.sql` convention so `supabase db push` can deploy
-  them. Local CI keeps applying them with the existing `psql` loop (order is lexicographic
-  either way). An `auth.users` shim migration makes the same files run on plain PostgreSQL.
-- **D6 — App traffic uses the Supavisor transaction pooler (port 6543)** with asyncpg's
-  statement cache disabled. Migrations and seed use the session pooler (port 5432).
+- **D5 — Hosted Supabase is the only database.** No local Postgres, no `auth.users` shim,
+  no `MIGRATE_DATABASE_URL`, no dual-mode seed. CI, e2e, and local `uvicorn` all use the
+  same project via `DATABASE_URL`. The eight already-applied files (`0001`–`0008`) stay
+  named as they are and must not be re-run. New work is three additive files only.
+- **D6 — One connection string.** `DATABASE_URL` is the Supabase **session pooler**
+  (port `5432`). The API, migrations, and seed all use it. Do not add a transaction-pooler
+  (6543) URL in this phase. Still set `statement_cache_size=0` on the asyncpg pool so a
+  later switch to 6543 does not break prepared statements.
 
 ---
 
@@ -53,61 +55,27 @@ One-time setup by a human; record outcomes in `docs/build-decisions.md`.
    disable all social providers; leave "Confirm email" **on**.
 3. Enable **JWT signing keys** (asymmetric) under Project Settings → API → JWT keys, so
    tokens are ES256-signed and verifiable via JWKS without sharing a secret.
-4. Collect and distribute as environment/secrets (never commit):
-   - `SUPABASE_URL` — `https://<project-ref>.supabase.co`
-   - `SUPABASE_ANON_KEY` — web app (public, but keep out of the repo anyway)
-   - `SUPABASE_SERVICE_ROLE_KEY` — backend + seed only. **Never** in `web/`.
-   - `SUPABASE_JWKS_URL` — `https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json`
-   - `DATABASE_URL` (API) — `postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres`
-   - `MIGRATE_DATABASE_URL` (migrations/seed) — same host, port `5432`
+4. Collect and put in local env files (never commit the real values):
+   - `backend/.env` — copy `backend/.env.example`. One `DATABASE_URL` (session pooler,
+     port `5432`), plus `HARNESS_MASTER_KEY`, `SUPABASE_URL`,
+     `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWKS_URL`, `SEED_USER_PASSWORD`.
+   - `web/.env.local` — copy `web/.env.example`. Only `NEXT_PUBLIC_SUPABASE_URL` and
+     `NEXT_PUBLIC_SUPABASE_ANON_KEY`. **Never** the service-role key.
 
 ---
 
 ## 2. Migration file plan
 
-All files live in `backend/supabase/migrations/`. Rename the existing eight files without
-changing one byte of their contents (safe: no environment tracks applied filenames — CI
-recreates the database every run, the cloud project is fresh, and local dev databases are
-disposable):
+`0001`–`0008` are already applied on the hosted project. **Do not rename them. Do not
+re-run them.** `auth.users` already exists on Supabase — there is no shim migration.
 
-| Current name | New name |
-|---|---|
-| `0001_org_units.sql` | `20260916000001_org_units.sql` |
-| `0002_org_unit_boundaries.sql` | `20260916000002_org_unit_boundaries.sql` |
-| `0003_assets.sql` | `20260916000003_assets.sql` |
-| `0004_api_keys.sql` | `20260916000004_api_keys.sql` |
-| `0005_automation_runners.sql` | `20260916000005_automation_runners.sql` |
-| `0006_audit_log.sql` | `20260916000006_audit_log.sql` |
-| `0007_harness_sessions.sql` | `20260916000007_harness_sessions.sql` |
-| `0008_personal_access_tokens.sql` | `20260916000008_personal_access_tokens.sql` |
+Add exactly three new files under `backend/supabase/migrations/`, verbatim below, and
+apply them once on the same project (SQL editor or `supabase db push` after the project is
+linked). If the first eight were pasted in the SQL editor rather than `db push`, do not
+point the CLI at this project until those eight filenames are recorded as applied; adding
+the three new files in the SQL editor is the safe path until then.
 
-Then add four new migrations, verbatim below.
-
-### 2.1 `20260916000000_auth_users_shim.sql` (sorts first)
-
-On hosted Supabase, `auth.users` already exists and this whole file is a no-op. On plain
-PostgreSQL (CI service container, local Homebrew Postgres, the e2e script) it creates the
-minimal shape our foreign keys and trigger reference.
-
-```sql
--- No-op on hosted Supabase, where the auth schema is managed by GoTrue.
--- On plain PostgreSQL this creates the minimal auth.users shape the app references.
-do $$
-begin
-  if to_regclass('auth.users') is null then
-    create schema if not exists auth;
-    create table auth.users (
-      id uuid primary key default gen_random_uuid(),
-      email text unique,
-      raw_user_meta_data jsonb not null default '{}'::jsonb,
-      created_at timestamptz not null default now()
-    );
-  end if;
-end
-$$;
-```
-
-### 2.2 `20260916000009_auth_user_links.sql`
+### 2.1 `0009_auth_user_links.sql`
 
 ```sql
 -- Login-lifecycle tables cascade when a login is deleted. History tables are
@@ -128,7 +96,7 @@ alter table personal_access_tokens
 Note: deleting a login leaves its `role='user'` org unit in place (name = email). That is
 intentional — the unit anchors historical assets and audit rows.
 
-### 2.3 `20260916000010_org_invites.sql`
+### 2.2 `0010_org_invites.sql`
 
 ```sql
 -- An invite targets the team that will hold the person's user workspace, and may
@@ -201,13 +169,12 @@ for each row
 execute function public.org_invites_link_new_user();
 ```
 
-### 2.4 `20260916000011_rls_lockdown.sql`
+### 2.3 `0011_rls_lockdown.sql`
 
 The backend connects as the `postgres` role, which **owns** every table created by these
 migrations; table owners bypass row-level security unless `force` is used, so enabling RLS
 with zero policies changes nothing for the API while closing Supabase's auto-generated
-PostgREST surface (`anon` / `authenticated` roles). The role checks make the same file a
-no-op on plain PostgreSQL, where those roles do not exist.
+PostgREST surface (`anon` / `authenticated` roles).
 
 ```sql
 -- Deny-by-default: enable RLS with no policies on every application table.
@@ -252,21 +219,22 @@ unchanged except `project_id = "harness-co"`. All CLI commands in this plan run 
 
 ### 3.1 `backend/app/config.py`
 
-Add fields (keep the existing ones):
+Remove the localhost default on `database_url`. It becomes a required field. Add:
 
 ```python
-supabase_url: str | None = None            # https://<ref>.supabase.co
-supabase_service_role_key: str | None = None
-migrate_database_url: str | None = None    # session pooler; scripts only, unused by the app
+supabase_url: str                          # https://<ref>.supabase.co
+supabase_service_role_key: str
+seed_user_password: str | None = None
 ```
+
+There is no `migrate_database_url`. Keep `supabase_jwks_url`, `supabase_jwt_secret`,
+`harness_master_key`, `harness_env`.
 
 ### 3.2 `backend/app/db.py`
 
-In `create_pool`, add `statement_cache_size=0` to the `asyncpg.create_pool` call. The
-Supavisor transaction pooler multiplexes connections across statements, so asyncpg's
-prepared-statement cache produces `prepared statement "…" does not exist` errors without
-it. Harmless locally. Nothing else changes; `ensure_audit_partitions` DDL works through the
-pooler.
+In `create_pool`, add `statement_cache_size=0` to the `asyncpg.create_pool` call. Required
+if `DATABASE_URL` is later pointed at the transaction pooler (6543); harmless on 5432.
+`ensure_audit_partitions` DDL runs on the same URL.
 
 ### 3.3 `backend/app/identity.py`
 
@@ -314,7 +282,7 @@ Response 201: the root org unit row plus `{"team_id": ..., "user_unit_id": ...}`
   `apikey: <service_role>` / `Authorization: Bearer <service_role>` and body
   `{"email": ...}` via the existing `httpx` dependency so Supabase sends the invite email.
   **Ordering is load-bearing:** GoTrue's invite creates the `auth.users` row immediately,
-  which fires the §2.3 trigger on a different connection — so the invite row must be
+  which fires the §2.2 trigger on a different connection — so the invite row must be
   **committed first**. Commit the `org_invites` insert (and its `member.invite` audit
   event) in its own transaction, and only then make the GoTrue call outside any
   transaction. A GoTrue failure logs a warning and returns 201 anyway — the trigger links
@@ -334,47 +302,51 @@ Response 201: the root org unit row plus `{"team_id": ..., "user_unit_id": ...}`
 
 ### 3.6 Tests (`backend/tests/`)
 
-Extend the existing live-Postgres-optional pattern: unit tests for the new request/response
-shapes DB-free, plus (where `TEST_DATABASE_URL` is set, as in CI) integration tests that
-(a) insert a shim `auth.users` row then an invite, simulate signup by inserting a second
-`auth.users` row with the invited email, and assert the trigger created the user unit,
-membership, and admin rows; (b) exercise `POST /v1/orgs` including the `already_member`
-409; (c) assert the FK cascade: deleting a shim `auth.users` row removes membership and
-PATs but leaves `asset_versions` and `audit_log` rows intact.
+Keep the existing 35 DB-free unit tests. Add integration tests that use `DATABASE_URL`
+(the hosted project) and create Auth users through GoTrue
+`POST {SUPABASE_URL}/auth/v1/admin/users` — never by inserting into `auth.users` directly
+(RLS/ownership and trigger behavior only match a real signup that way):
+
+(a) create user A, invite A's email to a team, create user B with that email (or use the
+invite endpoint then sign the user up), assert membership + optional admin rows; (b)
+`POST /v1/orgs` including the `already_member` 409; (c) delete the Auth user via
+`DELETE /auth/v1/admin/users/{id}` and assert membership/PATs cascade while
+`asset_versions` and `audit_log` remain.
+
+CI no longer starts a Postgres service. `.github/workflows/backend.yml` gets
+`DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `HARNESS_MASTER_KEY`
+from repository secrets and runs pytest + ruff against the hosted project. The e2e job
+in that workflow drops its Docker Postgres and uses the same secrets.
 
 ---
 
 ## 4. Seed changes (`backend/supabase/seed/seed_dev.py`)
 
-The new FKs mean membership rows now require real `auth.users` rows. Make the seed
-dual-mode, keyed on whether `SUPABASE_URL` **and** `SUPABASE_SERVICE_ROLE_KEY` are set:
+Require `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
+`HARNESS_MASTER_KEY`, and `SEED_USER_PASSWORD`. There is no local/shim path.
 
-- **Cloud mode:** for each of `ana@acme.test`, `cass@acme.test`, `root@acme.test`, create
-  the login via GoTrue admin API `POST {SUPABASE_URL}/auth/v1/admin/users` (headers
-  `apikey` + `Authorization: Bearer` with the service-role key) and body
-  `{"email": ..., "password": <from env SEED_USER_PASSWORD, required in this mode>,
-  "email_confirm": true}`. On 422 "already registered", look the user up via
-  `GET /auth/v1/admin/users?page=1&per_page=1000` filtered by email. Replace the
-  `AUTH_USERS` uuid5 constants with the **returned ids** for every downstream insert.
-  Important: the signup trigger will have auto-linked users if pending invites exist; the
-  seed's own `on conflict (auth_user_id) do update` upserts remain correct either way.
-- **Local mode (default, used by CI and `scripts/e2e.sh`):** before `upsert_org_units`,
-  insert the three uuid5 ids into the shim:
-  `insert into auth.users (id, email) values ($1,$2) on conflict (id) do nothing` — keeping
-  today's deterministic ids so nothing else in the seed or e2e assertions changes.
+For each of `ana@acme.test`, `cass@acme.test`, `root@acme.test`, create the login via
+GoTrue `POST {SUPABASE_URL}/auth/v1/admin/users` with headers
+`apikey` + `Authorization: Bearer` (service-role) and body
+`{"email": ..., "password": $SEED_USER_PASSWORD, "email_confirm": true}`. On 422
+"already registered", look the user up via
+`GET /auth/v1/admin/users?page=1&per_page=1000` filtered by email. Replace the
+`AUTH_USERS` uuid5 constants with the **returned ids** for every downstream insert.
 
-Print the PATs exactly as today; in cloud mode also print `SEED_USER_PASSWORD` guidance.
+The signup trigger links a user if a pending invite exists; the seed's
+`on conflict (auth_user_id) do update` upserts stay correct either way. Print the PATs
+exactly as today, plus a line that those emails sign in with `SEED_USER_PASSWORD`.
 
 ---
 
 ## 5. Web app changes (`web/`)
 
-1. Add dependency `@supabase/supabase-js@^2`. New file `web/src/supabase.ts`:
-   `createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY)`.
-   Add `web/.env.example` with both `VITE_` vars. Vite statically inlines them — they are
-   public by design; the anon key is not a secret. The service-role key must never appear
-   anywhere under `web/`.
-2. Replace the PAT `Login` component in `web/src/main.tsx` with email + password sign-in
+1. Add dependency `@supabase/supabase-js@^2`. New file `web/lib/supabase.ts`:
+   `createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)`.
+   Add `web/.env.example` with both `NEXT_PUBLIC_` vars. Next.js inlines them into the
+   browser bundle — they are public by design; the anon key is not a secret. The
+   service-role key must never appear anywhere under `web/`.
+2. Replace the PAT `Login` component in `web/app/admin.tsx` with email + password sign-in
    and a sign-up tab (`supabase.auth.signInWithPassword`, `supabase.auth.signUp`). Delete
    the `harness_admin_pat` localStorage usage. Source the bearer token per request from
    `(await supabase.auth.getSession()).data.session?.access_token` inside the existing
@@ -392,8 +364,8 @@ Print the PATs exactly as today; in cloud mode also print `SEED_USER_PASSWORD` g
    token exactly once with copy button — this is now the **only** place PATs are minted for
    humans. `harness login` (token paste) is unchanged.
 
-The dev proxy in `web/vite.config.ts` stays: `/v1` → the local backend; supabase-js talks
-to `VITE_SUPABASE_URL` directly.
+The Next.js rewrite in `web/next.config.ts` stays: `/v1` → the local backend; supabase-js
+talks to `NEXT_PUBLIC_SUPABASE_URL` directly.
 
 ---
 
@@ -410,24 +382,34 @@ scoped PAT server-side.
 
 ### 7.1 Environment matrix
 
-| Variable | Local dev / CI | Cloud (staging/prod) |
-|---|---|---|
-| `DATABASE_URL` | local Postgres | transaction pooler, port 6543 |
-| `MIGRATE_DATABASE_URL` | same as `DATABASE_URL` | session pooler, port 5432 |
-| `HARNESS_MASTER_KEY` | throwaway base64 key | secret manager |
-| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | unset (local mode) | set (backend + seed) |
-| `SUPABASE_JWKS_URL` | unset (PAT-only tests) | `https://<ref>.supabase.co/auth/v1/.well-known/jwks.json` |
-| `SUPABASE_JWT_SECRET` | unset | only if signing keys stay legacy HS256 |
-| `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | staging project (web dev) | project values |
+One project, one `DATABASE_URL`. Local `.env` files and GitHub Actions secrets use the
+same names.
 
-Update `backend/.env.example` and add `web/.env.example` accordingly.
+| Variable | Where | Value |
+|---|---|---|
+| `DATABASE_URL` | `backend/.env`, CI | session pooler, port **5432** |
+| `HARNESS_MASTER_KEY` | `backend/.env`, CI | base64 32-byte key |
+| `SUPABASE_URL` | `backend/.env`, CI | `https://<ref>.supabase.co` |
+| `SUPABASE_SERVICE_ROLE_KEY` | `backend/.env`, CI | service_role. Never in `web/` |
+| `SUPABASE_JWKS_URL` | `backend/.env`, CI | `https://<ref>.supabase.co/auth/v1/.well-known/jwks.json` |
+| `SUPABASE_JWT_SECRET` | `backend/.env` | only if JWTs are still HS256 |
+| `SEED_USER_PASSWORD` | `backend/.env` | password for seeded Auth users |
+| `NEXT_PUBLIC_SUPABASE_URL` | `web/.env.local` | same project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `web/.env.local` | anon / publishable key |
+
+`backend/.env.example` and `web/.env.example` already list these keys.
 
 ### 7.2 Scripts
 
-- `scripts/e2e.sh` and `scripts/dev.sh`: the `backend/supabase/migrations/*.sql` globs keep
-  working (timestamped names sort correctly). No changes required beyond re-running.
-- `.github/workflows/backend.yml`: no changes — the psql loop and Postgres 15 service
-  exercise the shim/RLS no-op paths exactly as production Postgres would.
+- `scripts/dev.sh`: drop the Docker/Homebrew Postgres block. Start uvicorn with
+  `backend/.env` (`DATABASE_URL` already points at Supabase). Keep the web and mock
+  provider processes.
+- `scripts/e2e.sh`: drop the Docker Postgres container, the schema-drop reset, and
+  `HARNESS_E2E_DATABASE_URL`. Require `backend/.env` (or the same vars in the
+  environment). Seed against the hosted project, then run the CLI flow.
+- `.github/workflows/backend.yml`: remove the Postgres service, the `5433` port mapping,
+  and the `psql` migration loop. Inject the secrets in §7.1. Run `uv sync`, ruff, pytest,
+  then `bash scripts/e2e.sh`.
 
 ### 7.3 New workflow: `.github/workflows/deploy-db.yml`
 
@@ -451,23 +433,21 @@ concurrency-group the workflow so pushes serialize.
 
 ## 8. Task breakdown (order matters)
 
-**S1 — Provision Supabase project** (human, §1). Acceptance: all §1 values recorded in the
-secret store; a `psql` connection over the session pooler succeeds.
+**S1 — Provision Supabase project** (human, §1). Acceptance: `backend/.env` and
+`web/.env.local` filled from the dashboard; `psql "$DATABASE_URL" -c 'select count(*) from org_units'`
+succeeds against the already-applied `0001`–`0008` schema.
 
-**S2 — Migrations.** Rename the eight files; add the four new migrations verbatim (§2);
-`supabase init` scaffolding (§2.5). Acceptance: (a) fresh local Postgres — psql loop applies
-all twelve files cleanly, full backend test suite passes; (b) trigger test from §3.6 passes;
-(c) `supabase db push` against the cloud project applies cleanly; (d)
-`select relrowsecurity from pg_class where relname='assets'` is true in the cloud DB.
+**S2 — Migrations.** Add `0009`, `0010`, `0011` only (§2); `supabase init` scaffolding
+(§2.5). Do not rename or re-apply `0001`–`0008`. Acceptance: the three new files apply
+once; `select relrowsecurity from pg_class where relname='assets'` is true; a GoTrue-created
+user plus an invite produces a membership row via the trigger.
 
-**S3 — Seed dual-mode** (§4). Acceptance: local mode leaves `scripts/e2e.sh` green
-end-to-end; cloud mode run twice in a row is idempotent and prints working PATs;
-`ana@acme.test` can sign in with `SEED_USER_PASSWORD` on the hosted Auth endpoint.
+**S3 — Seed** (§4). Acceptance: running the seed twice is idempotent; it prints PATs;
+`ana@acme.test` can `signInWithPassword` with `SEED_USER_PASSWORD`.
 
-**S4 — Backend** (§3). Acceptance: existing 35 tests plus new tests pass; with the backend
-pointed at the cloud `DATABASE_URL` (transaction pooler), `/health`, `/v1/me` (PAT), and
-`/v1/resolve` all succeed — this specifically proves `statement_cache_size=0`; a Supabase
-JWT minted by password sign-in authenticates `/v1/me` with the correct `auth_user_id`.
+**S4 — Backend** (§3). Acceptance: existing 35 tests plus new hosted integration tests
+pass; `/health`, `/v1/me` (PAT), and `/v1/resolve` succeed against `DATABASE_URL`; a
+Supabase JWT from password sign-in authenticates `/v1/me` with the correct `auth_user_id`.
 
 **S5 — Web** (§5). Acceptance: sign-up of a fresh email with a pending invite lands in the
 tree with a workspace (trigger path); an already-registered login invited afterward gets
@@ -475,10 +455,11 @@ linked on its next `GET /v1/me` (lazy-link path); sign-up without an invite show
 onboarding and `POST /v1/orgs` produces a working org; a PAT minted from the CLI-access
 modal works with `harness login` against the same backend.
 
-**S6 — Deploy workflow** (§7.3). Acceptance: `workflow_dispatch` run is green and
-`supabase migration list` shows all twelve migrations applied.
+**S6 — Deploy workflow** (§7.3). Acceptance: `workflow_dispatch` is green. If the first
+eight files were applied in the SQL editor, record them as already applied before the
+first `db push`, or keep applying new files in the editor until that baseline exists.
 
-**S7 — Cloud golden flow.** Run the backend against the cloud database, seed in cloud mode,
+**S7 — Cloud golden flow.** Seed, then:
 then: web sign-in as ana → mint PAT → `harness login` → `harness run -p "say hello"`
 against the mock provider → verify `harness_sessions` row closed and
 `GET /v1/org-units/{finance}/audit/verify` returns `{"intact": true}`. Record the runbook
@@ -493,3 +474,5 @@ output in `docs/build-decisions.md`.
 - No CLI device-flow login; no PAT deprecation.
 - No RLS policy modeling — RLS here is a lockout, not an authorization layer; authorization
   stays in `backend/app/api/deps.py`.
+- No local Postgres, `auth.users` shim, `MIGRATE_DATABASE_URL`, or transaction-pooler
+  (6543) URL. One session-pooler `DATABASE_URL` only.

@@ -186,6 +186,52 @@ ROLE_PARENT = {
 }
 
 
+async def accept_pending_invite(
+    connection: asyncpg.Connection, auth_user_id: Any, email: str
+) -> dict[str, Any] | None:
+    invite = await connection.fetchrow(
+        """select * from org_invites
+           where lower(email)=lower($1) and accepted_at is null
+           order by created_at limit 1
+           for update""",
+        email,
+    )
+    if not invite:
+        return None
+    team = await connection.fetchrow("select * from org_units where id=$1", invite["team_unit_id"])
+    if not team:
+        raise ApiError(404, "org_unit_not_found", "The invited team could not be found.")
+    unit = await connection.fetchrow(
+        """insert into org_units(parent_id,role,name,path,region)
+           values($1,'user',$2,$3,$4) returning *""",
+        team["id"],
+        email.lower(),
+        f"{team['path']}.{slugify(email)}",
+        team["region"],
+    )
+    await connection.execute(
+        "insert into org_unit_members(auth_user_id,user_unit_id) values($1,$2)",
+        auth_user_id,
+        unit["id"],
+    )
+    if invite["admin_unit_id"] is not None:
+        await connection.execute(
+            """insert into org_unit_admins(auth_user_id,org_unit_id,level)
+               values($1,$2,$3)""",
+            auth_user_id,
+            invite["admin_unit_id"],
+            invite["admin_level"],
+        )
+    await connection.execute(
+        """update org_invites
+              set accepted_at=now(), accepted_auth_user_id=$2
+            where id=$1""",
+        invite["id"],
+        auth_user_id,
+    )
+    return dict(unit)
+
+
 def validate_role_order(role: str, parent_role: str | None) -> None:
     if role not in ROLE_PARENT or parent_role not in ROLE_PARENT[role]:
         messages = {

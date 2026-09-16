@@ -13,16 +13,18 @@ from datetime import datetime, timezone
 from typing import Any
 
 import asyncpg
+import httpx
 from nacl.exceptions import CryptoError
 from nacl.secret import SecretBox
 
 ZERO_HASH = "0" * 64
 SEED_NAMESPACE = uuid.UUID("4072674d-86c8-40ef-b820-e4343961521d")
 
-AUTH_USERS = {
-    "ana": uuid.uuid5(SEED_NAMESPACE, "auth:ana@acme.test"),
-    "cass": uuid.uuid5(SEED_NAMESPACE, "auth:cass@acme.test"),
-    "root": uuid.uuid5(SEED_NAMESPACE, "auth:root@acme.test"),
+AUTH_USERS: dict[str, uuid.UUID] = {}
+SEED_EMAILS = {
+    "ana": "ana@acme.test",
+    "cass": "cass@acme.test",
+    "root": "root@acme.test",
 }
 
 ORG_UNITS = {
@@ -158,21 +160,69 @@ def stable_id(label: str) -> uuid.UUID:
     return uuid.uuid5(SEED_NAMESPACE, label)
 
 
-def required_environment() -> tuple[str, bytes]:
+def required_environment() -> tuple[str, bytes, str, str, str]:
     database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        raise SystemExit("DATABASE_URL is required.")
-
+    supabase_url = os.environ.get("SUPABASE_URL")
+    service_role = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    password = os.environ.get("SEED_USER_PASSWORD")
     encoded_key = os.environ.get("HARNESS_MASTER_KEY")
-    if not encoded_key:
-        raise SystemExit("HARNESS_MASTER_KEY is required.")
+    missing = [
+        name
+        for name, value in {
+            "DATABASE_URL": database_url,
+            "SUPABASE_URL": supabase_url,
+            "SUPABASE_SERVICE_ROLE_KEY": service_role,
+            "SEED_USER_PASSWORD": password,
+            "HARNESS_MASTER_KEY": encoded_key,
+        }.items()
+        if not value
+    ]
+    if missing:
+        raise SystemExit(f"Missing required environment: {', '.join(missing)}.")
+    assert database_url and supabase_url and service_role and password and encoded_key
     try:
         key = base64.b64decode(encoded_key, validate=True)
     except ValueError as exc:
         raise SystemExit("HARNESS_MASTER_KEY must be valid base64.") from exc
     if len(key) != SecretBox.KEY_SIZE:
         raise SystemExit("HARNESS_MASTER_KEY must decode to exactly 32 bytes.")
-    return database_url, key
+    return database_url, key, supabase_url.rstrip("/"), service_role, password
+
+
+async def ensure_auth_users(supabase_url: str, service_role: str, password: str) -> None:
+    headers = {
+        "apikey": service_role,
+        "authorization": f"Bearer {service_role}",
+        "content-type": "application/json",
+    }
+    async with httpx.AsyncClient(timeout=20) as client:
+        for label, email in SEED_EMAILS.items():
+            response = await client.post(
+                f"{supabase_url}/auth/v1/admin/users",
+                headers=headers,
+                json={"email": email, "password": password, "email_confirm": True},
+            )
+            if response.status_code == 422:
+                listed = await client.get(
+                    f"{supabase_url}/auth/v1/admin/users",
+                    headers=headers,
+                    params={"page": 1, "per_page": 1000},
+                )
+                listed.raise_for_status()
+                match = next(
+                    (
+                        user
+                        for user in listed.json().get("users", [])
+                        if str(user.get("email", "")).lower() == email
+                    ),
+                    None,
+                )
+                if not match:
+                    raise SystemExit(f"Could not find existing Auth user {email}.")
+                AUTH_USERS[label] = uuid.UUID(match["id"])
+                continue
+            response.raise_for_status()
+            AUTH_USERS[label] = uuid.UUID(response.json()["id"])
 
 
 def canonical_json(value: Any) -> str:
@@ -523,7 +573,8 @@ async def replace_pats(connection: asyncpg.Connection) -> dict[str, str]:
 
 
 async def seed() -> dict[str, str]:
-    database_url, master_key = required_environment()
+    database_url, master_key, supabase_url, service_role, password = required_environment()
+    await ensure_auth_users(supabase_url, service_role, password)
     connection = await asyncpg.connect(database_url)
     try:
         async with connection.transaction():
