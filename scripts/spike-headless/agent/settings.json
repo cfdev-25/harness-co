@@ -1,6 +1,0 @@
-{
-  "defaultProvider": "harness-mock",
-  "defaultModel": "mock-model",
-  "defaultProjectTrust": "never",
-  "enableInstallTelemetry": false
-}

@@ -98,22 +98,28 @@ This proves an experience-layer gate, not a security boundary:
 
 ## Headless and durable-session spike
 
-The deterministic provider configuration is checked in at
-`scripts/spike-headless/agent/models.json`. The verified provider shape uses:
+The provider configuration is written at runtime by `materializeManifest` in
+`pi/packages/harness-cli/src/core.ts`, which is now the canonical producer of
+this shape. The verified provider shape uses:
 
-- `api: "openai-completions"`
-- `baseUrl: "http://127.0.0.1:8401/v1"`
-- `apiKey: "$MOCK_API_KEY"` (the dollar prefix is required for environment lookup)
+- `api: "openai-completions"` (hardcoded by the CLI — the endpoint in
+  `base_url` must serve `/chat/completions`)
+- `baseUrl`: the resolved `model.base_url`
+- `apiKey: "$<env_var>"` (the dollar prefix is required for environment lookup;
+  `/v1/resolve` supplies `env_var` from the `api_keys` row matching `key_ref`)
 - `compat.supportsDeveloperRole: false`
 - `compat.supportsReasoningEffort: false`
 
 The vendored executable is `pi/packages/coding-agent/dist/bundle/cli.js`. The
 verified hermetic headless invocation sets both `PI_CODING_AGENT_DIR` and
 `PI_CODING_AGENT_SESSION_DIR`, then uses explicit provider/model selection and
-all resource-discovery opt-outs. It returned `MOCK_PROVIDER_OK: say hello`.
+all resource-discovery opt-outs.
 
 Pi persisted a JSONL session under the isolated session directory. A subsequent
-`-c -p "resume works"` invocation reopened that session and returned
-`MOCK_PROVIDER_OK: resume works`. Because the mock responds synchronously in
-milliseconds, the destructive mid-stream kill portion was not timing-stable;
-durable persistence and explicit resume were verified without modifying Pi.
+`-c -p "resume works"` invocation reopened that session and returned a reply in
+it. The original spike ran against a deterministic local provider that answered
+in milliseconds, so the destructive mid-stream kill portion was not
+timing-stable; durable persistence and explicit resume were verified without
+modifying Pi. That provider, and the `scripts/spike-headless/` and
+`scripts/spike-gating/` artifacts behind these notes, were removed on
+2026-09-17.

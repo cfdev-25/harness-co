@@ -12,6 +12,9 @@ set +a
 : "${SUPABASE_URL:?}"
 : "${SUPABASE_SERVICE_ROLE_KEY:?}"
 : "${SEED_USER_PASSWORD:?}"
+: "${PROVIDER_BASE_URL:?}"
+: "${PROVIDER_MODEL_ID:?}"
+: "${PROVIDER_API_KEY:?}"
 
 TMP_HOME="$(mktemp -d)"
 PIDS=()
@@ -34,8 +37,6 @@ test -n "$ANA_PAT"
   uvicorn app.main:app --app-dir "$ROOT/backend" --host 127.0.0.1 --port 8400 \
   >"$TMP_HOME/backend.log" 2>&1 &
 PIDS+=("$!")
-node "$ROOT/scripts/mock-provider/server.mjs" >"$TMP_HOME/provider.log" 2>&1 &
-PIDS+=("$!")
 
 until curl -fsS http://127.0.0.1:8400/health >/dev/null; do sleep 0.2; done
 
@@ -47,7 +48,9 @@ run_output="$(
   node "$ROOT/pi/packages/harness-cli/dist/cli.js" run -p \
     "Read the AGENTS.md rules and say hello as instructed"
 )"
-printf '%s\n' "$run_output" | grep -q 'MOCK_PROVIDER_OK'
+# The provider is real now, so assert the run produced a reply rather than
+# matching fixed text. The authoritative checks are the two queries below.
+test -n "${run_output//[[:space:]]/}"
 
 test "$(psql "$DATABASE_URL" -Atc "select count(*) from harness_sessions where status='closed'")" -ge 1
 test "$(psql "$DATABASE_URL" -Atc "select count(*) from audit_log where class='authoritative' and action='resolve'")" -ge 1

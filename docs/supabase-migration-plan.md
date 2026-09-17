@@ -394,16 +394,21 @@ same names.
 | `SUPABASE_JWKS_URL` | `backend/.env`, CI | `https://<ref>.supabase.co/auth/v1/.well-known/jwks.json` |
 | `SUPABASE_JWT_SECRET` | `backend/.env` | only if JWTs are still HS256 |
 | `SEED_USER_PASSWORD` | `backend/.env` | password for seeded Auth users |
+| `PROVIDER_BASE_URL` | `backend/.env` | OpenAI-compatible endpoint, e.g. `.../v1` |
+| `PROVIDER_MODEL_ID` | `backend/.env` | model id the seeded workspace resolves to |
+| `PROVIDER_API_KEY` | `backend/.env` | provider key; seeded into `api_keys` encrypted |
 | `NEXT_PUBLIC_SUPABASE_URL` | `web/.env.local` | same project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `web/.env.local` | anon / publishable key |
 
-`backend/.env.example` and `web/.env.example` already list these keys.
+These keys live only in the real `backend/.env` and `web/.env`; there are no
+`.env.example` templates in the repo.
 
 ### 7.2 Scripts
 
 - `scripts/dev.sh`: drop the Docker/Homebrew Postgres block. Start uvicorn with
   `backend/.env` (`DATABASE_URL` already points at Supabase). Keep the web and mock
-  provider processes.
+  provider processes. *(Superseded 2026-09-17: replaced by the root `npm run dev`
+  and `scripts/dev-preflight.sh`; the mock provider was removed.)*
 - `scripts/e2e.sh`: drop the Docker Postgres container, the schema-drop reset, and
   `HARNESS_E2E_DATABASE_URL`. Require `backend/.env` (or the same vars in the
   environment). Seed against the hosted project, then run the CLI flow.
@@ -461,7 +466,7 @@ first `db push`, or keep applying new files in the editor until that baseline ex
 
 **S7 — Cloud golden flow.** Seed, then:
 then: web sign-in as ana → mint PAT → `harness login` → `harness run -p "say hello"`
-against the mock provider → verify `harness_sessions` row closed and
+against the provider in `PROVIDER_BASE_URL` → verify `harness_sessions` row closed and
 `GET /v1/org-units/{finance}/audit/verify` returns `{"intact": true}`. Record the runbook
 output in `docs/build-decisions.md`.
 

@@ -35,10 +35,10 @@ describe("materialization", () => {
 			boundary: { approvals: { deploy: "required" } },
 			model: {
 				provider: "openai-compatible",
-				model_id: "mock-model",
-				base_url: "http://localhost:8401/v1",
-				key_ref: "secret://acme/mock",
-				env_var: "MOCK_API_KEY",
+				model_id: "example-model",
+				base_url: "https://api.example.com/v1",
+				key_ref: "secret://acme/default-provider",
+				env_var: "PROVIDER_API_KEY",
 			},
 		};
 		const session = await materializeManifest(manifest, home, "session-id");

@@ -34,7 +34,7 @@ requires:
   connections: [slack]
   egress: [api.example.com]
 ---
-Use secret://acme/mock-provider.
+Use secret://acme/default-provider.
 """,
             )
         ]
@@ -42,7 +42,7 @@ Use secret://acme/mock-provider.
     lint_files(
         files,
         {"connector_allowlist": ["slack"], "egress_allowlist": ["api.example.com"]},
-        {"secret://acme/mock-provider"},
+        {"secret://acme/default-provider"},
     )
 
 

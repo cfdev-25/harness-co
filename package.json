@@ -1,0 +1,19 @@
+{
+  "name": "harness-co",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Development entrypoint for the Harness Company stack (backend, web).",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "predev": "bash scripts/dev-preflight.sh",
+    "dev": "concurrently --kill-others --kill-signal SIGTERM --prefix \"[{name}]\" --names \"api,web\" --prefix-colors \"cyan.bold,magenta.bold\" \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "cd backend && set -a && . ./.env && set +a && export PYTHONUNBUFFERED=1 && exec .venv/bin/uv run uvicorn app.main:app --reload --host 127.0.0.1 --port ${BACKEND_PORT:-8400} --use-colors",
+    "dev:web": "FORCE_COLOR=1 exec npm --prefix web run dev -- --port ${WEB_PORT:-3000}",
+    "e2e": "bash scripts/e2e.sh"
+  },
+  "devDependencies": {
+    "concurrently": "10.0.5"
+  }
+}

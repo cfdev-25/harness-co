@@ -10,7 +10,7 @@ import os
 import secrets
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, NamedTuple
 
 import asyncpg
 import httpx
@@ -148,45 +148,71 @@ HOUSE_DEFAULTS = """# House defaults
 - Never claim to have read, changed, sent, or approved something that was not actually handled.
 """
 
-MODEL_DEFAULT = {
-    "provider": "openai-compatible",
-    "model_id": "mock-model",
-    "base_url": "http://localhost:8401/v1",
-    "key_ref": "secret://acme/mock-provider",
-}
+# The provider credential the seeded workspace resolves to. `key_ref` must match
+# `api_keys.ref`, which is how /v1/resolve looks up the env var name to deliver.
+PROVIDER_KEY_NAME = "Default Provider"
+PROVIDER_KEY_REF = "secret://acme/default-provider"
+PROVIDER_KEY_ENV_VAR = "PROVIDER_API_KEY"
+
+
+class SeedEnvironment(NamedTuple):
+    database_url: str
+    master_key: bytes
+    supabase_url: str
+    service_role: str
+    password: str
+    provider_base_url: str
+    provider_model_id: str
+    provider_api_key: str
+
+
+def model_default(environment: SeedEnvironment) -> dict[str, str]:
+    """The model connection asset. The CLI always speaks openai-completions, so the
+    endpoint has to serve /chat/completions."""
+    return {
+        "provider": "openai-compatible",
+        "model_id": environment.provider_model_id,
+        "base_url": environment.provider_base_url,
+        "key_ref": PROVIDER_KEY_REF,
+    }
 
 
 def stable_id(label: str) -> uuid.UUID:
     return uuid.uuid5(SEED_NAMESPACE, label)
 
 
-def required_environment() -> tuple[str, bytes, str, str, str]:
-    database_url = os.environ.get("DATABASE_URL")
-    supabase_url = os.environ.get("SUPABASE_URL")
-    service_role = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-    password = os.environ.get("SEED_USER_PASSWORD")
+def required_environment() -> SeedEnvironment:
     encoded_key = os.environ.get("HARNESS_MASTER_KEY")
-    missing = [
-        name
-        for name, value in {
-            "DATABASE_URL": database_url,
-            "SUPABASE_URL": supabase_url,
-            "SUPABASE_SERVICE_ROLE_KEY": service_role,
-            "SEED_USER_PASSWORD": password,
-            "HARNESS_MASTER_KEY": encoded_key,
-        }.items()
-        if not value
-    ]
+    values = {
+        "DATABASE_URL": os.environ.get("DATABASE_URL"),
+        "SUPABASE_URL": os.environ.get("SUPABASE_URL"),
+        "SUPABASE_SERVICE_ROLE_KEY": os.environ.get("SUPABASE_SERVICE_ROLE_KEY"),
+        "SEED_USER_PASSWORD": os.environ.get("SEED_USER_PASSWORD"),
+        "HARNESS_MASTER_KEY": encoded_key,
+        "PROVIDER_BASE_URL": os.environ.get("PROVIDER_BASE_URL"),
+        "PROVIDER_MODEL_ID": os.environ.get("PROVIDER_MODEL_ID"),
+        "PROVIDER_API_KEY": os.environ.get("PROVIDER_API_KEY"),
+    }
+    missing = [name for name, value in values.items() if not value]
     if missing:
         raise SystemExit(f"Missing required environment: {', '.join(missing)}.")
-    assert database_url and supabase_url and service_role and password and encoded_key
+    assert encoded_key
     try:
         key = base64.b64decode(encoded_key, validate=True)
     except ValueError as exc:
         raise SystemExit("HARNESS_MASTER_KEY must be valid base64.") from exc
     if len(key) != SecretBox.KEY_SIZE:
         raise SystemExit("HARNESS_MASTER_KEY must decode to exactly 32 bytes.")
-    return database_url, key, supabase_url.rstrip("/"), service_role, password
+    return SeedEnvironment(
+        database_url=str(values["DATABASE_URL"]),
+        master_key=key,
+        supabase_url=str(values["SUPABASE_URL"]).rstrip("/"),
+        service_role=str(values["SUPABASE_SERVICE_ROLE_KEY"]),
+        password=str(values["SEED_USER_PASSWORD"]),
+        provider_base_url=str(values["PROVIDER_BASE_URL"]),
+        provider_model_id=str(values["PROVIDER_MODEL_ID"]),
+        provider_api_key=str(values["PROVIDER_API_KEY"]),
+    )
 
 
 async def ensure_auth_users(supabase_url: str, service_role: str, password: str) -> None:
@@ -446,9 +472,11 @@ async def upsert_asset(
     return actual_asset_id
 
 
-async def upsert_assets(connection: asyncpg.Connection) -> list[uuid.UUID]:
+async def upsert_assets(
+    connection: asyncpg.Connection, model: dict[str, str]
+) -> list[uuid.UUID]:
     asset_ids = []
-    model_bytes = canonical_json(MODEL_DEFAULT).encode("utf-8")
+    model_bytes = canonical_json(model).encode("utf-8")
     asset_ids.append(
         await upsert_asset(
             connection,
@@ -477,19 +505,19 @@ async def upsert_assets(connection: asyncpg.Connection) -> list[uuid.UUID]:
     return asset_ids
 
 
-async def upsert_api_key(connection: asyncpg.Connection, master_key: bytes) -> uuid.UUID:
-    api_key_id = stable_id("api-key:acme:mock-provider")
-    plaintext = "mock-key-123"
+async def upsert_api_key(
+    connection: asyncpg.Connection, master_key: bytes, plaintext: str
+) -> uuid.UUID:
+    api_key_id = stable_id("api-key:acme:default-provider")
     box = SecretBox(master_key)
+    # Drop the credential seeded by earlier revisions of this script; versions cascade.
+    await connection.execute("delete from api_keys where ref = 'secret://acme/mock-provider'")
     await connection.execute(
         """
         insert into api_keys (
           id, org_unit_id, name, ref, kind, env_var, created_by
         )
-        values (
-          $1, $2, 'Mock Provider', 'secret://acme/mock-provider',
-          'provider_api_key', 'MOCK_API_KEY', $3
-        )
+        values ($1, $2, $3, $4, 'provider_api_key', $5, $6)
         on conflict (org_unit_id, name) do update
           set ref = excluded.ref,
               kind = excluded.kind,
@@ -498,47 +526,57 @@ async def upsert_api_key(connection: asyncpg.Connection, master_key: bytes) -> u
         """,
         api_key_id,
         ORG_UNITS["acme"],
+        PROVIDER_KEY_NAME,
+        PROVIDER_KEY_REF,
+        PROVIDER_KEY_ENV_VAR,
         AUTH_USERS["root"],
     )
     actual_api_key_id = await connection.fetchval(
-        """
-        select id from api_keys
-         where org_unit_id = $1 and name = 'Mock Provider'
-        """,
+        "select id from api_keys where org_unit_id = $1 and name = $2",
         ORG_UNITS["acme"],
+        PROVIDER_KEY_NAME,
     )
-    version_id = stable_id(f"api-key-version:{actual_api_key_id}:1")
-    existing_ciphertext = await connection.fetchval(
+    active_ciphertext = await connection.fetchval(
         """
         select ciphertext
           from api_key_versions
-         where api_key_id = $1 and version = 1
+         where api_key_id = $1 and status = 'active'
+         order by version desc
+         limit 1
         """,
         actual_api_key_id,
     )
-    if existing_ciphertext is None:
-        ciphertext = bytes(box.encrypt(plaintext.encode("utf-8")))
-    else:
+    if active_ciphertext is not None:
         try:
-            existing_plaintext = box.decrypt(existing_ciphertext).decode("utf-8")
+            active_plaintext = box.decrypt(active_ciphertext).decode("utf-8")
         except (CryptoError, UnicodeDecodeError) as exc:
             raise RuntimeError(
                 "The seeded API key exists but cannot be decrypted with HARNESS_MASTER_KEY."
             ) from exc
-        if existing_plaintext != plaintext:
-            raise RuntimeError("The seeded API key version has an unexpected immutable value.")
-        ciphertext = existing_ciphertext
+        if active_plaintext == plaintext:
+            return actual_api_key_id
+        # PROVIDER_API_KEY changed. Rotate exactly as app.domain.api_keys.rotate does,
+        # so stale sessions keep resolving the old value during its grace window.
+        await connection.execute(
+            "update api_key_versions set status='grace' where api_key_id=$1 and status='active'",
+            actual_api_key_id,
+        )
+    version = await connection.fetchval(
+        "select coalesce(max(version),0)+1 from api_key_versions where api_key_id=$1",
+        actual_api_key_id,
+    )
     await connection.execute(
         """
         insert into api_key_versions (
           id, api_key_id, version, ciphertext, last4, status
         )
-        values ($1, $2, 1, $3, $4, 'active')
+        values ($1, $2, $3, $4, $5, 'active')
         on conflict (api_key_id, version) do nothing
         """,
-        version_id,
+        stable_id(f"api-key-version:{actual_api_key_id}:{version}"),
         actual_api_key_id,
-        ciphertext,
+        version,
+        bytes(box.encrypt(plaintext.encode("utf-8"))),
         plaintext[-4:],
     )
     return actual_api_key_id
@@ -573,15 +611,19 @@ async def replace_pats(connection: asyncpg.Connection) -> dict[str, str]:
 
 
 async def seed() -> dict[str, str]:
-    database_url, master_key, supabase_url, service_role, password = required_environment()
-    await ensure_auth_users(supabase_url, service_role, password)
-    connection = await asyncpg.connect(database_url)
+    environment = required_environment()
+    await ensure_auth_users(
+        environment.supabase_url, environment.service_role, environment.password
+    )
+    connection = await asyncpg.connect(environment.database_url)
     try:
         async with connection.transaction():
             await upsert_org_units(connection)
             await upsert_boundary(connection)
-            asset_ids = await upsert_assets(connection)
-            api_key_id = await upsert_api_key(connection, master_key)
+            asset_ids = await upsert_assets(connection, model_default(environment))
+            api_key_id = await upsert_api_key(
+                connection, environment.master_key, environment.provider_api_key
+            )
             tokens = await replace_pats(connection)
             await append_audit(
                 connection,

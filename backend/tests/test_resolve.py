@@ -7,9 +7,9 @@ from app.domain.resolve import model_from_assets
 def test_model_connection_is_read_from_cas_asset():
     model = {
         "provider": "openai-compatible",
-        "model_id": "mock-model",
-        "base_url": "http://localhost:8401/v1",
-        "key_ref": "secret://acme/mock-provider",
+        "model_id": "example-model",
+        "base_url": "https://api.example.com/v1",
+        "key_ref": "secret://acme/default-provider",
     }
     assets = [
         {
