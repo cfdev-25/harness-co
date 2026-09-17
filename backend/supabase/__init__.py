@@ -1,1 +1,1 @@
-"""Database migrations and development seed data."""
+"""Database migrations."""

@@ -36,6 +36,6 @@ WEB_PORT=3010 npm run dev
 ```
 
 Individual services: `npm run dev:api`, `npm run dev:web`.
-End-to-end flow: `npm run e2e`. It additionally needs `SEED_USER_PASSWORD`,
-`PROVIDER_BASE_URL`, `PROVIDER_MODEL_ID`, and `PROVIDER_API_KEY` in
-`backend/.env` — it seeds a real provider connection and runs the CLI against it.
+
+The database is populated by hand — apply `backend/supabase/migrations/` and
+insert the rows you need. There is no seed script.

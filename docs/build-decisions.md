@@ -53,3 +53,18 @@ the same way `app.domain.api_keys.rotate` does, instead of failing as an
 immutable value. `scripts/e2e.sh` no longer starts a provider or greps for
 `MOCK_PROVIDER_OK`; it asserts a non-empty reply plus the two authoritative
 database checks.
+
+## 2026-09-17 — Development seed removed
+
+`backend/supabase/seed/` (651-line `seed_dev.py` plus its README) was deleted.
+Nothing in `backend/app/` or `backend/tests/` imported it — the 35 backend tests
+pass without it — so it only ever served local database setup. Development data
+is now inserted by hand after applying `backend/supabase/migrations/`.
+
+`scripts/e2e.sh` and the root `e2e` npm script went with it: the golden flow
+shelled out to `seed_dev.py` and parsed `ANA_PAT=` from its output for the CLI
+login, so it was inert once the seed was gone. Both are recoverable from history
+(`df34212b0` for the flow, `55658fe6b^` for the last working seed).
+
+`docs/supabase-migration-plan.md` §4 still describes the seed; it is kept as the
+historical record of what was planned, not as a description of the tree.
