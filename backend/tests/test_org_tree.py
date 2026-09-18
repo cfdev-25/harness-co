@@ -1,6 +1,12 @@
 import pytest
 
-from app.domain.org_tree import merge_boundaries, slugify, validate_role_order, validate_tightening
+from app.domain.org_tree import (
+    email_label,
+    merge_boundaries,
+    slugify,
+    validate_role_order,
+    validate_tightening,
+)
 from app.errors import ApiError
 
 
@@ -30,11 +36,27 @@ def test_boundary_merge_uses_every_strictest_rule():
     assert merged["load_policy"]["default"] == "always"
 
 
-def test_boundary_defaults_deny_access():
+def test_no_policy_anywhere_is_unconstrained_not_denied():
+    """Absent is not empty.
+
+    Nobody wrote a policy, so nothing is restricted. If this returned [] then
+    switching egress enforcement on would deny every org that never set one.
+    """
     merged = merge_boundaries([])
+    assert merged["egress_allowlist"] is None
+    assert merged["connector_allowlist"] is None
+    assert merged["budget"]["monthly_usd_cap"] is None
+
+
+def test_an_explicit_empty_policy_denies_everything():
+    merged = merge_boundaries([{"egress_allowlist": [], "connector_allowlist": []}])
     assert merged["egress_allowlist"] == []
     assert merged["connector_allowlist"] == []
-    assert merged["budget"]["monthly_usd_cap"] is None
+
+
+def test_a_child_may_define_what_an_unconstrained_parent_left_open():
+    # The first policy in a chain only narrows, so it may name anything.
+    validate_tightening({"egress_allowlist": ["a.example"]}, merge_boundaries([]))
 
 
 @pytest.mark.parametrize(
@@ -78,3 +100,11 @@ def test_names_and_role_order_are_plain_and_predictable():
     validate_role_order("team", "org")
     with pytest.raises(ApiError):
         validate_role_order("team", "team")
+
+
+def test_email_labels_stay_distinct_where_slugify_collided():
+    """`path` is unique-indexed, so a collision blocks onboarding entirely."""
+    assert email_label("corbfurrer@gmail.com") != email_label("corb.furrer@gmail.com")
+    assert email_label("a@b.com") == "a-at-b-com"
+    # Team and org names keep the simpler rule.
+    assert slugify("Marketing Team") == "marketing-team"

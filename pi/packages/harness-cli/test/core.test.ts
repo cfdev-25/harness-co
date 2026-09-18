@@ -1,14 +1,20 @@
 import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
-import { frontmatterName, type Manifest, materializeManifest, writeCredentials } from "../src/core.js";
+import { afterEach, describe, expect, it } from "vitest";
+import { credentialsPath, frontmatterName, type Manifest, materializeManifest, writeCredentials } from "../src/core.js";
+
+const saved = { ...process.env };
+afterEach(() => {
+	process.env = { ...saved };
+});
 
 describe("credentials", () => {
 	it("writes credentials with owner-only permissions", async () => {
 		const home = await mkdtemp(join(tmpdir(), "harness-test-"));
-		await writeCredentials({ api_url: "http://example.test", token: "hpat_test" }, home);
-		const path = join(home, "credentials.json");
+		process.env.HARNESS_CREDENTIALS = join(home, "cfg", "credentials.json");
+		await writeCredentials({ api_url: "http://example.test", token: "hpat_test" });
+		const path = credentialsPath();
 		expect((await stat(path)).mode & 0o777).toBe(0o600);
 		expect(JSON.parse(await readFile(path, "utf8")).token).toBe("hpat_test");
 	});
@@ -16,22 +22,22 @@ describe("credentials", () => {
 
 describe("materialization", () => {
 	it("writes models, skills, memories, policy, and manifest", async () => {
-		const home = await mkdtemp(join(tmpdir(), "harness-session-"));
+		process.env.HARNESS_HOME = await mkdtemp(join(tmpdir(), "harness-session-"));
 		const manifest: Manifest = {
 			user: { auth_user_id: "user", org_unit_path: "acme.team.user" },
-			skills: [
+			assets: [
 				{
+					kind: "skill",
 					name: "catch-up",
 					files: [{ path: "SKILL.md", content_b64: Buffer.from("# Skill").toString("base64") }],
 				},
-			],
-			memories: [
 				{
+					kind: "memory",
 					name: "defaults",
 					files: [{ path: "memory.md", content_b64: Buffer.from("Be concise.").toString("base64") }],
 				},
+				{ kind: "tool", name: "slack_read", files: [] },
 			],
-			tools: [{ name: "slack_read" }],
 			boundary: { approvals: { deploy: "required" } },
 			model: {
 				provider: "openai-compatible",
@@ -41,7 +47,7 @@ describe("materialization", () => {
 				env_var: "PROVIDER_API_KEY",
 			},
 		};
-		const session = await materializeManifest(manifest, home, "session-id");
+		const session = await materializeManifest(manifest, "session-id");
 		expect(await readFile(join(session.agent, "skills/catch-up/SKILL.md"), "utf8")).toBe("# Skill");
 		expect(await readFile(join(session.agent, "AGENTS.md"), "utf8")).toContain("## defaults");
 		expect(JSON.parse(await readFile(join(session.root, "policy.json"), "utf8")).allowed_tools).toContain(
@@ -57,5 +63,43 @@ describe("frontmatterName", () => {
 	it("reads a name and falls back cleanly", () => {
 		expect(frontmatterName("---\nname: concise\n---\nBody", "fallback")).toBe("concise");
 		expect(frontmatterName("Body", "fallback")).toBe("fallback");
+	});
+});
+
+describe("instruction ordering", () => {
+	it("puts prompts before memories, broadest scope first", async () => {
+		process.env.HARNESS_HOME = await mkdtemp(join(tmpdir(), "harness-order-"));
+		const b64 = (text: string) => Buffer.from(text).toString("base64");
+		const asset = (kind: string, name: string, path: string, body: string) => ({
+			kind,
+			name,
+			org_unit_path: path,
+			files: [{ path: "F.md", content_b64: b64(body) }],
+		});
+		const manifest = {
+			user: { auth_user_id: "u", org_unit_path: "org.team.user" },
+			assets: [
+				// Deliberately shuffled: the renderer must impose the order.
+				asset("prompt", "mine", "org.team.user", "USER"),
+				asset("memory", "notes", "org.team", "MEMORY"),
+				asset("prompt", "house", "org.team", "TEAM"),
+				asset("prompt", "wide", "org", "ORG"),
+			],
+			boundary: {},
+			model: {
+				provider: "p",
+				model_id: "m",
+				base_url: "http://x",
+				key_ref: "r",
+				env_var: "E",
+			},
+		} as unknown as Manifest;
+
+		const session = await materializeManifest(manifest, "ord");
+		const text = await readFile(join(session.agent, "AGENTS.md"), "utf8");
+		// A user's prompt extends the team's; it never precedes it.
+		expect(text.indexOf("ORG")).toBeLessThan(text.indexOf("TEAM"));
+		expect(text.indexOf("TEAM")).toBeLessThan(text.indexOf("USER"));
+		expect(text.indexOf("USER")).toBeLessThan(text.indexOf("MEMORY"));
 	});
 });

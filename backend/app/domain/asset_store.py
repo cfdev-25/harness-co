@@ -71,15 +71,17 @@ def lint_files(
     boundary: dict[str, Any],
     visible_secret_refs: set[str],
 ) -> None:
-    connectors = set(boundary.get("connector_allowlist", []))
-    egress = set(boundary.get("egress_allowlist", []))
+    allowed_connectors = boundary.get("connector_allowlist")
+    allowed_egress = boundary.get("egress_allowlist")
+    connectors = None if allowed_connectors is None else set(allowed_connectors)
+    egress = None if allowed_egress is None else set(allowed_egress)
     for file in files:
         text = file.content.decode("utf-8", errors="replace")
         if file.path == "SKILL.md" or file.path.endswith(".md"):
             metadata = _frontmatter(file.content)
             requires = metadata.get("requires", {}) if isinstance(metadata, dict) else {}
             for connector in requires.get("connections", []) or []:
-                if connector not in connectors:
+                if connectors is not None and connector not in connectors:
                     raise ApiError(
                         422,
                         "boundary_violation",
@@ -87,7 +89,7 @@ def lint_files(
                         {"path": file.path},
                     )
             for host in requires.get("egress", []) or []:
-                if host not in egress:
+                if egress is not None and host not in egress:
                     raise ApiError(
                         422,
                         "boundary_violation",

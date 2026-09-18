@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { appendFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type HarnessPolicy, isOutsidePath, parseRedactions, plainAction, redactText, redactValue } from "./core.js";
@@ -12,23 +12,10 @@ interface AuditEvent {
 const DECLINED = "The user declined this action.";
 const NOT_ALLOWED = "This tool is not allowed by your Harness policy.";
 
-function environment() {
-	return {
-		apiUrl: process.env.HARNESS_API_URL?.replace(/\/$/, ""),
-		token: process.env.HARNESS_API_TOKEN,
-		sessionId: process.env.HARNESS_SESSION_ID,
-		sessionDir: process.env.HARNESS_SESSION_DIR,
-	};
-}
-
-async function request(path: string, init: RequestInit = {}): Promise<Response | undefined> {
-	const { apiUrl, token } = environment();
-	if (!apiUrl || !token) return undefined;
-	return fetch(`${apiUrl}${path}`, {
-		...init,
-		headers: { authorization: `Bearer ${token}`, "content-type": "application/json", ...init.headers },
-	});
-}
+// The extension holds no credential and reaches no network. Audit events are
+// appended to a spool the supervisor tails and forwards; the supervisor owns
+// the heartbeat, because it is the parent process and knows we are alive.
+const sessionDir = () => process.env.HARNESS_SESSION_DIR;
 
 export default function harnessExtension(pi: ExtensionAPI) {
 	let policy: HarnessPolicy = {};
@@ -41,7 +28,7 @@ export default function harnessExtension(pi: ExtensionAPI) {
 	const redactions = parseRedactions(process.env.HARNESS_REDACTIONS);
 
 	async function loadPolicy(ctx: ExtensionContext) {
-		const path = join(environment().sessionDir ?? ctx.cwd, "policy.json");
+		const path = join(sessionDir() ?? ctx.cwd, "policy.json");
 		try {
 			policy = JSON.parse(await readFile(path, "utf8")) as HarnessPolicy;
 		} catch (error) {
@@ -62,25 +49,16 @@ export default function harnessExtension(pi: ExtensionAPI) {
 		// can reactivate tools. The tool_call handler below therefore also fails closed.
 	}
 
-	async function flush(close = false) {
-		if (flushing) return;
+	async function flush() {
+		const dir = sessionDir();
+		if (flushing || !dir) return;
 		flushing = true;
 		try {
-			if (audit.length > 0) {
-				const batch = audit.slice(0, 100);
-				const response = await request("/v1/audit/batch", {
-					method: "POST",
-					body: JSON.stringify({ events: batch }),
-				});
-				if (response?.ok) audit.splice(0, batch.length);
-			}
-			const { sessionId } = environment();
-			if (sessionId) {
-				await request(`/v1/sessions/${sessionId}`, {
-					method: "PATCH",
-					body: JSON.stringify(close ? { status: "closed" } : { last_active_at: new Date().toISOString() }),
-				});
-			}
+			const batch = audit.slice(0, 100);
+			if (batch.length === 0) return;
+			const lines = batch.map((event) => JSON.stringify(event));
+			await appendFile(join(dir, "audit.jsonl"), `${lines.join("\n")}\n`);
+			audit.splice(0, batch.length);
 		} catch {
 			// Attested telemetry is best effort. Keep queued events for the next flush.
 		} finally {
@@ -101,8 +79,6 @@ export default function harnessExtension(pi: ExtensionAPI) {
 		applyAllowlist(ctx);
 		if (!started) {
 			started = true;
-			// The CLI registers the session before requesting scoped credentials.
-			// The extension owns heartbeats and close state, not creation.
 			timer = setInterval(() => void flush(), 15_000);
 			timer.unref();
 		}
@@ -174,7 +150,7 @@ export default function harnessExtension(pi: ExtensionAPI) {
 
 	pi.on("session_shutdown", async () => {
 		if (timer) clearInterval(timer);
-		await flush(true);
+		await flush();
 	});
 }
 

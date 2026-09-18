@@ -32,11 +32,16 @@ class PatProvider:
             return None
         token_hash = hashlib.sha256(token.removeprefix("hpat_").encode()).hexdigest()
         row = await self.pool.fetchrow(
-            """select auth_user_id from personal_access_tokens
-               where token_hash=$1 and (expires_at is null or expires_at > now())""",
+            """select p.auth_user_id, u.email
+                 from personal_access_tokens p
+                 left join auth.users u on u.id = p.auth_user_id
+                where p.token_hash=$1
+                  and (p.expires_at is null or p.expires_at > now())""",
             token_hash,
         )
-        return Principal(row["auth_user_id"]) if row else None
+        # The email is not in the token, so it is looked up here; without it
+        # every PAT-authenticated caller is anonymous to the rest of the app.
+        return Principal(row["auth_user_id"], row["email"]) if row else None
 
 
 @lru_cache

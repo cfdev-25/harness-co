@@ -44,14 +44,38 @@ def slugify(value: str) -> str:
     return re.sub(r"-+", "-", cleaned).strip("-")
 
 
+def email_label(email: str) -> str:
+    """A path segment for a user unit that cannot collide with another address.
+
+    `slugify` deletes every symbol, so "a.b@x.com" and "ab@x.com" both became
+    "abxcom" — and `path` is unique-indexed, so the second person to accept an
+    invite in a team could never onboard. Dots and "@" are replaced rather
+    than dropped, which keeps distinct addresses distinct and stays readable.
+    Dots cannot survive as dots: the path itself is dot-separated.
+    """
+    replaced = email.lower().replace("@", "-at-").replace(".", "-")
+    cleaned = re.sub(r"[^a-z0-9-]", "-", replaced)
+    return re.sub(r"-+", "-", cleaned).strip("-")
+
+
 def merge_boundaries(policies: list[dict[str, Any]]) -> dict[str, Any]:
     defined_egress = [set(p["egress_allowlist"]) for p in policies if "egress_allowlist" in p]
     defined_connectors = [
         set(p["connector_allowlist"]) for p in policies if "connector_allowlist" in p
     ]
 
-    def intersection(values: list[set[str]]) -> list[str]:
-        return sorted(set.intersection(*values)) if values else []
+    def intersection(values: list[set[str]]) -> list[str] | None:
+        """None when nobody in the chain constrained this, which is not the
+        same as an empty list.
+
+        Absent means "no policy here, so no restriction". Empty means "a policy
+        was set and it permits nothing". Collapsing the two would mean that
+        turning egress enforcement on denies every org that never wrote a
+        policy. Kubernetes NetworkPolicy draws the same line for the same
+        reason: no policy selects you, you are unrestricted; once one does,
+        only what it lists is allowed.
+        """
+        return sorted(set.intersection(*values)) if values else None
 
     caps: dict[str, float | int | None] = {}
     for field in ("monthly_usd_cap", "requests_per_minute"):
@@ -96,7 +120,12 @@ def validate_tightening(child: dict[str, Any], parent: dict[str, Any]) -> None:
     }
     for field in labels:
         if field in child:
-            extra = set(child[field]) - set(parent.get(field, []))
+            allowed = parent.get(field)
+            # An unconstrained parent cannot be widened: the first policy in a
+            # chain only ever narrows, so it may name anything.
+            if allowed is None:
+                continue
+            extra = set(child[field]) - set(allowed)
             if extra:
                 item = sorted(extra)[0]
                 raise ApiError(
@@ -206,7 +235,7 @@ async def accept_pending_invite(
            values($1,'user',$2,$3,$4) returning *""",
         team["id"],
         email.lower(),
-        f"{team['path']}.{slugify(email)}",
+        f"{team['path']}.{email_label(email)}",
         team["region"],
     )
     await connection.execute(

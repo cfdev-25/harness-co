@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request, status
 from pydantic import BaseModel, Field
 
-from app.api.deps import current_principal
+from app.api.deps import current_principal, role_at
 from app.db import get_pool, transaction
 from app.domain.audit import append_event
 from app.domain.org_tree import accept_pending_invite
@@ -65,9 +65,28 @@ async def me(
                 )
     if unit is None:
         raise ApiError(404, "no_workspace", "You do not have a workspace yet.")
+    # Names, not the path: the path is a dot-separated slug, so an email in it
+    # has lost its "@" and dots. Callers that show a human anything use these.
+    ancestors = await pool.fetch(
+        """with recursive chain as (
+             select id, parent_id, role, name, 0 depth from org_units where id=$1
+             union all
+             select p.id, p.parent_id, p.role, p.name, c.depth+1
+               from org_units p join chain c on c.parent_id = p.id
+           ) select role, name from chain order by depth desc""",
+        unit["id"],
+    )
+    role = await role_at(pool, principal.auth_user_id, unit["id"])
+    granted_at = None
+    if role is not None:
+        granted_at = await pool.fetchval("select name from org_units where id=$1", role[1])
     return {
         "auth_user_id": principal.auth_user_id,
         "email": principal.email,
+        # No grant is the `user` role: membership without administration.
+        "role": role[0] if role else "user",
+        "role_unit": granted_at,
         "org_unit_id": unit["id"],
         "org_unit_path": unit["path"],
+        "units": [{"role": row["role"], "name": row["name"]} for row in ancestors],
     }

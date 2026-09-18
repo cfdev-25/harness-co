@@ -56,6 +56,16 @@ Use secret://acme/default-provider.
 )
 def test_lint_explains_boundary_violation(content, message):
     with pytest.raises(ApiError) as caught:
-        lint_files(decode_files([encoded("SKILL.md", content)]), {}, set())
+        lint_files(
+            decode_files([encoded("SKILL.md", content)]),
+            {"connector_allowlist": [], "egress_allowlist": []},
+            set(),
+        )
     assert caught.value.code == "boundary_violation"
     assert message in caught.value.message
+
+
+def test_lint_allows_anything_when_no_policy_constrains_it():
+    """An org that never set a boundary does not block its own assets."""
+    content = "---\nrequires:\n  connections: [slack]\n  egress: [any.example]\n---\n"
+    lint_files(decode_files([encoded("SKILL.md", content)]), {}, set())

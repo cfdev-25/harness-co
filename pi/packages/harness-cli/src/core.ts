@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, normalize, resolve, sep } from "node:path";
 
@@ -13,19 +13,32 @@ export interface AssetFile {
 	content_b64: string;
 }
 
+export interface Shadowed {
+	asset_id: string;
+	org_unit_path: string;
+	version_id: string;
+	seq: number;
+}
+
 export interface ManifestAsset {
+	kind: string;
 	name: string;
 	asset_id?: string;
+	/** The unit that owns it. Shorter path = broader scope. */
+	org_unit_path?: string;
+	version_id?: string;
 	version_seq?: number;
+	shadows?: Shadowed | null;
 	files: AssetFile[];
 }
 
 export interface Manifest {
+	manifest_version?: number;
+	issued_at?: string;
+	ttl_seconds?: number;
 	user: { auth_user_id: string; email?: string; org_unit_path: string; org_unit_id?: string };
-	skills: ManifestAsset[];
-	memories: ManifestAsset[];
-	connections?: Array<{ key_ref?: string; ref?: string }>;
-	tools?: Array<{ name: string }>;
+	/** One array; `kind` is data. A new kind needs no change here. */
+	assets: ManifestAsset[];
 	boundary: Record<string, unknown> & { deploy_tools?: string[]; allowed_tools?: string[] };
 	model: null | {
 		provider: string;
@@ -42,26 +55,55 @@ export interface SessionPaths {
 	agent: string;
 }
 
-export function harnessHome(home = process.env.HARNESS_HOME ?? join(homedir(), ".harness")): string {
-	return home;
+export function harnessHome(): string {
+	return process.env.HARNESS_HOME ?? join(homedir(), ".harness");
 }
 
-export function credentialsPath(home?: string): string {
-	return join(harnessHome(home), "credentials.json");
+/**
+ * The credential lives outside HARNESS_HOME: HARNESS_HOME/assets is writable
+ * from inside the jail, and the whole point of the deny-read set is that the
+ * agent cannot reach this file.
+ */
+export function credentialsPath(): string {
+	return process.env.HARNESS_CREDENTIALS ?? join(homedir(), ".config", "harness", "credentials.json");
 }
 
-export async function writeCredentials(credentials: Credentials, home?: string): Promise<void> {
-	const path = credentialsPath(home);
+export function assetsRoot(): string {
+	return join(harnessHome(), "assets");
+}
+
+export function assetsGitDir(): string {
+	return join(harnessHome(), "assets.git");
+}
+
+export function sessionDir(id: string): string {
+	return join(harnessHome(), "sessions", id);
+}
+
+export async function writeCredentials(credentials: Credentials): Promise<void> {
+	const path = credentialsPath();
 	await mkdir(dirname(path), { recursive: true, mode: 0o700 });
 	await writeFile(path, `${JSON.stringify(credentials, null, 2)}\n`, { mode: 0o600 });
 	await chmod(path, 0o600);
 }
 
-export async function readCredentials(home?: string): Promise<Credentials> {
+export async function readCredentials(): Promise<Credentials> {
+	const path = credentialsPath();
+	const legacy = join(harnessHome(), "credentials.json");
 	try {
-		return JSON.parse(await readFile(credentialsPath(home), "utf8")) as Credentials;
+		return JSON.parse(await readFile(path, "utf8")) as Credentials;
 	} catch {
-		throw new Error("You are not logged in. Run `harness login` first.");
+		// One-time move from the pre-assets layout, where the credential shared
+		// a directory with what is now the agent-writable work tree.
+		try {
+			const contents = await readFile(legacy, "utf8");
+			await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+			await rename(legacy, path);
+			await chmod(path, 0o600);
+			return JSON.parse(contents) as Credentials;
+		} catch {
+			throw new Error("You are not logged in. Run `harness login` first.");
+		}
 	}
 }
 
@@ -87,13 +129,9 @@ async function writeAssetFiles(root: string, asset: ManifestAsset): Promise<void
 	}
 }
 
-export async function materializeManifest(
-	manifest: Manifest,
-	home?: string,
-	id: string = randomUUID(),
-): Promise<SessionPaths> {
+export async function materializeManifest(manifest: Manifest, id: string = randomUUID()): Promise<SessionPaths> {
 	if (!manifest.model) throw new Error("No model is configured for your workspace.");
-	const root = join(harnessHome(home), "sessions", id);
+	const root = sessionDir(id);
 	const agent = join(root, "agent");
 	await mkdir(join(agent, "skills"), { recursive: true, mode: 0o700 });
 	await mkdir(join(agent, "sessions"), { recursive: true, mode: 0o700 });
@@ -130,18 +168,28 @@ export async function materializeManifest(
 			2,
 		)}\n`,
 	);
-	for (const skill of manifest.skills) await writeAssetFiles(join(agent, "skills", safeName(skill.name)), skill);
-	const memories = manifest.memories
-		.map((memory) => {
-			const text = memory.files.map((file) => Buffer.from(file.content_b64, "base64").toString("utf8")).join("\n\n");
-			return `## ${memory.name}\n\n${text}`;
-		})
-		.join("\n\n");
-	await writeFile(join(agent, "AGENTS.md"), `${memories}\n`);
+	const byKind = (kind: string) => (manifest.assets ?? []).filter((asset) => asset.kind === kind);
+	for (const skill of byKind("skill")) await writeAssetFiles(join(agent, "skills", safeName(skill.name)), skill);
+
+	// Broadest scope first, so a user's own prompt extends the team's rather
+	// than preceding it. A shorter owning path means a wider unit.
+	const scope = (asset: ManifestAsset) => (asset.org_unit_path ?? "").length;
+	const render = (assets: ManifestAsset[]) =>
+		[...assets]
+			.sort((a, b) => scope(a) - scope(b) || a.name.localeCompare(b.name))
+			.map((asset) => {
+				const text = asset.files
+					.map((file) => Buffer.from(file.content_b64, "base64").toString("utf8"))
+					.join("\n\n");
+				return `## ${asset.name}\n\n${text}`;
+			});
+	// Prompts are the preamble; memories are standing context after it.
+	const instructions = [...render(byKind("prompt")), ...render(byKind("memory"))].join("\n\n");
+	await writeFile(join(agent, "AGENTS.md"), `${instructions}\n`);
 
 	const builtins = ["read", "bash", "edit", "write", "grep", "find", "ls"];
 	const allowedTools = Array.from(
-		new Set([...builtins, ...(manifest.boundary.allowed_tools ?? []), ...(manifest.tools ?? []).map((t) => t.name)]),
+		new Set([...builtins, ...(manifest.boundary.allowed_tools ?? []), ...byKind("tool").map((tool) => tool.name)]),
 	);
 	await writeFile(
 		join(root, "policy.json"),

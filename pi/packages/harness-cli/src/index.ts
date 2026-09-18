@@ -1,45 +1,17 @@
 import { spawn } from "node:child_process";
 import { readdir, readFile, stat } from "node:fs/promises";
-import { basename, dirname, extname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
-import {
-	type Credentials,
-	frontmatterName,
-	type Manifest,
-	materializeManifest,
-	readCredentials,
-	writeCredentials,
-} from "./core.js";
-
-interface ApiErrorBody {
-	message?: string;
-	detail?: unknown;
-}
-
-async function api<T>(credentials: Credentials, path: string, init: RequestInit = {}): Promise<T> {
-	const response = await fetch(`${credentials.api_url.replace(/\/$/, "")}${path}`, {
-		...init,
-		headers: {
-			authorization: `Bearer ${credentials.token}`,
-			"content-type": "application/json",
-			...init.headers,
-		},
-	});
-	if (!response.ok) {
-		let body: ApiErrorBody = {};
-		try {
-			body = (await response.json()) as ApiErrorBody;
-		} catch {
-			// Keep the status fallback below.
-		}
-		const error = new Error(body.message ?? `Harness API request failed (${response.status}).`);
-		Object.assign(error, { status: response.status, detail: body.detail });
-		throw error;
-	}
-	return (await response.json()) as T;
-}
+import { api } from "./api.js";
+import { adopt, identify, record, reset, status } from "./assets.js";
+import { type Manifest, materializeManifest, readCredentials, writeCredentials } from "./core.js";
+import { doctor } from "./doctor.js";
+import { childEnvironment } from "./env.js";
+import { help, manual, VERSION } from "./help.js";
+import { hydrate } from "./hydrate.js";
+import { createSpool, supervise } from "./supervise.js";
 
 async function prompt(message: string): Promise<string> {
 	const rl = createInterface({ input: stdin, output: stdout });
@@ -61,23 +33,31 @@ function takeFlag(args: string[], name: string): string | undefined {
 
 export async function login(args: string[]): Promise<void> {
 	const apiUrl = takeFlag(args, "--api-url") ?? "http://localhost:8400";
-	const token = (await prompt("Paste your access token from the web app: ")).trim();
+	const flag = takeFlag(args, "--token");
+	const token = (flag ?? (await prompt("Paste your access token from the web console: "))).trim();
 	if (!token) throw new Error("An access token is required.");
 	const credentials = { api_url: apiUrl, token };
 	await api(credentials, "/v1/me");
 	await writeCredentials(credentials);
-	console.log("Logged in.");
+	console.log("Logged in. Run `harness run` to start a session, or `harness --help` to see everything.");
+}
+
+interface Me {
+	email?: string;
+	org_unit_path?: string;
+	units?: Array<{ role: string; name: string }>;
+	user?: { email?: string; org_unit_path?: string };
 }
 
 export async function whoami(): Promise<void> {
 	const credentials = await readCredentials();
-	const me = await api<{ email?: string; org_unit_path?: string; user?: { email?: string; org_unit_path?: string } }>(
-		credentials,
-		"/v1/me",
-	);
-	console.log(
-		`${me.email ?? me.user?.email ?? "Unknown email"} — ${me.org_unit_path ?? me.user?.org_unit_path ?? "Unknown workspace"}`,
-	);
+	const me = await api<Me>(credentials, "/v1/me");
+	const email = me.email ?? me.user?.email;
+	// Widest org first, narrowest last, then who you are. The user's own unit
+	// is named after their email, so it is dropped rather than repeated.
+	const units = (me.units ?? []).filter((unit) => unit.role !== "user").map((unit) => unit.name);
+	const line = [...units, email ?? "unknown email"].join("  ›  ");
+	console.log(line || me.org_unit_path || "No workspace yet.");
 }
 
 export async function resolveManifest(args: string[]): Promise<void> {
@@ -92,22 +72,25 @@ interface DeliveredKey {
 	value: string;
 }
 
+/** Hydration on its own, so the asset loop does not require a session. */
+export async function pull(): Promise<number> {
+	const credentials = await readCredentials();
+	const manifest = await api<Manifest>(credentials, "/v1/resolve");
+	await hydrate(manifest, (message) => console.log(message));
+	console.log("Up to date. `harness status` shows what you have changed.");
+	return 0;
+}
+
 export async function run(piArgs: string[]): Promise<number> {
 	const credentials = await readCredentials();
 	const manifest = await api<Manifest>(credentials, "/v1/resolve");
+	await hydrate(manifest, (message) => console.log(message));
 	const session = await materializeManifest(manifest);
 	await api(credentials, "/v1/sessions", {
 		method: "POST",
 		body: JSON.stringify({ id: session.id, model_metadata: manifest.model ?? {} }),
 	});
-	const refs = Array.from(
-		new Set(
-			[
-				manifest.model?.key_ref,
-				...(manifest.connections ?? []).map((connection) => connection.key_ref ?? connection.ref),
-			].filter((value): value is string => Boolean(value)),
-		),
-	);
+	const refs = manifest.model?.key_ref ? [manifest.model.key_ref] : [];
 	const deliveredRaw = await api<DeliveredKey[] | { keys: DeliveredKey[] }>(credentials, "/v1/api-keys/deliver", {
 		method: "POST",
 		body: JSON.stringify({ refs, session_id: session.id }),
@@ -118,19 +101,24 @@ export async function run(piArgs: string[]): Promise<number> {
 	const piEntry = resolve(packageRoot, "../coding-agent/dist/bundle/cli.js");
 	const extension = resolve(packageRoot, "../harness/dist/index.js");
 	const theme = resolve(packageRoot, "../harness/themes/harness-dark.json");
-	const env = {
-		...process.env,
-		PI_CODING_AGENT_DIR: session.agent,
-		PI_CODING_AGENT_SESSION_DIR: join(session.agent, "sessions"),
-		PI_TELEMETRY: "0",
-		HARNESS_SESSION_ID: session.id,
-		HARNESS_SESSION_DIR: session.root,
-		HARNESS_API_URL: credentials.api_url,
-		HARNESS_API_TOKEN: credentials.token,
-		HARNESS_REDACTIONS: JSON.stringify(redactions),
-		...Object.fromEntries(delivered.map((key) => [key.env_var, key.value])),
-	};
+	const env = childEnvironment({
+		sessionId: session.id,
+		sessionDir: session.root,
+		adapterEnv: {
+			// Until the Pi adapter lands (build-plan 2.1) these live inline.
+			PI_CODING_AGENT_DIR: session.agent,
+			PI_CODING_AGENT_SESSION_DIR: join(session.agent, "sessions"),
+			PI_TELEMETRY: "0",
+			// Until the proxy injects credentials (build-plan 3.2) the agent
+			// still needs the provider key in its environment, so transcript
+			// redaction still has a job. Both leave together in 3.2.
+			HARNESS_REDACTIONS: JSON.stringify(redactions),
+			...Object.fromEntries(delivered.map((key) => [key.env_var, key.value])),
+		},
+	});
+	await createSpool(session.root);
 	let code = 1;
+	let watcher: { stop(): Promise<void> } | undefined;
 	try {
 		code = await new Promise<number>((resolveExit, reject) => {
 			const child = spawn(
@@ -151,14 +139,12 @@ export async function run(piArgs: string[]): Promise<number> {
 				],
 				{ stdio: "inherit", env, cwd: process.cwd() },
 			);
+			watcher = supervise({ child, sessionId: session.id, sessionDir: session.root, credentials });
 			child.once("error", reject);
 			child.once("exit", (exitCode, signal) => resolveExit(exitCode ?? (signal ? 1 : 0)));
 		});
 	} finally {
-		await api(credentials, `/v1/sessions/${session.id}`, {
-			method: "PATCH",
-			body: JSON.stringify({ status: "closed" }),
-		}).catch(() => undefined);
+		await watcher?.stop();
 	}
 	return code;
 }
@@ -186,18 +172,14 @@ async function collectFiles(path: string): Promise<Array<{ path: string; content
 }
 
 export async function pushAsset(args: string[]): Promise<void> {
+	const nonInteractive = args.includes("--non-interactive") || !stdin.isTTY;
+	const index = args.indexOf("--non-interactive");
+	if (index >= 0) args.splice(index, 1);
 	const message = takeFlag(args, "--message");
 	if (!message) throw new Error("The --message flag is required.");
 	const path = args[0];
-	if (!path) throw new Error("Provide a skill directory or memory Markdown file.");
-	const info = await stat(path);
-	const isSkill = info.isDirectory() && (await stat(join(path, "SKILL.md")).catch(() => undefined))?.isFile();
-	const isMemory = info.isFile() && extname(path).toLowerCase() === ".md";
-	if (!isSkill && !isMemory)
-		throw new Error("Push a skill directory containing SKILL.md or one Markdown memory file.");
-	const primary = isSkill ? join(path, "SKILL.md") : path;
-	const name = frontmatterName(await readFile(primary, "utf8"), basename(path, extname(path)));
-	const kind = isSkill ? "skill" : "memory";
+	if (!path) throw new Error("Provide a skill directory, tool directory, or memory Markdown file.");
+	const { kind, name } = await identify(path);
 	const credentials = await readCredentials();
 	const me = await api<{ org_unit_id?: string; user?: { org_unit_id?: string } }>(credentials, "/v1/me");
 	const orgUnitId = me.org_unit_id ?? me.user?.org_unit_id;
@@ -220,6 +202,7 @@ export async function pushAsset(args: string[]): Promise<void> {
 				body: JSON.stringify({ message, parent_version_id: existing.head_version_id, files }),
 			});
 		}
+		await record(path, message);
 		console.log(`Pushed ${kind} "${name}".`);
 	} catch (error) {
 		const status = (error as Error & { status?: number }).status;
@@ -228,6 +211,13 @@ export async function pushAsset(args: string[]): Promise<void> {
 			const head = (detail as { head?: { message?: string; author?: string } } | undefined)?.head;
 			console.error(`Your version: ${message}`);
 			console.error(`Their version: ${head?.message ?? "Unknown"} by ${head?.author ?? "Unknown"}`);
+			// Overriding someone else's version is a decision, so it is never
+			// made on their behalf when nobody is there to make it.
+			if (nonInteractive) {
+				console.error(`Run \`harness push\` from a terminal to choose, or \`harness reset ${kind}/${name}\`.`);
+				process.exitCode = 1;
+				return;
+			}
 			const choice = (await prompt("[k]eep pushing mine / [a]bort: ")).trim().toLowerCase();
 			if (choice !== "k") return;
 			await api(credentials, `/v1/assets/${existing?.id}/versions`, {
@@ -238,6 +228,7 @@ export async function pushAsset(args: string[]): Promise<void> {
 					files,
 				}),
 			});
+			await record(path, message);
 			return;
 		}
 		if (status === 422 && Array.isArray(detail)) {
@@ -250,11 +241,23 @@ export async function pushAsset(args: string[]): Promise<void> {
 
 export async function main(argv = process.argv.slice(2)): Promise<number> {
 	const args = [...argv];
+	if (args[0] === "--help" || args[0] === "-h") return help();
+	if (args[0] === "--version" || args[0] === "-v") {
+		console.log(VERSION);
+		return 0;
+	}
 	const command = args[0] && !args[0].startsWith("-") ? args.shift() : "run";
+	if (command === "help") return help();
+	if (command === "man") return manual();
 	if (command === "login") await login(args);
 	else if (command === "whoami") await whoami();
 	else if (command === "resolve") await resolveManifest(args);
 	else if (command === "push") await pushAsset(args);
+	else if (command === "pull") return pull();
+	else if (command === "doctor") return doctor(args);
+	else if (command === "status") return status();
+	else if (command === "reset") return reset(args);
+	else if (command === "adopt") return adopt(args);
 	else if (command === "run") return run(args);
 	else return run(argv);
 	return 0;

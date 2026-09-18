@@ -1,7 +1,7 @@
 import base64
 import json
 from datetime import UTC
-from typing import Annotated, Literal
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, status
@@ -32,7 +32,7 @@ class FileInput(BaseModel):
 
 class AssetCreate(BaseModel):
     org_unit_id: UUID
-    kind: Literal["connection", "tool", "skill", "memory"]
+    kind: str = Field(min_length=1, max_length=40)
     name: str = Field(min_length=1, max_length=200)
     message: str = Field(min_length=1, max_length=500)
     files: list[FileInput]
@@ -118,6 +118,17 @@ async def create_asset(
             await effective_boundary(connection, body.org_unit_id),
             await _visible_refs(connection, body.org_unit_id),
         )
+        known = await connection.fetchval(
+            "select exists(select 1 from asset_kinds where kind=$1)", body.kind
+        )
+        if not known:
+            rows = await connection.fetch("select kind from asset_kinds order by kind")
+            kinds = ", ".join(row["kind"] for row in rows)
+            raise ApiError(
+                422,
+                "unknown_asset_kind",
+                f"Unknown kind '{body.kind}'. Known kinds: {kinds}.",
+            )
         asset = await connection.fetchrow(
             """insert into assets(org_unit_id,kind,name) values($1,$2,$3) returning *""",
             body.org_unit_id,

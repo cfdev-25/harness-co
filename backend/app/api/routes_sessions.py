@@ -9,7 +9,6 @@ from pydantic import BaseModel, Field
 from app.api.deps import current_principal, current_user_unit, require_write
 from app.db import get_pool
 from app.domain.harness_sessions import owned_session
-from app.errors import ApiError
 from app.identity import Principal
 
 router = APIRouter(tags=["sessions"])
@@ -103,12 +102,6 @@ async def delete_session(
     request: Request,
     principal: Annotated[Principal, Depends(current_principal)],
 ) -> Response:
-    session = await owned_session(get_pool(request), session_id, principal.auth_user_id)
-    if session["legal_hold"]:
-        raise ApiError(
-            409,
-            "session_on_legal_hold",
-            "This session cannot be deleted while it is on legal hold.",
-        )
+    await owned_session(get_pool(request), session_id, principal.auth_user_id)
     await get_pool(request).execute("delete from harness_sessions where id=$1", session_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

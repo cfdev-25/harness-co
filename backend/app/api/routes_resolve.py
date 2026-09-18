@@ -29,7 +29,7 @@ async def resolve(
             )
             model["env_var"] = key["env_var"] if key else None
         manifest = {
-            "manifest_version": 1,
+            "manifest_version": 3,
             "issued_at": datetime.now(UTC),
             "ttl_seconds": 900,
             "user": {
@@ -37,16 +37,9 @@ async def resolve(
                 "email": principal.email,
                 "org_unit_path": user_unit["path"],
             },
-            "skills": [a for a in assets if a["kind"] == "skill"],
-            "memories": [a for a in assets if a["kind"] == "memory"],
-            "connections": [a for a in assets if a["kind"] == "connection"],
-            "tools": [a for a in assets if a["kind"] == "tool"],
+            "assets": assets,
             "boundary": boundary,
             "model": model,
-            "budget_state": {
-                "monthly_usd_cap": boundary["budget"]["monthly_usd_cap"],
-                "spent_usd": 0.0,
-            },
         }
         await append_event(
             connection,

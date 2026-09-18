@@ -6,13 +6,14 @@ import asyncpg
 from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel, Field
 
-from app.api.deps import current_principal, current_user_unit, require_admin
+from app.api.deps import current_principal, current_user_unit, require_admin, require_can_grant
 from app.config import get_settings
 from app.db import get_pool, transaction
 from app.domain.audit import append_event
 from app.domain.org_tree import (
     Boundary,
     effective_boundary,
+    email_label,
     slugify,
     validate_role_order,
     validate_tightening,
@@ -42,7 +43,7 @@ class OrgCreate(BaseModel):
 
 class InviteCreate(BaseModel):
     email: str = Field(min_length=3, max_length=320)
-    admin_level: Literal["admin", "platform"] | None = None
+    admin_level: Literal["owner", "admin"] | None = None
     admin_unit_id: UUID | None = None
 
 
@@ -136,7 +137,7 @@ async def create_org(
                values($1,'user',$2,$3,$4) returning *""",
             team["id"],
             user_name,
-            f"{team['path']}.{slugify(user_name)}",
+            f"{team['path']}.{email_label(user_name)}",
             team["region"],
         )
         await connection.execute(
@@ -146,7 +147,7 @@ async def create_org(
         )
         await connection.execute(
             """insert into org_unit_admins(auth_user_id,org_unit_id,level)
-               values($1,$2,'platform')""",
+               values($1,$2,'owner')""",
             principal.auth_user_id,
             org["id"],
         )
@@ -178,7 +179,7 @@ async def create_invite(
             raise ApiError(422, "invite_target_not_team", "Invites must target a team.")
         await require_admin(connection, principal, org_unit_id)
         if body.admin_level and body.admin_unit_id:
-            await require_admin(connection, principal, body.admin_unit_id)
+            await require_can_grant(connection, principal, body.admin_level, body.admin_unit_id)
         elif body.admin_level or body.admin_unit_id:
             raise ApiError(
                 422,
