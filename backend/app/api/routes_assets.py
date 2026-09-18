@@ -1,7 +1,7 @@
 import base64
 import json
 from datetime import UTC
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, status
@@ -44,6 +44,10 @@ class VersionCreate(BaseModel):
     files: list[FileInput]
 
 
+class AssetUpdate(BaseModel):
+    status: Literal["active", "archived"]
+
+
 class PromoteInput(BaseModel):
     target_org_unit_id: UUID
     message: str | None = None
@@ -84,7 +88,8 @@ async def list_assets(
     if not await can_read(pool, principal, user_unit["id"], org_unit_id):
         raise ApiError(403, "org_unit_not_visible", "You do not have access to this org unit.")
     rows = await pool.fetch(
-        """select a.*,v.seq head_seq,v.message head_message from assets a
+        """select a.*,v.seq head_seq,v.message head_message,v.created_at head_updated_at
+           from assets a
            left join asset_versions v on v.id=a.head_version_id
            where a.org_unit_id=$1 order by a.kind,a.name""",
         org_unit_id,
@@ -101,6 +106,82 @@ async def get_asset(
 ) -> dict:
     asset = await _asset_access(get_pool(request), principal, user_unit, asset_id)
     return dict(asset)
+
+
+@router.patch("/assets/{asset_id}")
+async def update_asset(
+    asset_id: UUID,
+    body: AssetUpdate,
+    request: Request,
+    principal: Annotated[Principal, Depends(current_principal)],
+    user_unit: Annotated[dict, Depends(current_user_unit)],
+) -> dict:
+    """Archiving is how an asset is switched off.
+
+    `resolved_assets` only reads active rows, so an archived asset stops
+    reaching sessions while every version of it stays where it is.
+    """
+    async with transaction(get_pool(request)) as connection:
+        asset = await _asset_access(connection, principal, user_unit, asset_id)
+        await require_write(connection, principal, user_unit["id"], asset["org_unit_id"])
+        row = await connection.fetchrow(
+            "update assets set status=$2 where id=$1 returning *", asset_id, body.status
+        )
+        await append_event(
+            connection,
+            org_unit_id=asset["org_unit_id"],
+            actor_type="user",
+            actor_id=principal.auth_user_id,
+            event_class="authoritative",
+            action="asset.status",
+            payload={"asset_id": str(asset_id), "status": body.status},
+        )
+        return dict(row)
+
+
+@router.get("/assets/{asset_id}/lineage")
+async def lineage(
+    asset_id: UUID,
+    request: Request,
+    principal: Annotated[Principal, Depends(current_principal)],
+    user_unit: Annotated[dict, Depends(current_user_unit)],
+) -> list[dict]:
+    """The same (kind, name) everywhere it exists above and below this asset.
+
+    An asset resolves from the nearest active ancestor, so this is what tells
+    someone whether their own copy still matches the one they took it from:
+    `promoted_from_seq` is the version they copied, and the source row's `seq`
+    is where that source has since got to.
+    """
+    pool = get_pool(request)
+    asset = await _asset_access(pool, principal, user_unit, asset_id)
+    rows = await pool.fetch(
+        """with recursive up as (
+             select id,parent_id from org_units where id=$1
+             union all select p.id,p.parent_id from org_units p join up c on c.parent_id=p.id
+           ), down as (
+             select id,parent_id from org_units where id=$1
+             union all select u.id,u.parent_id from org_units u join down d on u.parent_id=d.id
+           ), related as (select id from up union select id from down)
+           select u.id org_unit_id,u.name,u.role,u.path,
+                  a.id asset_id,a.status,
+                  v.id version_id,v.seq,v.created_at updated_at,
+                  src.asset_id promoted_from_asset_id,src.seq promoted_from_seq
+             from related r
+             join org_units u on u.id=r.id
+             join assets a on a.org_unit_id=u.id and a.kind=$2 and a.name=$3
+             left join asset_versions v on v.id=a.head_version_id
+             left join asset_versions src on src.id=(v.provenance->>'promoted_from')::uuid
+            order by u.path""",
+        asset["org_unit_id"],
+        asset["kind"],
+        asset["name"],
+    )
+    visible = []
+    for row in rows:
+        if await can_read(pool, principal, user_unit["id"], row["org_unit_id"]):
+            visible.append(dict(row))
+    return visible
 
 
 @router.post("/assets", status_code=status.HTTP_201_CREATED)

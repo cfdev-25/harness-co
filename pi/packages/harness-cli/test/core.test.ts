@@ -67,7 +67,7 @@ describe("frontmatterName", () => {
 });
 
 describe("instruction ordering", () => {
-	it("puts prompts before memories, broadest scope first", async () => {
+	it("puts system prompts before memories, broadest scope first", async () => {
 		process.env.HARNESS_HOME = await mkdtemp(join(tmpdir(), "harness-order-"));
 		const b64 = (text: string) => Buffer.from(text).toString("base64");
 		const asset = (kind: string, name: string, path: string, body: string) => ({
@@ -80,10 +80,10 @@ describe("instruction ordering", () => {
 			user: { auth_user_id: "u", org_unit_path: "org.team.user" },
 			assets: [
 				// Deliberately shuffled: the renderer must impose the order.
-				asset("prompt", "mine", "org.team.user", "USER"),
+				asset("system_prompt", "mine", "org.team.user", "USER"),
 				asset("memory", "notes", "org.team", "MEMORY"),
-				asset("prompt", "house", "org.team", "TEAM"),
-				asset("prompt", "wide", "org", "ORG"),
+				asset("system_prompt", "house", "org.team", "TEAM"),
+				asset("system_prompt", "wide", "org", "ORG"),
 			],
 			boundary: {},
 			model: {
@@ -97,9 +97,38 @@ describe("instruction ordering", () => {
 
 		const session = await materializeManifest(manifest, "ord");
 		const text = await readFile(join(session.agent, "AGENTS.md"), "utf8");
-		// A user's prompt extends the team's; it never precedes it.
+		// A user's system prompt extends the team's; it never precedes it.
 		expect(text.indexOf("ORG")).toBeLessThan(text.indexOf("TEAM"));
 		expect(text.indexOf("TEAM")).toBeLessThan(text.indexOf("USER"));
 		expect(text.indexOf("USER")).toBeLessThan(text.indexOf("MEMORY"));
+	});
+});
+
+describe("saved prompts", () => {
+	it("writes one file per name and keeps them out of the instructions", async () => {
+		process.env.HARNESS_HOME = await mkdtemp(join(tmpdir(), "harness-saved-"));
+		const manifest = {
+			user: { auth_user_id: "u", org_unit_path: "org.team" },
+			assets: [
+				{
+					kind: "system_prompt",
+					name: "house-style",
+					files: [{ path: "F.md", content_b64: Buffer.from("BEHAVIOUR").toString("base64") }],
+				},
+				{
+					kind: "prompt",
+					name: "weekly-update",
+					files: [{ path: "F.md", content_b64: Buffer.from("SAVED TEXT").toString("base64") }],
+				},
+			],
+			boundary: {},
+			model: { provider: "p", model_id: "m", base_url: "http://x", key_ref: "r", env_var: "E" },
+		} as unknown as Manifest;
+
+		const session = await materializeManifest(manifest, "saved");
+		expect(await readFile(join(session.agent, "prompts", "weekly-update.md"), "utf8")).toBe("SAVED TEXT");
+		const instructions = await readFile(join(session.agent, "AGENTS.md"), "utf8");
+		expect(instructions).toContain("BEHAVIOUR");
+		expect(instructions).not.toContain("SAVED TEXT");
 	});
 });

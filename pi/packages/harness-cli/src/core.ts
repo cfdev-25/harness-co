@@ -134,6 +134,7 @@ export async function materializeManifest(manifest: Manifest, id: string = rando
 	const root = sessionDir(id);
 	const agent = join(root, "agent");
 	await mkdir(join(agent, "skills"), { recursive: true, mode: 0o700 });
+	await mkdir(join(agent, "prompts"), { recursive: true, mode: 0o700 });
 	await mkdir(join(agent, "sessions"), { recursive: true, mode: 0o700 });
 
 	const providerId = manifest.model.provider;
@@ -171,21 +172,27 @@ export async function materializeManifest(manifest: Manifest, id: string = rando
 	const byKind = (kind: string) => (manifest.assets ?? []).filter((asset) => asset.kind === kind);
 	for (const skill of byKind("skill")) await writeAssetFiles(join(agent, "skills", safeName(skill.name)), skill);
 
-	// Broadest scope first, so a user's own prompt extends the team's rather
-	// than preceding it. A shorter owning path means a wider unit.
+	const contents = (asset: ManifestAsset) =>
+		asset.files.map((file) => Buffer.from(file.content_b64, "base64").toString("utf8")).join("\n\n");
+
+	// Broadest scope first, so a user's own system prompt extends the team's
+	// rather than preceding it. A shorter owning path means a wider unit.
 	const scope = (asset: ManifestAsset) => (asset.org_unit_path ?? "").length;
 	const render = (assets: ManifestAsset[]) =>
 		[...assets]
 			.sort((a, b) => scope(a) - scope(b) || a.name.localeCompare(b.name))
-			.map((asset) => {
-				const text = asset.files
-					.map((file) => Buffer.from(file.content_b64, "base64").toString("utf8"))
-					.join("\n\n");
-				return `## ${asset.name}\n\n${text}`;
-			});
-	// Prompts are the preamble; memories are standing context after it.
-	const instructions = [...render(byKind("prompt")), ...render(byKind("memory"))].join("\n\n");
+			.map((asset) => `## ${asset.name}\n\n${contents(asset)}`);
+	// System prompts are the preamble; memories are standing context after it.
+	// Both end up in the system prompt for every message of the session.
+	const instructions = [...render(byKind("system_prompt")), ...render(byKind("memory"))].join("\n\n");
 	await writeFile(join(agent, "AGENTS.md"), `${instructions}\n`);
+
+	// A saved prompt is not an instruction: nothing reaches the model until
+	// someone picks it from `/`. One file per name, because the agent takes the
+	// command name from the filename.
+	for (const saved of byKind("prompt")) {
+		await writeFile(join(agent, "prompts", `${safeName(saved.name)}.md`), contents(saved), { mode: 0o600 });
+	}
 
 	const builtins = ["read", "bash", "edit", "write", "grep", "find", "ls"];
 	const allowedTools = Array.from(

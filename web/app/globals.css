@@ -6,32 +6,41 @@
 @source "../lib";
 
 @theme {
-  /* Brand */
+  /* Surfaces, lightest last. `canvas` is the page, `surface` is a panel, and
+     `sunken` is anything recessed inside one: table heads, wells, chips. */
+  --color-canvas: #f3ebe0;
+  --color-sunken: #f7f0e6;
+  --color-surface: #fffdf9;
+
+  /* Dark chrome: the top bar, command blocks, and JSON views. */
   --color-ink: #2b211c;
+  --color-ink-raised: #3a2d25;
+  --color-ink-line: #4d3e35;
+  --color-ink-text: #ece0d4;
+  --color-ink-muted: #b3a094;
+
+  /* Two border weights only: `line` is structural, `hairline` divides rows. */
+  --color-line: #ddcfc0;
+  --color-hairline: #ece2d6;
+
+  /* Text starts at --color-ink, then two steps of recession. */
+  --color-muted: #776a60;
+  --color-faint: #9c8e83;
+
+  /* Accent carries selection, focus, and emphasis — never a text background:
+     white on #c8875a does not clear 4.5:1, so the primary button is ink. */
   --color-accent: #c8875a;
-  --color-paper: #f2e8dc;
-  --color-cream: #f8f2eb;
-  --color-line: #dccdbf;
-  --color-muted: #786a61;
-  --color-card: #fffdf9;
+  --color-accent-deep: #9e5c33;
+  --color-accent-soft: #f6e5d6;
 
-  /* Surfaces derived from the brand colours */
-  --color-ink-line: #493c35;
-  --color-ink-edge: #5b4d45;
-  --color-ink-mute: #c9b9ac;
-  --color-ink-copy: #eadbce;
-  --color-hairline: #ebe1d7;
-  --color-faint: #9a8c82;
-
-  /* Status */
-  --color-tag: #6b5f57;
-  --color-ok: #426644;
-  --color-ok-bg: #e5eee1;
-  --color-icon: #8b5432;
-  --color-icon-bg: #f4dfd0;
-  --color-warn: #7c382d;
-  --color-warn-bg: #f9e4dc;
-  --color-warn-line: #e0b7a4;
+  /* Status tones, each a solid member (text, dots) and a soft member (fills).
+     `hold` is for states that are true but provisional: grace, pending. */
+  --color-ok: #3c6547;
+  --color-ok-soft: #e3eedd;
+  --color-hold: #7e5c1f;
+  --color-hold-soft: #f7eacf;
+  --color-warn: #8a3b2d;
+  --color-warn-soft: #f9e2d9;
 
   /* Typography — the families come from next/font in layout.tsx */
   --font-sans: var(--font-manrope), system-ui, sans-serif;
@@ -40,6 +49,7 @@
 
 @layer base {
   html {
+    color-scheme: light;
     font-family: var(--font-sans);
     font-synthesis: none;
     -webkit-font-smoothing: antialiased;
@@ -48,7 +58,29 @@
   body {
     min-width: 320px;
     min-height: 100vh;
-    background-color: var(--color-cream);
+    background-color: var(--color-canvas);
     color: var(--color-ink);
   }
+
+  ::selection {
+    background-color: var(--color-accent-soft);
+  }
+
+  /* Native markers would sit beside the mono summaries in the audit and
+     boundary panels at a size we cannot control. The rotating caret in
+     `Disclosure` replaces them. */
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  summary {
+    list-style: none;
+  }
+}
+
+/* The signed-out screens sit on a wash of the two brand colours. */
+@utility brand-wash {
+  background-image:
+    radial-gradient(circle at 12% 8%, rgba(200, 135, 90, 0.2) 0, transparent 38%),
+    radial-gradient(circle at 88% 94%, rgba(43, 33, 28, 0.12) 0, transparent 38%);
 }

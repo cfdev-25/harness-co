@@ -1,185 +1,113 @@
 "use client";
 
 import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { accessToken, supabase } from "@/lib/supabase";
+import { ApiError, list, request } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
+import {
+  ApiKey,
+  Asset,
+  AuditEvent,
+  BoundaryPolicy,
+  BoundaryView,
+  Identity,
+  Invite,
+  JsonRecord,
+  Pane,
+  Tab,
+  TreeNode,
+} from "@/lib/types";
+import { HELP } from "./help";
+import { AssetDocument } from "./asset-document";
+import { AssetManage } from "./asset-manage";
+import {
+  Alert,
+  Badge,
+  BrandMark,
+  Button,
+  Chip,
+  CommandBlock,
+  CONTROL_CLASS,
+  dateTime,
+  day,
+  Disclosure,
+  Dot,
+  EmptyState,
+  Eyebrow,
+  Field,
+  HeaderSearch,
+  Json,
+  KindTag,
+  Modal,
+  Mono,
+  Notice,
+  shortId,
+  Table,
+  TagGrid,
+  Td,
+  Toolbar,
+  Tone,
+  Tr,
+} from "./ui";
 
-type JsonRecord = Record<string, unknown>;
-type Tab = "assets" | "boundary" | "keys" | "members" | "audit";
+/* A tab's payload, tagged with the tab and unit it was fetched for. Panels
+   read structured fields now, so handing one the previous tab's response is a
+   crash rather than a cosmetic glitch — the tag is what rules that out. */
+type TabResult =
+  | { key: string; status: "loading" }
+  | { key: string; status: "ready"; value: unknown }
+  | { key: string; status: "failed"; message: string; code?: number };
 
-interface TreeNode {
-  id: string;
-  name: string;
-  role?: string;
-  children?: TreeNode[];
-}
+/* Lookups ----------------------------------------------------------------- */
 
-interface Asset {
-  id: string;
-  name: string;
-  kind?: string;
-  status?: string;
-  head_seq?: number;
-  head_version_id?: string;
-  updated_at?: string;
-}
+/* Ordered by how much of a conversation each one shapes: standing behaviour,
+   then standing facts, then what is reached for, then what acts, then wiring. */
+const ASSET_TABS: readonly Tab[] = [
+  "system_prompt",
+  "memory",
+  "skill",
+  "prompt",
+  "tool",
+  "connection",
+];
 
-interface ApiKey {
-  id: string;
-  name: string;
-  ref?: string;
-  last4?: string;
-  version?: number;
-  env_var?: string;
-  kind?: string;
-  status?: string;
-  rotated_at?: string;
-  created_at?: string;
-}
+const TABS: { id: Tab; label: string }[] = [
+  { id: "system_prompt", label: "System prompts" },
+  { id: "memory", label: "Memories" },
+  { id: "skill", label: "Skills" },
+  { id: "prompt", label: "Prompts" },
+  { id: "tool", label: "Tools" },
+  { id: "connection", label: "Connections" },
+  { id: "boundary", label: "Boundary" },
+  { id: "keys", label: "Connectors" },
+  { id: "invites", label: "Invites" },
+  { id: "audit", label: "Audit" },
+];
 
-interface AuditEvent {
-  id: string;
-  action?: string;
-  actor?: string;
-  actor_name?: string;
-  created_at?: string;
-  timestamp?: string;
-  detail?: string;
-  resource?: string;
-}
-
-interface Version {
-  id: string;
-  seq?: number;
-  message?: string;
-  author_email?: string;
-  status?: string;
-  created_at?: string;
-}
-
-interface Invite {
-  id: string;
-  email: string;
-  accepted_at?: string | null;
-  admin_level?: string | null;
-}
-
-class ApiError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message);
-  }
-}
-
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = await accessToken();
-  if (!token) throw new ApiError("Please sign in to continue.", 401);
-  const response = await fetch(path, {
-    ...init,
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
-      ...init.headers,
-    },
-  });
-  if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    const message =
-      body && typeof body === "object" && "message" in body
-        ? String(body.message)
-        : `${response.status} ${response.statusText}`;
-    throw new ApiError(message, response.status);
-  }
-  if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
-}
-
-function records<T>(value: unknown, keys: string[]): T[] {
-  if (Array.isArray(value)) return value as T[];
-  if (value && typeof value === "object") {
-    const object = value as JsonRecord;
-    for (const key of keys) {
-      if (Array.isArray(object[key])) return object[key] as T[];
-    }
-  }
-  return [];
-}
-
-/* Presentation ------------------------------------------------------------ */
-
-type ButtonVariant = "default" | "primary" | "accent" | "ghost" | "bare";
-
-const BUTTON_BASE =
-  "inline-flex cursor-pointer items-center justify-center rounded-lg text-sm transition duration-150 disabled:cursor-not-allowed disabled:opacity-45";
-
-const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
-  default:
-    "border border-line bg-card px-3.5 py-2.5 text-ink hover:border-accent disabled:hover:border-line",
-  primary: "border border-ink bg-ink px-3.5 py-2.5 text-white hover:border-accent",
-  accent: "border border-accent bg-accent px-3.5 py-2.5 text-white hover:brightness-105",
-  ghost:
-    "border border-ink-edge bg-transparent px-3.5 py-2.5 text-paper hover:border-accent",
-  bare: "bg-transparent",
+/* `archived` is the stored value; "disabled" is what it does. */
+const STATUS_TONE: Record<string, Tone> = {
+  active: "ok",
+  archived: "warn",
 };
 
-function Button({
-  variant = "default",
-  full = false,
-  className = "",
-  type = "button",
-  ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: ButtonVariant;
-  full?: boolean;
-}) {
-  return (
-    <button
-      type={type}
-      className={`${BUTTON_BASE} ${BUTTON_VARIANTS[variant]} ${full ? "w-full" : ""} ${className}`}
-      {...props}
-    />
-  );
-}
-
-const INPUT_CLASS =
-  "w-full rounded-lg border border-line bg-card px-3.5 py-3 text-sm text-ink outline-none focus:border-accent focus:ring-3 focus:ring-accent/15";
-
-function Field({
-  label,
-  children,
-  ...props
-}: React.InputHTMLAttributes<HTMLInputElement> & {
-  label: string;
-  children?: ReactNode;
-}) {
-  return (
-    <label className="grid gap-2 text-[13px] font-bold">
-      {label}
-      {children ?? <input className={INPUT_CLASS} {...props} />}
-    </label>
-  );
-}
-
-/* Statuses are data-driven, so the tone is looked up rather than interpolated
-   into a class name — Tailwind only emits classes it can see in the source. */
-const BADGE_TONES: Record<string, string> = {
-  active: "bg-ok-bg text-ok",
-  promoted: "bg-ok-bg text-ok",
-  published: "bg-ok-bg text-ok",
+const STATUS_LABEL: Record<string, string> = {
+  active: "live",
+  archived: "disabled",
 };
 
-function Badge({ status }: { status: string }) {
-  const tone = BADGE_TONES[status] ?? "bg-paper text-tag";
-  return (
-    <span
-      className={`inline-flex items-center justify-center rounded-full px-2 py-[3px] text-[9px] font-bold tracking-[0.06em] uppercase ${tone}`}
-    >
-      {status}
-    </span>
-  );
-}
+const CLASS_TONE: Record<string, Tone> = {
+  authoritative: "accent",
+  attested: "hold",
+};
+
+const KEY_KIND_LABEL: Record<string, string> = {
+  provider_api_key: "Model provider",
+  static_api_key: "System",
+};
+
+const LOAD_LABEL: Record<string, string> = {
+  on_demand: "On demand",
+  always: "Always",
+};
 
 /* The CLI is the product's front door, so the thing you copy has to be the
    thing you run — not a token you then have to assemble a command around. */
@@ -190,114 +118,84 @@ const INSTALL_COMMAND = process.env.NEXT_PUBLIC_HARNESS_INSTALL ?? "npm install 
 const SHOW_RESET = process.env.NEXT_PUBLIC_HARNESS_SHOW_RESET !== "false";
 const RESET_COMMAND = "npm uninstall -g @harness/cli && rm -rf ~/.harness ~/.config/harness";
 
-function CommandBlock({ label, command, hint }: { label: string; command: string; hint?: string }) {
-  const [copied, setCopied] = useState(false);
-  async function copy() {
-    await navigator.clipboard.writeText(command);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
-  }
-  return (
-    <div className="grid gap-1.5">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="text-[11px] font-bold tracking-[0.14em] text-muted uppercase">{label}</span>
-        {hint && <span className="text-xs text-muted">{hint}</span>}
-      </div>
-      <div className="flex items-stretch gap-2">
-        <code className="min-w-0 flex-1 overflow-x-auto rounded-lg border border-line bg-ink px-3.5 py-3 font-mono text-xs whitespace-pre text-ink-copy">
-          {command}
-        </code>
-        <Button variant={copied ? "accent" : "primary"} className="shrink-0" onClick={() => void copy()}>
-          {copied ? "Copied" : "Copy"}
-        </Button>
-      </div>
-    </div>
-  );
+const USD = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+});
+
+/* Helpers ----------------------------------------------------------------- */
+
+/** Depth-first with each node's ancestors, for breadcrumbs and unit pickers. */
+function flatten(
+  nodes: TreeNode[],
+  trail: TreeNode[] = [],
+): { node: TreeNode; trail: TreeNode[] }[] {
+  return nodes.flatMap((node) => [
+    { node, trail },
+    ...flatten(node.children ?? [], [...trail, node]),
+  ]);
 }
 
-function Eyebrow({ children }: { children: ReactNode }) {
-  return (
-    <p className="mb-1.5 text-[11px] font-bold tracking-[0.14em] text-accent uppercase">
-      {children}
-    </p>
-  );
+function matches(query: string, ...fields: (string | null | undefined)[]) {
+  const needle = query.trim().toLowerCase();
+  return !needle || fields.some((field) => field?.toLowerCase().includes(needle));
 }
 
-function Panel({ children }: { children: ReactNode }) {
-  return (
-    <section className="mt-6 overflow-hidden rounded-xl border border-line bg-card">
-      {children}
-    </section>
-  );
+/* The asset tabs are one collection split by kind, so they share a request
+   and switching between them costs nothing. */
+function groupOf(tab: Tab) {
+  return ASSET_TABS.includes(tab) ? "assets" : tab;
 }
 
-function PanelHeader({
+function tabKeyFor(unitId: string, tab: Tab) {
+  return `${unitId}:${groupOf(tab)}`;
+}
+
+function counter(shown: number, total: number) {
+  return shown === total ? String(total) : `${shown} / ${total}`;
+}
+
+function brief(value: unknown) {
+  const text = typeof value === "string" ? value : JSON.stringify(value);
+  if (!text) return "null";
+  return text.length > 28 ? `${text.slice(0, 27)}…` : text;
+}
+
+/* Signed-out screens ------------------------------------------------------ */
+
+function AuthShell({
+  eyebrow,
   title,
-  hint,
-  count,
+  description,
+  children,
 }: {
+  eyebrow?: string;
   title: string;
-  hint: string;
-  count?: number;
+  description?: string;
+  children: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-line px-6 py-5">
-      <div>
-        <h2 className="text-[15px] font-semibold">{title}</h2>
-        <p className="mt-1 text-xs text-muted max-sm:hidden">{hint}</p>
-      </div>
-      {count !== undefined && (
-        <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-paper text-xs font-bold text-muted">
-          {count}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function CardRow({ children }: { children: ReactNode }) {
-  return (
-    <article className="flex items-center gap-4 border-b border-hairline px-6 py-4 last:border-b-0 max-md:flex-wrap max-md:items-start">
-      {children}
-    </article>
-  );
-}
-
-function RowMeta({ children }: { children: ReactNode }) {
-  return <p className="mt-1 text-xs text-muted">{children}</p>;
-}
-
-function EmptyState({ children }: { children: ReactNode }) {
-  return <div className="px-6 py-12 text-center text-[13px] text-muted">{children}</div>;
-}
-
-function Alert({ children }: { children: ReactNode }) {
-  return (
-    <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border border-warn-line bg-warn-bg px-3.5 py-3 text-xs text-warn">
-      {children}
-    </div>
-  );
-}
-
-function BrandMark({ small = false }: { small?: boolean }) {
-  return (
-    <div
-      className={
-        small
-          ? "grid size-8.5 place-items-center rounded-[9px_9px_4px_9px] bg-accent text-base font-bold text-ink"
-          : "grid size-11.5 place-items-center rounded-[13px_13px_5px_13px] bg-ink text-xl font-bold text-paper"
-      }
-    >
-      H
-    </div>
-  );
-}
-
-function AuthShell({ children }: { children: ReactNode }) {
-  return (
-    <main className="grid min-h-screen place-items-center bg-linear-to-br from-paper to-[#e8d6c7] p-6">
-      <section className="w-full max-w-[420px] rounded-[18px] border border-ink/10 bg-card/95 p-10 shadow-[0_24px_70px_rgba(43,33,28,0.13)] max-sm:p-7">
-        {children}
+    <main className="brand-wash grid min-h-screen place-items-center bg-canvas p-6">
+      <section className="w-full max-w-[460px] overflow-hidden rounded-xl border border-line bg-surface shadow-[0_24px_64px_rgba(43,33,28,0.14)]">
+        <div className="relative flex items-center gap-3 overflow-hidden bg-ink px-8 py-7 max-sm:px-6">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -right-20 -bottom-28 size-52 rounded-full border-[20px] border-accent/25"
+          />
+          <BrandMark small />
+          <span className="relative leading-tight">
+            <strong className="block text-[15px] text-ink-text">Harness</strong>
+            <span className="block font-mono text-[10px] text-ink-muted">control plane</span>
+          </span>
+        </div>
+        <div className="p-8 max-sm:p-6">
+          {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
+          <h1 className="mt-1.5 text-[26px] font-bold tracking-[-0.03em]">{title}</h1>
+          {description && (
+            <p className="mt-2 text-[13px] leading-relaxed text-muted">{description}</p>
+          )}
+          {children}
+        </div>
       </section>
     </main>
   );
@@ -324,15 +222,15 @@ function Login() {
   }
 
   return (
-    <AuthShell>
-      <BrandMark />
-      <div className="mt-4">
-        <Eyebrow>Harness</Eyebrow>
-      </div>
-      <h1 className="mb-1 text-3xl font-bold">
-        {mode === "signin" ? "Sign in" : "Create account"}
-      </h1>
-      <form className="mt-7 grid gap-4" onSubmit={submit}>
+    <AuthShell
+      title={mode === "signin" ? "Sign in" : "Create account"}
+      description={
+        mode === "signin"
+          ? "Administer org units, assets, connectors, and boundaries."
+          : "Your workspace is created when you accept an invite or start an organization."
+      }
+    >
+      <form className="mt-6 grid gap-4" onSubmit={submit}>
         <Field
           label="Email"
           id="email"
@@ -354,7 +252,7 @@ function Login() {
         />
         {error && <Alert>{error}</Alert>}
         <Button variant="primary" full type="submit" disabled={busy}>
-          {mode === "signin" ? "Sign in" : "Sign up"}
+          {busy ? "Working…" : mode === "signin" ? "Sign in" : "Sign up"}
         </Button>
       </form>
       <Button
@@ -389,12 +287,12 @@ function Onboarding({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <AuthShell>
-      <h1 className="text-3xl font-bold">Create an organization</h1>
-      <p className="mt-2 text-sm leading-relaxed text-muted">
-        Or ask an admin to invite this email to their team.
-      </p>
-      <form className="mt-7 grid gap-4" onSubmit={submit}>
+    <AuthShell
+      eyebrow="First run"
+      title="Create an organization"
+      description="Or ask an admin to invite this email to their team."
+    >
+      <form className="mt-6 grid gap-4" onSubmit={submit}>
         <Field label="Organization name" id="org_name" name="org_name" required autoFocus />
         <Field label="First team" id="team_name" name="team_name" defaultValue="General" />
         {error && <Alert>{error}</Alert>}
@@ -405,6 +303,8 @@ function Onboarding({ onCreated }: { onCreated: () => void }) {
     </AuthShell>
   );
 }
+
+/* Navigation -------------------------------------------------------------- */
 
 function TreeItem({
   node,
@@ -419,33 +319,41 @@ function TreeItem({
 }) {
   const [open, setOpen] = useState(true);
   const hasChildren = Boolean(node.children?.length);
+  const isSelected = selectedId === node.id;
 
   return (
     <li>
       <div
-        className={`my-0.5 flex min-h-10.5 items-center rounded-lg pr-2 ${
-          selectedId === node.id ? "bg-card shadow-[0_1px_8px_rgba(43,33,28,0.07)]" : ""
+        className={`my-px flex min-h-9 items-center rounded-md pr-1.5 ${
+          isSelected ? "bg-surface ring-1 ring-line ring-inset" : "hover:bg-canvas"
         }`}
         /* Depth is data-driven, so the indent stays an inline style. */
-        style={{ paddingLeft: `${12 + depth * 16}px` }}
+        style={{ paddingLeft: `${6 + depth * 14}px` }}
       >
         <Button
           variant="bare"
-          className="w-6 p-1 text-accent"
+          size="none"
+          className="size-5 items-center justify-center text-[9px] text-faint hover:text-accent-deep"
           onClick={() => setOpen((value) => !value)}
           aria-label={`${open ? "Collapse" : "Expand"} ${node.name}`}
           disabled={!hasChildren}
         >
-          {hasChildren ? (open ? "⌄" : "›") : "·"}
+          {hasChildren ? (open ? "▾" : "▸") : "·"}
         </Button>
         <Button
           variant="bare"
-          className="flex min-w-0 flex-1 items-center justify-between p-1 text-left"
+          size="none"
+          className="flex min-w-0 flex-1 items-center justify-between gap-2 py-1.5 pl-1 text-left"
           onClick={() => onSelect(node)}
+          aria-current={isSelected}
         >
-          <span className="truncate text-[13px] font-semibold">{node.name}</span>
+          <span className={`truncate text-[13px] ${isSelected ? "font-bold" : "font-medium"}`}>
+            {node.name}
+          </span>
           {node.role && (
-            <small className="ml-2 text-[9px] text-muted uppercase">{node.role}</small>
+            <span className="shrink-0 font-mono text-[9px] tracking-[0.06em] text-faint uppercase">
+              {node.role}
+            </span>
           )}
         </Button>
       </div>
@@ -466,43 +374,460 @@ function TreeItem({
   );
 }
 
-function Modal({
-  title,
-  onClose,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  children: ReactNode;
-}) {
-  useEffect(() => {
-    const close = (event: KeyboardEvent) => event.key === "Escape" && onClose();
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [onClose]);
+/* The unit you are in: the whole identity on hover, and on click the id
+   itself, which is the part you need anywhere else. */
+function UnitInfo({ unit, trail }: { unit: TreeNode; trail: TreeNode[] }) {
+  const [copied, setCopied] = useState(false);
+  const details = [
+    [...trail, unit].map((node) => node.name).join(" / "),
+    `${unit.role ?? "org unit"} · ${unit.id}`,
+    "Click to copy the org unit id.",
+  ].join("\n");
+
+  async function copy() {
+    await navigator.clipboard.writeText(unit.id);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1400);
+  }
 
   return (
-    <div
-      className="fixed inset-0 z-10 grid place-items-center bg-ink/60 p-5 backdrop-blur-[3px]"
-      role="presentation"
-      onMouseDown={onClose}
+    <Button
+      variant={copied ? "none" : "default"}
+      size="icon"
+      title={details}
+      aria-label={`Org unit ${unit.name} — click to copy its id`}
+      className={copied ? "border border-ok/40 bg-ok-soft text-ok" : ""}
+      onClick={() => void copy()}
     >
-      <section
-        className="max-h-[min(720px,90vh)] w-full max-w-[500px] overflow-auto rounded-2xl bg-card shadow-[0_24px_80px_rgba(20,14,11,0.3)]"
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <header className="flex items-center justify-between border-b border-line px-6 py-5">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <Button variant="bare" className="px-2 py-1 text-xl" onClick={onClose} aria-label="Close">
-            ×
-          </Button>
-        </header>
-        {children}
-      </section>
+      {copied ? "✓" : "i"}
+    </Button>
+  );
+}
+
+/* Tab panels -------------------------------------------------------------- */
+
+function AssetsPanel({
+  assets,
+  noun,
+  query,
+  onOpen,
+}: {
+  assets: Asset[];
+  noun: string;
+  query: string;
+  onOpen: (asset: Asset, pane: Pane) => void;
+}) {
+  const shown = assets.filter((asset) =>
+    matches(query, asset.name, asset.head_message, STATUS_LABEL[asset.status ?? ""]),
+  );
+
+  return (
+    <>
+      <Toolbar count={query ? counter(shown.length, assets.length) : undefined} />
+      {shown.length ? (
+        <Table head={["Name", "Version", "Message", "Updated", "Status", ""]}>
+          {shown.map((asset) => (
+            <Tr key={asset.id}>
+              <Td className="whitespace-nowrap">
+                <Button
+                  variant="bare"
+                  size="none"
+                  className="text-[13px] font-semibold underline-offset-4 hover:text-accent-deep hover:underline"
+                  onClick={() => onOpen(asset, "document")}
+                >
+                  {asset.name}
+                </Button>
+              </Td>
+              <Td>
+                {asset.head_version_id ? (
+                  <Chip title={asset.head_version_id}>{shortId(asset.head_version_id)}</Chip>
+                ) : (
+                  <Mono>no version pushed</Mono>
+                )}
+              </Td>
+              <Td>
+                <span
+                  className="block max-w-[24rem] truncate text-muted"
+                  title={asset.head_message ?? undefined}
+                >
+                  {asset.head_message ?? "—"}
+                </span>
+              </Td>
+              <Td>
+                <Mono title={dateTime(asset.head_updated_at ?? asset.created_at)}>
+                  {day(asset.head_updated_at ?? asset.created_at)}
+                </Mono>
+              </Td>
+              <Td>
+                <Badge tone={STATUS_TONE[asset.status ?? ""] ?? "neutral"}>
+                  {STATUS_LABEL[asset.status ?? ""] ?? asset.status ?? "unknown"}
+                </Badge>
+              </Td>
+              <Td className="text-right">
+                <span className="inline-flex gap-2">
+                  <Button size="sm" onClick={() => onOpen(asset, "document")}>
+                    View
+                  </Button>
+                  <Button size="sm" onClick={() => onOpen(asset, "manage")}>
+                    Manage
+                  </Button>
+                </span>
+              </Td>
+            </Tr>
+          ))}
+        </Table>
+      ) : (
+        <EmptyState>
+          {assets.length
+            ? `No ${noun} match “${query}”.`
+            : `No ${noun} are owned by this org unit.`}
+        </EmptyState>
+      )}
+    </>
+  );
+}
+
+function ControlRow({
+  label,
+  hint,
+  setHere,
+  children,
+}: {
+  label: string;
+  hint: string;
+  setHere: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-[minmax(0,19rem)_minmax(0,1fr)] items-start gap-x-6 gap-y-2 border-b border-hairline py-3.5 max-sm:grid-cols-1">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[13px] font-semibold">{label}</span>
+          <Badge tone={setHere ? "accent" : "neutral"}>{setHere ? "set here" : "inherited"}</Badge>
+        </div>
+        <p className="mt-1 text-xs leading-relaxed text-muted">{hint}</p>
+      </div>
+      <div className="min-w-0 self-center">{children}</div>
     </div>
+  );
+}
+
+/** An absent allowlist is unrestricted; an empty one permits nothing. */
+function Allowlist({ values }: { values?: string[] | null }) {
+  if (values == null) return <Mono>not constrained — no policy in this chain sets one</Mono>;
+  if (values.length === 0) return <Badge tone="warn">denies all</Badge>;
+  return <TagGrid items={values} />;
+}
+
+function Switch({ on, onLabel, offLabel }: { on: boolean; onLabel: string; offLabel: string }) {
+  return <Badge tone={on ? "ok" : "neutral"}>{on ? onLabel : offLabel}</Badge>;
+}
+
+function BoundaryPanel({ boundary }: { boundary?: BoundaryView }) {
+  if (!boundary) return <EmptyState>No boundary document was returned.</EmptyState>;
+
+  const own = boundary.own ?? {};
+  const effective = boundary.effective ?? {};
+  const setHere = (key: keyof BoundaryPolicy) => own[key] !== undefined;
+
+  return (
+    <div className="pt-2">
+      <ControlRow
+        label="Network egress"
+        hint="Hosts the harness may reach. The chain is intersected, so a parent can never be widened."
+        setHere={setHere("egress_allowlist")}
+      >
+        <Allowlist values={effective.egress_allowlist} />
+      </ControlRow>
+      <ControlRow
+        label="Allowed connections"
+        hint="Connection assets a skill may require by name. The chain is intersected here too."
+        setHere={setHere("connector_allowlist")}
+      >
+        <Allowlist values={effective.connector_allowlist} />
+      </ControlRow>
+      <ControlRow
+        label="Deploy approval"
+        hint="Whether a version must be approved before it can be promoted."
+        setHere={setHere("approvals")}
+      >
+        <Switch
+          on={effective.approvals?.deploy === "required"}
+          onLabel="Required"
+          offLabel="Not required"
+        />
+      </ControlRow>
+      <ControlRow
+        label="Asset loading"
+        hint="How assets reach a session. A prescribed policy cannot be changed further down."
+        setHere={setHere("load_policy")}
+      >
+        <span className="inline-flex flex-wrap items-center gap-2">
+          <Badge tone="neutral">
+            {LOAD_LABEL[effective.load_policy?.default ?? ""] ?? "On demand"}
+          </Badge>
+          {effective.load_policy?.prescribed && <Badge tone="accent">prescribed</Badge>}
+        </span>
+      </ControlRow>
+      <ControlRow
+        label="Push review"
+        hint="Whether a pushed version waits for review before it becomes the head."
+        setHere={setHere("build_policy")}
+      >
+        <Switch
+          on={Boolean(effective.build_policy?.push_review)}
+          onLabel="Required"
+          offLabel="Not required"
+        />
+      </ControlRow>
+      <ControlRow
+        label="Monthly spend cap"
+        hint="The lowest cap anywhere in the chain wins."
+        setHere={setHere("budget")}
+      >
+        {effective.budget?.monthly_usd_cap == null ? (
+          <Mono>no cap set in this chain</Mono>
+        ) : (
+          <Chip>{USD.format(effective.budget.monthly_usd_cap)} / month</Chip>
+        )}
+      </ControlRow>
+      <ControlRow
+        label="Request rate"
+        hint="The lowest rate anywhere in the chain wins."
+        setHere={setHere("budget")}
+      >
+        {effective.budget?.requests_per_minute == null ? (
+          <Mono>no rate limit set in this chain</Mono>
+        ) : (
+          <Chip>{effective.budget.requests_per_minute} / minute</Chip>
+        )}
+      </ControlRow>
+      <div className="pt-4 font-mono text-[11px]">
+        <Disclosure summary="raw policy document">
+          <Json value={boundary} />
+        </Disclosure>
+      </div>
+    </div>
+  );
+}
+
+function KeysPanel({
+  keys,
+  query,
+  onCreate,
+  onRotate,
+}: {
+  keys: ApiKey[];
+  query: string;
+  onCreate: () => void;
+  onRotate: (key: ApiKey) => void;
+}) {
+  const shown = keys.filter((key) => matches(query, key.name, key.env_var, key.ref));
+
+  return (
+    <>
+      <Toolbar
+        count={query ? counter(shown.length, keys.length) : undefined}
+        actions={
+          <Button variant="primary" size="sm" onClick={onCreate}>
+            Add connector
+          </Button>
+        }
+      />
+      {shown.length ? (
+        <Table
+          head={[
+            "Name",
+            "Kind",
+            "Environment variable",
+            "Reference",
+            "Ends in",
+            "Version",
+            "Added",
+            "",
+          ]}
+        >
+          {shown.map((key) => (
+            <Tr key={key.id}>
+              <Td className="font-semibold whitespace-nowrap">{key.name}</Td>
+              <Td className="text-muted">{KEY_KIND_LABEL[key.kind ?? ""] ?? key.kind ?? "—"}</Td>
+              <Td>{key.env_var ? <Chip>{key.env_var}</Chip> : <Mono>—</Mono>}</Td>
+              <Td>
+                {key.ref ? (
+                  <Chip title={key.ref}>
+                    <span className="max-w-[16rem] truncate">{key.ref}</span>
+                  </Chip>
+                ) : (
+                  <Mono>—</Mono>
+                )}
+              </Td>
+              <Td>
+                <Mono>••••{key.last4 ?? "—"}</Mono>
+              </Td>
+              <Td>
+                <Chip>v{key.version ?? "?"}</Chip>
+              </Td>
+              <Td>
+                <Mono>{day(key.created_at)}</Mono>
+              </Td>
+              <Td className="text-right">
+                <Button size="sm" onClick={() => onRotate(key)}>
+                  Rotate
+                </Button>
+              </Td>
+            </Tr>
+          ))}
+        </Table>
+      ) : (
+        <EmptyState>
+          {keys.length
+            ? `No connectors match “${query}”.`
+            : "No connectors are configured for this unit."}
+        </EmptyState>
+      )}
+    </>
+  );
+}
+
+function InvitesPanel({
+  unit,
+  invites,
+  query,
+  onInvite,
+  onRevoke,
+}: {
+  unit: TreeNode;
+  invites: Invite[];
+  query: string;
+  onInvite: (event: FormEvent<HTMLFormElement>) => void;
+  onRevoke: (invite: Invite) => void;
+}) {
+  const shown = invites.filter((invite) => matches(query, invite.email, invite.admin_level));
+
+  return (
+    <>
+      <Toolbar count={query ? counter(shown.length, invites.length) : undefined} />
+      <div className="mb-6 max-w-[44rem] rounded-lg border border-line bg-sunken p-4">
+        {unit.role === "team" ? (
+          <form
+            className="grid gap-4 sm:grid-cols-[minmax(0,18rem)_auto] sm:items-end"
+            onSubmit={onInvite}
+          >
+            <Field
+              label="Email"
+              name="email"
+              type="email"
+              required
+              placeholder="person@example.com"
+            />
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-[13px]">
+                <input name="admin" type="checkbox" className="size-4 accent-accent" />
+                Team admin
+              </label>
+              <Button variant="primary" type="submit">
+                Send invite
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <Notice>
+            Invites belong to a team. Select a team in the organization tree to invite someone.
+          </Notice>
+        )}
+      </div>
+      {shown.length ? (
+        <Table head={["Email", "State", "Admin grant", "Invited", ""]}>
+          {shown.map((invite) => (
+            <Tr key={invite.id}>
+              <Td className="font-semibold whitespace-nowrap">{invite.email}</Td>
+              <Td>
+                <Badge tone={invite.accepted_at ? "ok" : "hold"}>
+                  {invite.accepted_at ? "accepted" : "pending"}
+                </Badge>
+              </Td>
+              <Td>
+                {invite.admin_level ? (
+                  <Badge tone="accent">{invite.admin_level}</Badge>
+                ) : (
+                  <Mono>—</Mono>
+                )}
+              </Td>
+              <Td>
+                <Mono>{day(invite.created_at)}</Mono>
+              </Td>
+              <Td className="text-right">
+                {!invite.accepted_at && (
+                  <Button size="sm" onClick={() => onRevoke(invite)}>
+                    Revoke
+                  </Button>
+                )}
+              </Td>
+            </Tr>
+          ))}
+        </Table>
+      ) : (
+        <EmptyState>
+          {invites.length ? `No invites match “${query}”.` : "No invites for this team yet."}
+        </EmptyState>
+      )}
+    </>
+  );
+}
+
+function Payload({ value }: { value?: JsonRecord }) {
+  const entries = Object.entries(value ?? {});
+  if (!entries.length) return <Mono>—</Mono>;
+  return (
+    <div className="max-w-[24rem] font-mono text-[11px]">
+      <Disclosure summary={entries.map(([key, item]) => `${key}=${brief(item)}`).join("  ")}>
+        <Json value={value} />
+      </Disclosure>
+    </div>
+  );
+}
+
+function AuditPanel({ events, query }: { events: AuditEvent[]; query: string }) {
+  const shown = events.filter((event) =>
+    matches(query, event.action, event.actor_type, event.class),
+  );
+
+  return (
+    <>
+      <Toolbar count={query ? counter(shown.length, events.length) : undefined} />
+      {shown.length ? (
+        <Table head={["Time", "Action", "Class", "Actor", "Payload"]}>
+          {shown.map((event) => (
+            <Tr key={event.id}>
+              <Td className="whitespace-nowrap">
+                <Mono>{dateTime(event.created_at)}</Mono>
+              </Td>
+              <Td>
+                <Chip>{event.action ?? "—"}</Chip>
+              </Td>
+              <Td>
+                <Badge tone={CLASS_TONE[event.class ?? ""] ?? "neutral"}>
+                  {event.class ?? "—"}
+                </Badge>
+              </Td>
+              <Td className="whitespace-nowrap">
+                <span className="inline-flex items-center gap-2">
+                  <span>{event.actor_type ?? "—"}</span>
+                  <Mono title={event.actor_id ?? undefined}>{shortId(event.actor_id)}</Mono>
+                </span>
+              </Td>
+              <Td>
+                <Payload value={event.payload} />
+              </Td>
+            </Tr>
+          ))}
+        </Table>
+      ) : (
+        <EmptyState>
+          {events.length ? `No events match “${query}”.` : "No audit events for this unit."}
+        </EmptyState>
+      )}
+    </>
   );
 }
 
@@ -511,23 +836,40 @@ function Modal({
 export function AdminApp() {
   const [signedIn, setSignedIn] = useState(false);
   const [needsOrg, setNeedsOrg] = useState(false);
+  const [identity, setIdentity] = useState<Identity>();
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [selected, setSelected] = useState<TreeNode>();
-  const [tab, setTab] = useState<Tab>("assets");
-  const [data, setData] = useState<unknown>();
+  const [tab, setTab] = useState<Tab>("system_prompt");
+  const [search, setSearch] = useState("");
+  const [result, setResult] = useState<TabResult>();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<{
+    message: string;
+    status?: number;
+  } | null>(null);
   const [showCreateKey, setShowCreateKey] = useState(false);
   const [rotateKey, setRotateKey] = useState<ApiKey>();
-  const [historyAsset, setHistoryAsset] = useState<Asset>();
-  const [history, setHistory] = useState<Version[]>([]);
+  /* The asset screen is open on an id, not on a row: the row is read back from
+     the reloaded list, so restoring a version or disabling the asset updates
+     what is on screen instead of leaving a stale snapshot. */
+  const [viewingId, setViewingId] = useState<string>();
+  const [pane, setPane] = useState<Pane>("document");
+  const [showDocs, setShowDocs] = useState(false);
   const [cliToken, setCliToken] = useState("");
   const loadSequence = useRef(0);
+
+  const fail = useCallback((cause: unknown) => {
+    setError({
+      message: cause instanceof Error ? cause.message : String(cause),
+      status: cause instanceof ApiError ? cause.status : undefined,
+    });
+  }, []);
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
     setSignedIn(false);
     setNeedsOrg(false);
+    setIdentity(undefined);
     setSelected(undefined);
     setTree([]);
   }, []);
@@ -546,30 +888,26 @@ export function AdminApp() {
 
   const loadWorkspace = useCallback(async () => {
     setLoading(true);
-    setError("");
+    setError(null);
     try {
-      await api("/v1/me");
+      setIdentity(await api<Identity>("/v1/me"));
       setNeedsOrg(false);
-      const value = await api<unknown>("/v1/tree");
-      const nodes = records<TreeNode>(value, ["tree", "roots", "items", "org_units"]);
-      const root =
-        nodes.length > 0
-          ? nodes
-          : value && typeof value === "object" && "id" in value
-            ? [value as TreeNode]
-            : [];
-      setTree(root);
-      setSelected((current) => current ?? root[0]);
+      /* `/v1/tree` answers with the single visible root, or with a parentless
+         `{children: […]}` wrapper when more than one root is visible. */
+      const root = await api<Partial<TreeNode> & { children?: TreeNode[] }>("/v1/tree");
+      const roots = root.id ? [root as TreeNode] : (root.children ?? []);
+      setTree(roots);
+      setSelected((current) => current ?? roots[0]);
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 404) {
         setNeedsOrg(true);
         return;
       }
-      setError((cause as Error).message);
+      fail(cause);
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [api, fail]);
 
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -580,30 +918,37 @@ export function AdminApp() {
     return () => data.subscription.unsubscribe();
   }, [loadWorkspace]);
 
+  /* Keyed on the group, not the tab, so the five asset tabs read one reply
+     and switching between them does not go back to the server. */
+  const group = groupOf(tab);
   const loadTab = useCallback(() => {
     if (!selected) return;
     const sequence = ++loadSequence.current;
-    const paths: Record<Tab, string> = {
-      assets: `/v1/org-units/${encodeURIComponent(selected.id)}/assets`,
-      boundary: `/v1/org-units/${encodeURIComponent(selected.id)}/boundary`,
-      keys: `/v1/org-units/${encodeURIComponent(selected.id)}/api-keys`,
-      members: `/v1/org-units/${encodeURIComponent(selected.id)}/invites`,
-      audit: `/v1/org-units/${encodeURIComponent(selected.id)}/audit`,
+    const key = `${selected.id}:${group}`;
+    const unit = encodeURIComponent(selected.id);
+    const paths: Record<string, string> = {
+      assets: `/v1/org-units/${unit}/assets`,
+      boundary: `/v1/org-units/${unit}/boundary`,
+      keys: `/v1/org-units/${unit}/api-keys`,
+      invites: `/v1/org-units/${unit}/invites`,
+      audit: `/v1/org-units/${unit}/audit`,
     };
-    setLoading(true);
-    setError("");
-    setData(undefined);
-    api<unknown>(paths[tab])
+    /* The key makes a late reply for a tab you have left harmless, and the
+       sequence stops it from overwriting the reply you are now waiting on. */
+    api<unknown>(paths[group])
       .then((value) => {
-        if (sequence === loadSequence.current) setData(value);
+        if (sequence === loadSequence.current) setResult({ key, status: "ready", value });
       })
-      .catch((cause: Error) => {
-        if (sequence === loadSequence.current) setError(cause.message);
-      })
-      .finally(() => {
-        if (sequence === loadSequence.current) setLoading(false);
+      .catch((cause: unknown) => {
+        if (sequence !== loadSequence.current) return;
+        setResult({
+          key,
+          status: "failed",
+          message: cause instanceof Error ? cause.message : String(cause),
+          code: cause instanceof ApiError ? cause.status : undefined,
+        });
       });
-  }, [api, selected, tab]);
+  }, [api, group, selected]);
 
   useEffect(() => {
     if (!selected) return;
@@ -615,7 +960,7 @@ export function AdminApp() {
     event.preventDefault();
     if (!selected) return;
     const form = new FormData(event.currentTarget);
-    setError("");
+    setError(null);
     try {
       await api("/v1/api-keys", {
         method: "POST",
@@ -630,15 +975,15 @@ export function AdminApp() {
       setShowCreateKey(false);
       loadTab();
     } catch (cause) {
-      setError((cause as Error).message);
+      fail(cause);
     }
   }
 
   async function rotate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selected || !rotateKey) return;
+    if (!rotateKey) return;
     const form = new FormData(event.currentTarget);
-    setError("");
+    setError(null);
     try {
       await api(`/v1/api-keys/${encodeURIComponent(rotateKey.id)}/rotate`, {
         method: "POST",
@@ -647,43 +992,7 @@ export function AdminApp() {
       setRotateKey(undefined);
       loadTab();
     } catch (cause) {
-      setError((cause as Error).message);
-    }
-  }
-
-  async function openHistory(asset: Asset) {
-    setHistoryAsset(asset);
-    setHistory([]);
-    try {
-      const value = await api<unknown>(`/v1/assets/${encodeURIComponent(asset.id)}/history`);
-      setHistory(records<Version>(value, ["history", "versions", "items"]));
-    } catch (cause) {
-      setError((cause as Error).message);
-    }
-  }
-
-  async function assetAction(asset: Asset, action: "promote" | "rollback", version?: Version) {
-    const message =
-      action === "promote"
-        ? `Promote ${asset.name}?`
-        : `Roll back ${asset.name} to version ${version?.seq ?? version?.id}?`;
-    if (!window.confirm(message)) return;
-    const targetOrgUnitId =
-      action === "promote" ? window.prompt("Enter the destination org-unit ID:") : undefined;
-    if (action === "promote" && !targetOrgUnitId) return;
-    try {
-      await api(`/v1/assets/${encodeURIComponent(asset.id)}/${action}`, {
-        method: "POST",
-        body: JSON.stringify(
-          action === "rollback"
-            ? { to_version_id: version?.id }
-            : { target_org_unit_id: targetOrgUnitId },
-        ),
-      });
-      if (action === "rollback") setHistoryAsset(undefined);
-      loadTab();
-    } catch (cause) {
-      setError((cause as Error).message);
+      fail(cause);
     }
   }
 
@@ -695,61 +1004,112 @@ export function AdminApp() {
       });
       setCliToken(created.token);
     } catch (cause) {
-      setError((cause as Error).message);
+      fail(cause);
     }
   }
 
   async function createInvite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selected) return;
-    const form = new FormData(event.currentTarget);
+    const element = event.currentTarget;
+    const form = new FormData(element);
+    const admin = form.get("admin") === "on";
+    setError(null);
     try {
       await api(`/v1/org-units/${encodeURIComponent(selected.id)}/invites`, {
         method: "POST",
         body: JSON.stringify({
           email: form.get("email"),
-          admin_level: form.get("admin") === "on" ? "admin" : null,
-          admin_unit_id: form.get("admin") === "on" ? selected.id : null,
+          admin_level: admin ? "admin" : null,
+          admin_unit_id: admin ? selected.id : null,
         }),
+      });
+      element.reset();
+      loadTab();
+    } catch (cause) {
+      fail(cause);
+    }
+  }
+
+  async function revokeInvite(invite: Invite) {
+    try {
+      await api(`/v1/invites/${encodeURIComponent(invite.id)}`, {
+        method: "DELETE",
       });
       loadTab();
     } catch (cause) {
-      setError((cause as Error).message);
+      fail(cause);
     }
   }
 
   if (!signedIn) return <Login />;
   if (needsOrg) return <Onboarding onCreated={() => void loadWorkspace()} />;
 
-  const assets = records<Asset>(data, ["assets", "items"]);
-  const keys = records<ApiKey>(data, ["api_keys", "keys", "items"]);
-  const invites = records<Invite>(data, ["invites", "items"]);
-  const events = records<AuditEvent>(data, ["events", "audit", "items"]);
+  const nodes = flatten(tree);
+  const trail = nodes.find(({ node }) => node.id === selected?.id)?.trail ?? [];
+  /* Derived rather than stored: a result for another tab reads as "loading"
+     instead of leaking into the panel for one frame. */
+  const tabKey = selected ? tabKeyFor(selected.id, tab) : "";
+  const state: TabResult = result?.key === tabKey ? result : { key: tabKey, status: "loading" };
+  const assetTab = ASSET_TABS.includes(tab);
+  const assets =
+    assetTab && state.status === "ready"
+      ? list<Asset>(state.value).filter((asset) => asset.kind === tab)
+      : [];
+  const viewing = assets.find((asset) => asset.id === viewingId);
+  const tabLabel = TABS.find(({ id }) => id === tab)?.label ?? "";
+
+  function openTab(next: Tab) {
+    setTab(next);
+    setViewingId(undefined);
+    setSearch("");
+  }
+
+  function openAsset(asset: Asset, next: Pane) {
+    setViewingId(asset.id);
+    setPane(next);
+  }
 
   return (
-    <div className="grid min-h-screen grid-cols-[280px_1fr] grid-rows-[65px_1fr] max-md:grid-cols-[1fr] max-md:grid-rows-[58px_auto_1fr]">
-      <header className="z-2 col-span-full flex items-center justify-between gap-3 border-b border-ink-line bg-ink px-6 text-paper max-md:row-start-1 max-md:col-span-1">
-        <div className="flex items-center gap-3">
-          <BrandMark small />
-          <div className="leading-tight">
-            <strong className="block">Harness</strong>
-            <span className="mt-0.5 block text-[11px] text-ink-mute">Admin</span>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="ghost" onClick={() => void mintCliToken()}>
+    <div className="grid min-h-screen grid-cols-[264px_1fr] grid-rows-[52px_1fr] max-md:grid-cols-1 max-md:grid-rows-[52px_auto_1fr]">
+      <header className="z-20 col-span-full flex items-center gap-4 border-b border-ink-line bg-ink px-4 text-ink-text max-md:col-span-1 max-md:row-start-1">
+        <BrandMark small />
+        <span className="leading-tight">
+          <strong className="block text-[13px]">Harness</strong>
+          <span className="block font-mono text-[10px] text-ink-muted">control plane</span>
+        </span>
+        <div className="ml-auto flex items-center gap-2">
+          {identity?.email && (
+            <span
+              className="flex items-center gap-2 rounded-md border border-ink-line bg-ink-raised px-2.5 py-1.5 font-mono text-[11px] max-md:hidden"
+              title={
+                identity.role_unit ? `${identity.role} at ${identity.role_unit}` : identity.role
+              }
+            >
+              <Dot tone="ok" />
+              <span className="max-w-[16rem] truncate">{identity.email}</span>
+              <span className="rounded border border-ink-line px-1 tracking-[0.06em] text-ink-muted uppercase">
+                {identity.role ?? "user"}
+              </span>
+            </span>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => void mintCliToken()}>
             CLI token
           </Button>
-          <Button variant="ghost" onClick={() => void logout()}>
+          <Button variant="ghost" size="sm" onClick={() => void logout()}>
             Sign out
           </Button>
         </div>
       </header>
 
-      <aside className="border-r border-line bg-paper px-4 py-7 max-md:row-start-2 max-md:border-r-0 max-md:border-b max-md:px-3.5 max-md:py-4">
-        <div className="ml-2.5">
-          <Eyebrow>Organization</Eyebrow>
-          <h2 className="mt-0 mb-5 text-xl font-semibold max-md:mb-2.5">Structure</h2>
+      <aside className="border-r border-line bg-sunken px-3 py-5 max-md:row-start-2 max-md:border-r-0 max-md:border-b max-md:py-3">
+        <div className="mb-2 flex items-baseline justify-between gap-2 px-2">
+          <h2 className="text-[11px] font-bold tracking-[0.1em] text-muted uppercase">
+            Organization
+          </h2>
+          <span className="font-mono text-[10px] text-faint">
+            {nodes.length} {nodes.length === 1 ? "unit" : "units"}
+          </span>
         </div>
         {tree.length ? (
           <nav aria-label="Organization units">
@@ -759,255 +1119,255 @@ export function AdminApp() {
                   key={node.id}
                   node={node}
                   selectedId={selected?.id}
-                  onSelect={setSelected}
+                  onSelect={(node) => {
+                    setSelected(node);
+                    setViewingId(undefined);
+                    setSearch("");
+                  }}
                 />
               ))}
             </ul>
           </nav>
         ) : (
-          !loading && <div className="px-2.5 py-5 text-center text-[13px] text-muted">No organization units found.</div>
+          !loading && <EmptyState>No org units are visible to you.</EmptyState>
         )}
       </aside>
 
-      <main className="min-w-0 px-[clamp(20px,4vw,56px)] pt-9 pb-15 max-md:row-start-3 max-md:pt-6">
-        <header className="flex min-h-17 items-center justify-between gap-5 max-sm:items-start">
-          <div>
-            <Eyebrow>{selected?.role ?? "Organization unit"}</Eyebrow>
-            <h1 className="m-0 text-[clamp(28px,4vw,40px)] font-bold tracking-[-0.035em]">
-              {selected?.name ?? "Select a unit"}
-            </h1>
+      <main className="grid min-w-0 grid-rows-[auto_1fr] bg-surface max-md:row-start-3">
+        {/* The tab strip is the page header. Which unit you are in, and what
+            the page means, are both a button away rather than on the page. */}
+        <div className="sticky top-0 z-10 min-w-0 border-b border-line bg-surface px-[clamp(20px,3.5vw,44px)]">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="flex min-w-0 flex-1 items-stretch gap-6 overflow-x-auto" role="tablist">
+              {TABS.map(({ id, label }) => (
+                <span key={id} className="flex shrink-0 items-stretch gap-6">
+                  {/* Asset kinds on one side, the unit's own settings on the
+                      other. */}
+                  {id === "boundary" && <span aria-hidden className="my-3 w-px bg-line" />}
+                  <Button
+                    variant="bare"
+                    size="none"
+                    role="tab"
+                    aria-selected={tab === id}
+                    className={`-mb-px rounded-none border-b-2 px-0.5 py-3 text-[13px] font-semibold ${
+                      tab === id
+                        ? "border-accent text-ink"
+                        : "border-transparent text-muted hover:text-ink"
+                    }`}
+                    onClick={() => openTab(id)}
+                  >
+                    {label}
+                  </Button>
+                </span>
+              ))}
+            </div>
+            <span className="flex shrink-0 items-center gap-2 py-2">
+              {selected && !viewing && tab !== "boundary" && (
+                <HeaderSearch
+                  key={tab}
+                  value={search}
+                  onValueChange={setSearch}
+                  placeholder={`search ${tabLabel.toLowerCase()}…`}
+                />
+              )}
+              {selected && <UnitInfo unit={selected} trail={trail} />}
+              <Button
+                size="icon"
+                onClick={() => setShowDocs(true)}
+                aria-label={`What ${tabLabel} means`}
+                title={`What ${tabLabel} means`}
+              >
+                ?
+              </Button>
+            </span>
           </div>
-          {tab === "keys" && selected && (
-            <Button
-              variant="primary"
-              className="max-sm:whitespace-nowrap max-sm:px-2.5 max-sm:py-2"
-              onClick={() => setShowCreateKey(true)}
-            >
-              + Add key
-            </Button>
-          )}
-        </header>
-
-        <div
-          className="mt-7 flex gap-7 overflow-x-auto border-b border-line max-md:gap-5"
-          role="tablist"
-        >
-          {(["assets", "boundary", "keys", "members", "audit"] as Tab[]).map((item) => (
-            <Button
-              key={item}
-              variant="bare"
-              role="tab"
-              aria-selected={tab === item}
-              className={`-mb-px rounded-none border-b-2 px-px py-3.5 text-[13px] font-semibold ${
-                tab === item
-                  ? "border-accent text-ink"
-                  : "border-transparent text-muted hover:text-ink"
-              }`}
-              onClick={() => setTab(item)}
-            >
-              {item === "keys" ? "Keys" : item[0].toUpperCase() + item.slice(1)}
-            </Button>
-          ))}
         </div>
 
-        {error && (
-          <Alert>
-            <span>{error}</span>
-            <Button variant="bare" className="px-2 py-1 text-inherit" onClick={() => setError("")}>
-              Dismiss
-            </Button>
-          </Alert>
-        )}
-        {loading && <div className="px-6 py-12 text-center text-[13px] text-muted">Loading…</div>}
+        <div className="min-w-0 px-[clamp(20px,3.5vw,44px)] pb-16">
+          {!selected && (
+            <div className="pt-6">
+              <Notice>
+                Select an org unit to inspect its assets, boundary, connectors, and audit trail.
+              </Notice>
+            </div>
+          )}
 
-        {!loading && selected && tab === "assets" && (
-          <Panel>
-            <PanelHeader
-              title="Assets"
-              hint="Versioned resources available to this unit."
-              count={assets.length}
-            />
-            {assets.length ? (
-              <div>
-                {assets.map((asset) => (
-                  <CardRow key={asset.id}>
-                    <div className="grid size-9.5 shrink-0 place-items-center rounded-[9px] bg-icon-bg font-bold text-icon">
-                      {asset.kind?.[0]?.toUpperCase() ?? "A"}
-                    </div>
-                    <div className="min-w-0 flex-1 max-md:min-w-[calc(100%-55px)]">
-                      <div className="flex items-center gap-2.5">
-                        <h3 className="text-[15px] font-semibold">{asset.name}</h3>
-                        {asset.status && <Badge status={asset.status} />}
-                      </div>
-                      <RowMeta>
-                        {asset.kind ?? "Asset"} · Version {asset.head_seq ?? "—"}
-                        {asset.updated_at &&
-                          ` · Updated ${new Date(asset.updated_at).toLocaleDateString()}`}
-                      </RowMeta>
-                    </div>
-                    <div className="flex gap-2 max-md:w-full max-md:justify-end">
-                      <Button onClick={() => openHistory(asset)}>History</Button>
-                      <Button variant="accent" onClick={() => assetAction(asset, "promote")}>
-                        Promote
-                      </Button>
-                    </div>
-                  </CardRow>
-                ))}
-              </div>
-            ) : (
-              <EmptyState>No assets are assigned to this unit.</EmptyState>
-            )}
-          </Panel>
-        )}
+          {error && (
+            <div className="pt-5">
+              <Alert>
+                <span>{error.message}</span>
+                <Button
+                  variant="bare"
+                  size="none"
+                  className="underline"
+                  onClick={() => setError(null)}
+                >
+                  Dismiss
+                </Button>
+              </Alert>
+            </div>
+          )}
 
-        {!loading && selected && tab === "boundary" && (
-          <Panel>
-            <PanelHeader
-              title="Effective boundary"
-              hint="Inherited and unit-specific controls returned by the policy service."
-            />
-            {data ? (
-              <pre className="m-0 max-h-150 overflow-auto bg-ink p-6 font-mono text-xs leading-relaxed text-ink-copy">
-                {JSON.stringify(data, null, 2)}
-              </pre>
-            ) : (
-              <EmptyState>No boundary is configured.</EmptyState>
-            )}
-          </Panel>
-        )}
+          {selected && state.status === "loading" && <EmptyState>Loading…</EmptyState>}
 
-        {!loading && selected && tab === "keys" && (
-          <Panel>
-            <PanelHeader
-              title="API keys"
-              hint="Secret values stay hidden. Rotation preserves each stable reference."
-              count={keys.length}
-            />
-            {keys.length ? (
-              <div>
-                {keys.map((key) => (
-                  <CardRow key={key.id}>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2.5">
-                        <h3 className="text-[15px] font-semibold">{key.name}</h3>
-                        <Badge status={key.status ?? "active"} />
-                      </div>
-                      <p className="mt-1 font-mono text-xs text-muted">
-                        {key.ref ?? "Stable reference unavailable"}
-                      </p>
-                      <RowMeta>
-                        Value ending in ••••{key.last4 ?? "—"} · Version {key.version ?? "—"}
-                      </RowMeta>
-                    </div>
-                    <Button onClick={() => setRotateKey(key)}>Rotate</Button>
-                  </CardRow>
-                ))}
-              </div>
-            ) : (
-              <EmptyState>No keys exist for this unit.</EmptyState>
-            )}
-          </Panel>
-        )}
-
-        {!loading && selected && tab === "members" && (
-          <Panel>
-            <PanelHeader
-              title="Invites"
-              hint="Invite an email to this team. They get a workspace after signup."
-            />
-            {selected.role === "team" ? (
-              <form className="grid gap-4 p-6" onSubmit={createInvite}>
-                <Field label="Email" name="email" type="email" required />
-                <label className="flex items-center gap-2 text-[13px] font-bold">
-                  <input name="admin" type="checkbox" className="accent-accent" /> Team admin
-                </label>
-                <div>
-                  <Button variant="primary" type="submit">
-                    Send invite
+          {selected && state.status === "failed" && (
+            <div className="pt-5">
+              {state.code === 403 ? (
+                <Notice tone="hold">
+                  <strong className="font-semibold text-ink">Administrator access required</strong>
+                  <p className="mt-0.5">{state.message}</p>
+                </Notice>
+              ) : (
+                <Alert>
+                  <span>{state.message}</span>
+                  <Button variant="bare" size="none" className="underline" onClick={loadTab}>
+                    Retry
                   </Button>
-                </div>
-              </form>
-            ) : (
-              <p className="px-6 py-5 text-sm leading-relaxed text-muted">
-                Select a team to invite people.
-              </p>
-            )}
-            {invites.length ? (
-              <div>
-                {invites.map((invite) => (
-                  <CardRow key={invite.id}>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-[15px] font-semibold">{invite.email}</h3>
-                      <RowMeta>{invite.accepted_at ? "Accepted" : "Pending"}</RowMeta>
-                      {invite.admin_level && <RowMeta>Admin: {invite.admin_level}</RowMeta>}
-                    </div>
-                    {!invite.accepted_at && (
-                      <Button
-                        onClick={() =>
-                          api(`/v1/invites/${invite.id}`, { method: "DELETE" })
-                            .then(loadTab)
-                            .catch((cause: Error) => setError(cause.message))
-                        }
-                      >
-                        Revoke
-                      </Button>
-                    )}
-                  </CardRow>
-                ))}
-              </div>
-            ) : (
-              <EmptyState>No invites yet.</EmptyState>
-            )}
-          </Panel>
-        )}
+                </Alert>
+              )}
+            </div>
+          )}
 
-        {!loading && selected && tab === "audit" && (
-          <Panel>
-            <PanelHeader
-              title="Audit trail"
-              hint="Recent administrative and asset activity."
-              count={events.length}
-            />
-            {events.length ? (
-              <div className="px-6 py-1">
-                {events.map((event, index) => (
-                  <article
-                    key={event.id ?? index}
-                    className="relative flex gap-4 border-l border-line py-4 pl-6"
-                  >
-                    <div className="absolute top-5 -left-[5px] size-2.5 rounded-full border-2 border-card bg-accent ring-1 ring-accent" />
-                    <div>
-                      <h3 className="text-[15px] font-semibold">{event.action ?? "Activity"}</h3>
-                      <RowMeta>
-                        {event.detail ?? event.resource ?? "No additional detail"}
-                      </RowMeta>
-                      <small className="mt-1.5 block text-[10px] text-faint">
-                        {event.actor_name ?? event.actor ?? "System"} ·{" "}
-                        {event.created_at || event.timestamp
-                          ? new Date(event.created_at ?? event.timestamp!).toLocaleString()
-                          : "Unknown time"}
-                      </small>
-                    </div>
-                  </article>
-                ))}
+          {selected && state.status === "ready" && viewing && (
+            <>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-5">
+                <Button size="sm" onClick={() => setViewingId(undefined)}>
+                  ← {tabLabel}
+                </Button>
+                <h1 className="text-[17px] font-bold tracking-[-0.02em]">{viewing.name}</h1>
+                <KindTag kind={viewing.kind} />
+                <Badge tone={STATUS_TONE[viewing.status ?? ""] ?? "neutral"}>
+                  {STATUS_LABEL[viewing.status ?? ""] ?? viewing.status ?? "unknown"}
+                </Badge>
+                <span className="ml-auto flex gap-2">
+                  {(["document", "manage"] as Pane[]).map((id) => (
+                    <Button
+                      key={id}
+                      variant="none"
+                      size="sm"
+                      aria-current={pane === id}
+                      className={`border capitalize ${
+                        pane === id
+                          ? "border-accent bg-accent-soft text-accent-deep"
+                          : "border-line bg-surface text-muted hover:text-ink"
+                      }`}
+                      onClick={() => setPane(id)}
+                    >
+                      {id}
+                    </Button>
+                  ))}
+                </span>
               </div>
-            ) : (
-              <EmptyState>No audit events found.</EmptyState>
-            )}
-          </Panel>
-        )}
+              {pane === "document" ? (
+                <AssetDocument
+                  key={`${viewing.id}:document`}
+                  asset={viewing}
+                  api={api}
+                  onChanged={loadTab}
+                  onError={fail}
+                />
+              ) : (
+                <AssetManage
+                  key={`${viewing.id}:manage`}
+                  asset={viewing}
+                  api={api}
+                  units={nodes}
+                  onChanged={loadTab}
+                  onError={fail}
+                />
+              )}
+            </>
+          )}
+
+          {selected && state.status === "ready" && !viewing && (
+            <div key={tab}>
+              {assetTab && (
+                <AssetsPanel
+                  assets={assets}
+                  noun={tabLabel.toLowerCase()}
+                  query={search}
+                  onOpen={openAsset}
+                />
+              )}
+              {tab === "boundary" && (
+                <BoundaryPanel boundary={state.value as BoundaryView | undefined} />
+              )}
+              {tab === "keys" && (
+                <KeysPanel
+                  keys={list<ApiKey>(state.value)}
+                  query={search}
+                  onCreate={() => setShowCreateKey(true)}
+                  onRotate={setRotateKey}
+                />
+              )}
+              {tab === "invites" && (
+                <InvitesPanel
+                  unit={selected}
+                  invites={list<Invite>(state.value)}
+                  query={search}
+                  onInvite={createInvite}
+                  onRevoke={(invite) => void revokeInvite(invite)}
+                />
+              )}
+              {tab === "audit" && (
+                <AuditPanel events={list<AuditEvent>(state.value)} query={search} />
+              )}
+            </div>
+          )}
+        </div>
       </main>
 
+      {showDocs && (
+        <Modal title={tabLabel} onClose={() => setShowDocs(false)}>
+          {/* What it is, then something it is for, then what we do with it.
+              Readers arrive with one of those three questions. */}
+          <div className="grid gap-5 p-5">
+            <div>
+              <p className="text-[15px] leading-snug font-semibold">{HELP[tab].summary}</p>
+              <p className="mt-2 text-[13px] leading-relaxed text-muted">{HELP[tab].what}</p>
+            </div>
+            <section className="rounded-lg border border-line bg-sunken p-4">
+              <h3 className="text-[10px] font-bold tracking-[0.1em] text-accent-deep uppercase">
+                For example
+              </h3>
+              <p className="mt-1.5 text-[13px] leading-relaxed">{HELP[tab].example}</p>
+            </section>
+            <section>
+              <h3 className="text-[10px] font-bold tracking-[0.1em] text-muted uppercase">
+                How it works here
+              </h3>
+              <ul className="mt-2.5 m-0 grid list-none gap-2.5 p-0">
+                {HELP[tab].mechanics.map((item) => (
+                  <li key={item} className="grid grid-cols-[auto_minmax(0,1fr)] gap-2.5">
+                    <span aria-hidden className="mt-[7px]">
+                      <Dot tone="accent" />
+                    </span>
+                    <span className="text-[13px] leading-relaxed text-muted">{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        </Modal>
+      )}
+
       {showCreateKey && (
-        <Modal title="Add API key" onClose={() => setShowCreateKey(false)}>
-          <form className="grid gap-4 p-6" onSubmit={createKey}>
-            <Field label="Friendly name" name="name" required placeholder="Production CRM" autoFocus />
+        <Modal title="Add connector" onClose={() => setShowCreateKey(false)}>
+          <form className="grid gap-4 p-5" onSubmit={createKey}>
             <Field
-              label="Key value"
+              label="Friendly name"
+              name="name"
+              required
+              placeholder="Production CRM"
+              autoFocus
+            />
+            <Field
+              label="Secret value"
               name="value"
               type="password"
               required
               placeholder="Paste secret value"
+              hint="Stored encrypted. Only the last four characters are ever shown again."
             />
             <Field
               label="Environment variable"
@@ -1015,17 +1375,18 @@ export function AdminApp() {
               required
               placeholder="CRM_API_KEY"
               pattern="[A-Z_][A-Z0-9_]*"
+              hint="Upper snake case — the name the harness injects at run time."
             />
-            <Field label="Key kind">
-              <select name="kind" defaultValue="static_api_key" className={INPUT_CLASS}>
-                <option value="static_api_key">System API key</option>
-                <option value="provider_api_key">Model provider key</option>
+            <Field label="Connector kind">
+              <select name="kind" defaultValue="static_api_key" className={CONTROL_CLASS}>
+                <option value="static_api_key">System</option>
+                <option value="provider_api_key">Model provider</option>
               </select>
             </Field>
             <div className="mt-1 flex justify-end gap-2">
               <Button onClick={() => setShowCreateKey(false)}>Cancel</Button>
               <Button variant="primary" type="submit">
-                Save key
+                Save connector
               </Button>
             </div>
           </form>
@@ -1034,13 +1395,20 @@ export function AdminApp() {
 
       {rotateKey && (
         <Modal title={`Rotate ${rotateKey.name}`} onClose={() => setRotateKey(undefined)}>
-          <form className="grid gap-4 p-6" onSubmit={rotate}>
-            <p className="text-sm leading-relaxed text-muted">
-              The new value takes over under the same stable reference. The prior version can
-              remain in its server-configured grace period.
-            </p>
+          <form className="grid gap-4 p-5" onSubmit={rotate}>
+            <Notice tone="accent">
+              The new value takes over under the same stable reference
+              {rotateKey.ref && (
+                <>
+                  {" "}
+                  <Chip>{rotateKey.ref}</Chip>
+                </>
+              )}
+              , so nothing that resolves it needs to change. The prior version can remain in its
+              server-configured grace period.
+            </Notice>
             <Field
-              label="New key value"
+              label="New secret value"
               name="value"
               type="password"
               required
@@ -1050,50 +1418,19 @@ export function AdminApp() {
             <div className="mt-1 flex justify-end gap-2">
               <Button onClick={() => setRotateKey(undefined)}>Cancel</Button>
               <Button variant="primary" type="submit">
-                Rotate key
+                Rotate
               </Button>
             </div>
           </form>
         </Modal>
       )}
 
-      {historyAsset && (
-        <Modal title={`${historyAsset.name} history`} onClose={() => setHistoryAsset(undefined)}>
-          {history.length ? (
-            <div>
-              {history.map((version) => (
-                <article
-                  key={version.id}
-                  className="flex items-center justify-between gap-4 border-b border-line px-6 py-4 last:border-b-0"
-                >
-                  <div>
-                    <h3 className="text-[15px] font-semibold">
-                      Version {version.seq ?? version.id}
-                    </h3>
-                    <RowMeta>{version.message ?? "No change note"}</RowMeta>
-                    <small className="mt-1.5 block text-[10px] text-faint">
-                      {version.author_email ?? "Unknown author"}
-                      {version.created_at && ` · ${new Date(version.created_at).toLocaleString()}`}
-                    </small>
-                  </div>
-                  <Button onClick={() => assetAction(historyAsset, "rollback", version)}>
-                    Roll back
-                  </Button>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <EmptyState>No version history found.</EmptyState>
-          )}
-        </Modal>
-      )}
-
       {cliToken && (
         <Modal title="Connect the CLI" onClose={() => setCliToken("")}>
-          <div className="grid gap-5 p-6">
-            <p className="text-sm leading-relaxed text-muted">
+          <div className="grid gap-5 p-5">
+            <p className="text-[13px] leading-relaxed text-muted">
               Two commands and you are set up for good. Skip the first if you already have{" "}
-              <code className="font-mono text-ink">harness</code>.
+              <Chip>harness</Chip>.
             </p>
             <CommandBlock label="1 · Install" command={INSTALL_COMMAND} hint="once per machine" />
             <CommandBlock
@@ -1103,13 +1440,12 @@ export function AdminApp() {
             />
             <p className="text-xs leading-relaxed text-muted">
               You will not need to do this again on this machine. From now on just run{" "}
-              <code className="font-mono text-ink">harness run</code>, or{" "}
-              <code className="font-mono text-ink">harness --help</code> to see everything else.
-              The token above is shown once — if you lose it before connecting, come back and
-              make another.
+              <Chip>harness run</Chip>, or <Chip>harness --help</Chip> to see everything else. The
+              token above is shown once — if you lose it before connecting, come back and make
+              another.
             </p>
             {SHOW_RESET && (
-              <div className="border-t border-line pt-4">
+              <div className="min-w-0 border-t border-line pt-4">
                 <CommandBlock label="Start over" command={RESET_COMMAND} hint="development only" />
                 <p className="mt-1.5 text-xs leading-relaxed text-muted">
                   Removes the CLI, your credentials, and your local copy of the team&apos;s assets.

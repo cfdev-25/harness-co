@@ -134,7 +134,11 @@ export async function run(piArgs: string[]): Promise<number> {
 					theme,
 					"--use-theme",
 					"harness-dark",
+					// Discovery off, so nothing from this machine is loaded, and
+					// then the one directory we delivered named explicitly.
 					"--no-prompt-templates",
+					"--prompt-template",
+					join(session.agent, "prompts"),
 					...piArgs,
 				],
 				{ stdio: "inherit", env, cwd: process.cwd() },
