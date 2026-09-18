@@ -451,6 +451,16 @@ directories.
 **Files.** new `pi/packages/harness-cli/src/adapters/{types,pi}.ts`; `core.ts`
 (`materializeManifest` moves into `pi.ts`).
 
+**Amended 2026-09-18 by `harnesses.md` §10.** `settings.json.skills` must
+list `assetsRoot/skill/<name>` for the skills the selected harness contains,
+not `assetsRoot/skill` wholesale — the directory form would load
+every skill in the work tree whatever harness the user is in. Pi accepts
+individual skill directories (a directory holding `SKILL.md` is a skill root:
+`settings-manager.ts:133`, `skills.ts:164`), so this stays a list of pointers
+rather than a copy. The same applies to the prompts directory and to the tool
+index rendered into `AGENTS.md`. The principle of 2.1 — point, do not copy —
+is unchanged; only the pointer set is per-harness.
+
 **Behaviour.** Implement `Adapter` and `RenderContext` exactly as `arch` §6.
 The Pi adapter's `render`:
 - `settings.json`: current fields **plus** `skills: [ctx.assetsRoot + "/skill"]`

@@ -7,7 +7,7 @@ export type JsonRecord = Record<string, unknown>;
 /* The five asset kinds are the rows of the asset_kinds table; the rest are the
    org unit's own settings. One tab each. */
 export type AssetTab = "system_prompt" | "memory" | "skill" | "prompt" | "tool" | "connection";
-export type Tab = AssetTab | "boundary" | "keys" | "invites" | "audit";
+export type Tab = AssetTab | "harness" | "boundary" | "keys" | "invites" | "audit";
 export type Pane = "document" | "manage";
 
 export interface TreeNode {
@@ -24,12 +24,53 @@ export interface Identity {
   org_unit_path?: string;
 }
 
+/* A drawing: a palette, and one character per pixel indexing it. `.` is
+   transparent. Validated server-side by app/domain/harnesses.py. */
+export interface PixelIcon {
+  palette: string[];
+  rows: string[];
+}
+
+/* A named selection of assets to work in. Harnesses do not shadow by name
+   the way assets do, so `org_unit_path` is part of a harness's identity to a
+   reader, not just decoration. */
+export interface Harness {
+  id: string;
+  org_unit_id: string;
+  name: string;
+  description: string;
+  icon: PixelIcon;
+  org_unit_path: string;
+  /** How many assets name this harness. Not the same as what it loads. */
+  assigned_assets?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/* One name that could be in this harness, and whether it is. A harness
+   holds (kind, name) pairs, so `asset_id` is whichever asset answers that
+   name at the harness's own unit — null when nothing does. */
+export interface HarnessAssetRow {
+  kind: string;
+  name: string;
+  assigned: boolean;
+  asset_id: string | null;
+  org_unit_path: string | null;
+}
+
+export interface HarnessDetail extends Harness {
+  assets: HarnessAssetRow[];
+}
+
 export interface Asset {
   id: string;
   name: string;
   org_unit_id?: string;
   kind?: string;
   status?: string;
+  /* Harnesses at or above this asset's unit that contain its name. Empty
+     means no harness loads it — it reaches only sessions with none selected. */
+  harness_ids?: string[];
   /* The active version. A version pushed under review is not head, so this is
      what "the current document" means — not the newest row in the history. */
   head_version_id?: string | null;

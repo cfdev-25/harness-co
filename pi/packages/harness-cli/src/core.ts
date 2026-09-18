@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, normalize, resolve, sep } from "node:path";
+import { type Icon, renderIcon } from "./pixels.js";
+import { colorMode } from "./style.js";
 
 export interface Credentials {
 	api_url: string;
@@ -18,6 +20,21 @@ export interface Shadowed {
 	org_unit_path: string;
 	version_id: string;
 	seq: number;
+}
+
+export interface AssetRef {
+	kind: string;
+	name: string;
+}
+
+export interface HarnessRef {
+	id: string;
+	name: string;
+	description: string;
+	icon: Icon;
+	org_unit_path: string;
+	/** What it contains, by name. A harness holds only what was put in it. */
+	assets: AssetRef[];
 }
 
 export interface ManifestAsset {
@@ -37,6 +54,10 @@ export interface Manifest {
 	issued_at?: string;
 	ttl_seconds?: number;
 	user: { auth_user_id: string; email?: string; org_unit_path: string; org_unit_id?: string };
+	/** The harness this manifest was resolved for, if one was selected. */
+	harness?: HarnessRef | null;
+	/** Every harness the user could switch to, so `run` can say so. */
+	harnesses?: Array<{ id: string; name: string; org_unit_path: string }>;
 	/** One array; `kind` is data. A new kind needs no change here. */
 	assets: ManifestAsset[];
 	boundary: Record<string, unknown> & { deploy_tools?: string[]; allowed_tools?: string[] };
@@ -169,7 +190,10 @@ export async function materializeManifest(manifest: Manifest, id: string = rando
 			2,
 		)}\n`,
 	);
-	const byKind = (kind: string) => (manifest.assets ?? []).filter((asset) => asset.kind === kind);
+	// The whole resolved set was hydrated; a session lays out what the
+	// selected harness contains. One filter, and every kind below inherits it.
+	const byKind = (kind: string) =>
+		(manifest.assets ?? []).filter((asset) => asset.kind === kind && inHarness(asset, manifest.harness));
 	for (const skill of byKind("skill")) await writeAssetFiles(join(agent, "skills", safeName(skill.name)), skill);
 
 	const contents = (asset: ManifestAsset) =>
@@ -212,7 +236,32 @@ export async function materializeManifest(manifest: Manifest, id: string = rando
 		)}\n`,
 	);
 	await writeFile(join(root, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+	// The drawing is rendered here, not in the agent: the CLI and the agent
+	// share a terminal, so the parent's capability detection is the right
+	// one, and the extension stays a reader of small files.
+	if (manifest.harness) {
+		const { id: selected, name, description, org_unit_path, icon } = manifest.harness;
+		const card = { id: selected, name, description, org_unit_path, lines: renderIcon(icon, colorMode()) };
+		await writeFile(join(root, "harness.json"), `${JSON.stringify(card, null, 2)}\n`);
+	}
 	return { id, root, agent };
+}
+
+/**
+ * Whether a harness contains an asset.
+ *
+ * Matched on kind and name, never on the asset's id: the harness says what
+ * is in it, and resolution has already decided whose copy of each name this
+ * user gets. So pushing your own version of something keeps it in the
+ * harnesses that named it.
+ *
+ * No harness is not an empty harness. With nothing selected everything the
+ * user resolves is laid out, which is how sessions behaved before harnesses
+ * existed and what a manifest from an older server still means.
+ */
+export function inHarness(asset: ManifestAsset, harness: HarnessRef | null | undefined): boolean {
+	if (!harness) return true;
+	return (harness.assets ?? []).some((item) => item.kind === asset.kind && item.name === asset.name);
 }
 
 export function frontmatterName(content: string, fallback: string): string {

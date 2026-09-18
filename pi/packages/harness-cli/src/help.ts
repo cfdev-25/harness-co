@@ -5,6 +5,7 @@ const USAGE = `harness — run a coding agent under your team's policy
 Usage
   harness [run] [-- <agent args>]        Start a session (default command)
   harness login --token <token>          Save your credentials
+  harness switch [name]                  Choose the harness your sessions run in
   harness whoami                         Show who you are and where you sit
   harness pull                           Fetch your team's assets without a session
   harness status                         Compare your assets with your team's
@@ -32,6 +33,28 @@ DESCRIPTION
   place. "harness run" fetches what you are entitled to, lays it out on disk,
   and starts the agent against it. Nothing is installed permanently and no
   secret is written into the session.
+
+HARNESSES
+  A harness is the job you sit down to do: a named list of the prompts,
+  memories, skills and tools that job needs, with a description and a small
+  drawing. Switching harnesses swaps what the assistant has in front of it.
+
+    harness switch              pick from your list
+    harness switch support      pick by name
+    harness switch --none       load everything you have
+
+  A harness holds only what was put in it, and the web console is where
+  things are put in. With no harness selected you get everything you have,
+  which is how sessions worked before harnesses existed.
+
+  A harness holds things by name, so if you write your own version of one of
+  them you keep yours, in the same harness, and nobody has to reassign it.
+
+  Switching changes nothing on your machine. You keep every asset your team
+  has given you whichever harness you are in, so "harness pull", "status",
+  "push" and "reset" behave the same in all of them — only what a session
+  loads changes. "harness doctor harness" shows where you are and how much
+  is in it.
 
 YOUR OWN BRANCH
   The copy on your machine is yours. Edit it freely — the next session will
@@ -62,7 +85,7 @@ CHECKING WHAT YOU RECEIVED
     harness doctor boundary model   several
     harness doctor --json           the raw manifest
 
-  Sections: identity, boundary, model, assets, local, env.
+  Sections: identity, harness, boundary, model, assets, local, env.
 
   Secret values are never shown because they are never sent here. You will see
   a key's reference and the variable it arrives as, never the key itself.
@@ -78,6 +101,7 @@ CONFLICTS
 
 FILES
   ~/.config/harness/credentials.json   your login. Nothing else reads it.
+  ~/.harness/harness.json              the harness you switched to
   ~/.harness/assets/                   your working copy of team assets
   ~/.harness/assets.git/               its history
   ~/.harness/sessions/<id>/            one session. Removed when it ends.

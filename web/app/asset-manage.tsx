@@ -5,7 +5,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { list } from "@/lib/api";
-import { Api, Asset, LineageRow, TreeNode } from "@/lib/types";
+import { Api, Asset, Harness, LineageRow, TreeNode } from "@/lib/types";
 import {
   Badge,
   Button,
@@ -110,6 +110,76 @@ function Lineage({ rows, asset }: { rows: LineageRow[]; asset: Asset }) {
   );
 }
 
+/**
+ * Which harnesses contain this asset's name.
+ *
+ * Harnesses hold names, so this is the same list the harness screen writes,
+ * from the other side — and a version someone pushes of their own stays in
+ * whatever harnesses named it.
+ */
+function Harnesses({
+  asset,
+  api,
+  busy,
+  onSet,
+  onError,
+}: {
+  asset: Asset;
+  api: Api;
+  busy: boolean;
+  onSet: (harnessIds: string[]) => void;
+  onError: (cause: unknown) => void;
+}) {
+  const [harnesses, setHarnesses] = useState<Harness[]>();
+  const unit = asset.org_unit_id;
+  const chosen = asset.harness_ids ?? [];
+
+  useEffect(() => {
+    if (!unit) return;
+    api<unknown>(`/v1/org-units/${encodeURIComponent(unit)}/harnesses`)
+      .then((value) => setHarnesses(list<Harness>(value)))
+      .catch(onError);
+  }, [api, unit, onError]);
+
+  return (
+    <section className="rounded-lg border border-line bg-sunken p-4">
+      <Heading>Harnesses</Heading>
+      <p className="pb-3 text-[13px] leading-relaxed text-muted">
+        {chosen.length
+          ? "Sessions in these harnesses load it. Sessions in any other do not."
+          : "No harness loads this yet. Tick one, or it reaches only sessions with no harness selected."}
+      </p>
+      {harnesses === undefined ? (
+        <Mono>loading…</Mono>
+      ) : harnesses.length === 0 ? (
+        <Mono>no harnesses reach this org unit</Mono>
+      ) : (
+        <div className="grid gap-1.5">
+          {harnesses.map((harness) => (
+            <label key={harness.id} className="flex items-center gap-2 text-[13px]">
+              <input
+                type="checkbox"
+                className="size-4 accent-accent"
+                checked={chosen.includes(harness.id)}
+                disabled={busy}
+                onChange={(event) =>
+                  onSet(
+                    event.target.checked
+                      ? [...chosen, harness.id]
+                      : chosen.filter((id) => id !== harness.id),
+                  )
+                }
+              />
+              <span className="truncate">{harness.name}</span>
+              <Mono title={harness.org_unit_path}>{harness.org_unit_path.split(".").pop()}</Mono>
+            </label>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function AssetManage({
   asset,
   api,
@@ -193,6 +263,14 @@ export function AssetManage({
             {disabled ? "Enable" : "Disable"}
           </Button>
         </section>
+
+        <Harnesses
+          asset={asset}
+          api={api}
+          busy={busy}
+          onSet={(harnessIds) => void mutate("/harnesses", "PUT", { harness_ids: harnessIds })}
+          onError={onError}
+        />
 
         <section className="rounded-lg border border-line bg-sunken p-4">
           <Heading>Promote</Heading>

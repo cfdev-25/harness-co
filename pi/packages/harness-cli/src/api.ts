@@ -1,6 +1,7 @@
 import type { Credentials } from "./core.js";
 
 interface ApiErrorBody {
+	code?: string;
 	message?: string;
 	detail?: unknown;
 }
@@ -29,7 +30,7 @@ export async function api<T>(credentials: Credentials, path: string, init: Reque
 			// Keep the status fallback below.
 		}
 		const error = new Error(body.message ?? `Harness API request failed (${response.status}).`);
-		Object.assign(error, { status: response.status, detail: body.detail });
+		Object.assign(error, { status: response.status, code: body.code, detail: body.detail });
 		throw error;
 	}
 	return (await response.json()) as T;

@@ -9,6 +9,7 @@ import {
   AuditEvent,
   BoundaryPolicy,
   BoundaryView,
+  Harness,
   Identity,
   Invite,
   JsonRecord,
@@ -19,6 +20,8 @@ import {
 import { HELP } from "./help";
 import { AssetDocument } from "./asset-document";
 import { AssetManage } from "./asset-manage";
+import { HarnessDialog, HarnessTiles } from "./harness-tiles";
+import { HarnessScreen } from "./harness-screen";
 import {
   Alert,
   Badge,
@@ -71,6 +74,7 @@ const ASSET_TABS: readonly Tab[] = [
 ];
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: "harness", label: "Harnesses" },
   { id: "system_prompt", label: "System prompts" },
   { id: "memory", label: "Memories" },
   { id: "skill", label: "Skills" },
@@ -406,6 +410,13 @@ function UnitInfo({ unit, trail }: { unit: TreeNode; trail: TreeNode[] }) {
 
 /* Tab panels -------------------------------------------------------------- */
 
+/** How many harnesses hold this name. None means no harness loads it. */
+function HarnessScope({ asset }: { asset: Asset }) {
+  const count = asset.harness_ids?.length ?? 0;
+  if (count === 0) return <Badge tone="warn">none</Badge>;
+  return <Chip>{count === 1 ? "1 harness" : `${count} harnesses`}</Chip>;
+}
+
 function AssetsPanel({
   assets,
   noun,
@@ -425,7 +436,7 @@ function AssetsPanel({
     <>
       <Toolbar count={query ? counter(shown.length, assets.length) : undefined} />
       {shown.length ? (
-        <Table head={["Name", "Version", "Message", "Updated", "Status", ""]}>
+        <Table head={["Name", "Version", "Message", "Updated", "Harnesses", "Status", ""]}>
           {shown.map((asset) => (
             <Tr key={asset.id}>
               <Td className="whitespace-nowrap">
@@ -457,6 +468,9 @@ function AssetsPanel({
                 <Mono title={dateTime(asset.head_updated_at ?? asset.created_at)}>
                   {day(asset.head_updated_at ?? asset.created_at)}
                 </Mono>
+              </Td>
+              <Td>
+                <HarnessScope asset={asset} />
               </Td>
               <Td>
                 <Badge tone={STATUS_TONE[asset.status ?? ""] ?? "neutral"}>
@@ -839,7 +853,7 @@ export function AdminApp() {
   const [identity, setIdentity] = useState<Identity>();
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [selected, setSelected] = useState<TreeNode>();
-  const [tab, setTab] = useState<Tab>("system_prompt");
+  const [tab, setTab] = useState<Tab>("harness");
   const [search, setSearch] = useState("");
   const [result, setResult] = useState<TabResult>();
   const [loading, setLoading] = useState(false);
@@ -854,6 +868,10 @@ export function AdminApp() {
      what is on screen instead of leaving a stale snapshot. */
   const [viewingId, setViewingId] = useState<string>();
   const [pane, setPane] = useState<Pane>("document");
+  /* The harness screen holds the row itself: the tiles list is the payload
+     for the tab, and a harness is small enough to carry. */
+  const [openHarness, setOpenHarness] = useState<Harness>();
+  const [newHarness, setNewHarness] = useState(false);
   const [showDocs, setShowDocs] = useState(false);
   const [cliToken, setCliToken] = useState("");
   const loadSequence = useRef(0);
@@ -928,6 +946,7 @@ export function AdminApp() {
     const unit = encodeURIComponent(selected.id);
     const paths: Record<string, string> = {
       assets: `/v1/org-units/${unit}/assets`,
+      harness: `/v1/org-units/${unit}/harnesses`,
       boundary: `/v1/org-units/${unit}/boundary`,
       keys: `/v1/org-units/${unit}/api-keys`,
       invites: `/v1/org-units/${unit}/invites`,
@@ -1062,6 +1081,7 @@ export function AdminApp() {
   function openTab(next: Tab) {
     setTab(next);
     setViewingId(undefined);
+    setOpenHarness(undefined);
     setSearch("");
   }
 
@@ -1122,6 +1142,7 @@ export function AdminApp() {
                   onSelect={(node) => {
                     setSelected(node);
                     setViewingId(undefined);
+                    setOpenHarness(undefined);
                     setSearch("");
                   }}
                 />
@@ -1143,7 +1164,9 @@ export function AdminApp() {
                 <span key={id} className="flex shrink-0 items-stretch gap-6">
                   {/* Asset kinds on one side, the unit's own settings on the
                       other. */}
-                  {id === "boundary" && <span aria-hidden className="my-3 w-px bg-line" />}
+                  {(id === "boundary" || id === "system_prompt") && (
+                    <span aria-hidden className="my-3 w-px bg-line" />
+                  )}
                   <Button
                     variant="bare"
                     size="none"
@@ -1162,7 +1185,7 @@ export function AdminApp() {
               ))}
             </div>
             <span className="flex shrink-0 items-center gap-2 py-2">
-              {selected && !viewing && tab !== "boundary" && (
+              {selected && !viewing && !openHarness && tab !== "boundary" && (
                 <HeaderSearch
                   key={tab}
                   value={search}
@@ -1281,6 +1304,33 @@ export function AdminApp() {
 
           {selected && state.status === "ready" && !viewing && (
             <div key={tab}>
+              {tab === "harness" &&
+                (openHarness ? (
+                  <>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-5">
+                      <Button size="sm" onClick={() => setOpenHarness(undefined)}>
+                        ← Harnesses
+                      </Button>
+                    </div>
+                    <HarnessScreen
+                      key={openHarness.id}
+                      harness={openHarness}
+                      unit={selected}
+                      api={api}
+                      onChanged={loadTab}
+                      onClosed={() => setOpenHarness(undefined)}
+                      onError={fail}
+                    />
+                  </>
+                ) : (
+                  <HarnessTiles
+                    harnesses={list<Harness>(state.value)}
+                    unit={selected}
+                    query={search}
+                    onOpen={setOpenHarness}
+                    onCreate={() => setNewHarness(true)}
+                  />
+                ))}
               {assetTab && (
                 <AssetsPanel
                   assets={assets}
@@ -1349,6 +1399,20 @@ export function AdminApp() {
             </section>
           </div>
         </Modal>
+      )}
+
+      {newHarness && selected && (
+        <HarnessDialog
+          unit={selected}
+          api={api}
+          onClose={() => setNewHarness(false)}
+          onSaved={(harness) => {
+            setNewHarness(false);
+            loadTab();
+            setOpenHarness(harness);
+          }}
+          onError={fail}
+        />
       )}
 
       {showCreateKey && (

@@ -9,6 +9,7 @@ import { adopt, identify, record, reset, status } from "./assets.js";
 import { type Manifest, materializeManifest, readCredentials, writeCredentials } from "./core.js";
 import { doctor } from "./doctor.js";
 import { childEnvironment } from "./env.js";
+import { readSelection, resolveForSession, switchHarness } from "./harness.js";
 import { help, manual, VERSION } from "./help.js";
 import { hydrate } from "./hydrate.js";
 import { createSpool, supervise } from "./supervise.js";
@@ -58,12 +59,14 @@ export async function whoami(): Promise<void> {
 	const units = (me.units ?? []).filter((unit) => unit.role !== "user").map((unit) => unit.name);
 	const line = [...units, email ?? "unknown email"].join("  ›  ");
 	console.log(line || me.org_unit_path || "No workspace yet.");
+	const selection = await readSelection();
+	console.log(`harness: ${selection?.name ?? "none — everything you have is loaded"}`);
 }
 
 export async function resolveManifest(args: string[]): Promise<void> {
 	if (!args.includes("--json")) throw new Error("Use `harness resolve --json` to print the resolved manifest.");
 	const credentials = await readCredentials();
-	console.log(JSON.stringify(await api(credentials, "/v1/resolve"), null, 2));
+	console.log(JSON.stringify(await resolveForSession(credentials), null, 2));
 }
 
 interface DeliveredKey {
@@ -83,12 +86,26 @@ export async function pull(): Promise<number> {
 
 export async function run(piArgs: string[]): Promise<number> {
 	const credentials = await readCredentials();
-	const manifest = await api<Manifest>(credentials, "/v1/resolve");
+	const manifest = await resolveForSession(credentials);
+	// Hydration always sees the whole resolved set. Handing it a per-harness
+	// one would delete clean directories on every switch and fetch them back
+	// on the next — see docs/harnesses.md §3.
 	await hydrate(manifest, (message) => console.log(message));
+	if (!manifest.harness && manifest.harnesses?.length) {
+		const count = manifest.harnesses.length;
+		console.log(
+			`${count} ${count === 1 ? "harness is" : "harnesses are"} available to you; ` +
+				"`harness switch` picks one. Loading everything you have.",
+		);
+	}
 	const session = await materializeManifest(manifest);
 	await api(credentials, "/v1/sessions", {
 		method: "POST",
-		body: JSON.stringify({ id: session.id, model_metadata: manifest.model ?? {} }),
+		body: JSON.stringify({
+			id: session.id,
+			harness_id: manifest.harness?.id ?? null,
+			model_metadata: manifest.model ?? {},
+		}),
 	});
 	const refs = manifest.model?.key_ref ? [manifest.model.key_ref] : [];
 	const deliveredRaw = await api<DeliveredKey[] | { keys: DeliveredKey[] }>(credentials, "/v1/api-keys/deliver", {
@@ -257,6 +274,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
 	else if (command === "whoami") await whoami();
 	else if (command === "resolve") await resolveManifest(args);
 	else if (command === "push") await pushAsset(args);
+	else if (command === "switch") return switchHarness(args);
 	else if (command === "pull") return pull();
 	else if (command === "doctor") return doctor(args);
 	else if (command === "status") return status();

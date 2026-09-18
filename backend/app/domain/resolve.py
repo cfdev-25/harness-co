@@ -14,6 +14,13 @@ async def resolved_assets(
     Each result also carries the asset it shadows, if any, so the client can
     tell a user that the team's version advanced behind their personal
     override. The runner-up of the same window gives us that for free.
+
+    Harnesses do not take part in resolution, and nothing here mentions
+    them: a harness is a list of (kind, name), carried once on the manifest,
+    and the client drops the names that are not on it when it lays out a
+    session. That ordering is forced — there is one work tree per user, so
+    hydration has to see the whole resolved set or switching harnesses would
+    churn it (docs/harnesses.md §3).
     """
     rows = await connection.fetch(
         """with recursive chain as (

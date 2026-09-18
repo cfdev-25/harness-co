@@ -55,3 +55,47 @@ export function redactValue(value: unknown, redactions: Array<[string, string]>)
 	}
 	return value;
 }
+
+/** What `harness run` leaves in the session directory for us to show. */
+export interface HarnessCard {
+	name: string;
+	description: string;
+	org_unit_path: string;
+	/** The drawing, already rendered by the CLI for this terminal. */
+	lines: string[];
+}
+
+const ANSI = /\u001b\[[0-9;]*m/g;
+const visibleWidth = (text: string) => text.replace(ANSI, "").length;
+
+function wrap(text: string, width: number): string[] {
+	const lines: string[] = [];
+	let line = "";
+	for (const word of text.split(/\s+/).filter(Boolean)) {
+		if (line && line.length + 1 + word.length > width) {
+			lines.push(line);
+			line = "";
+		}
+		line = line ? `${line} ${word}` : word;
+	}
+	return line ? [...lines, line] : lines;
+}
+
+/**
+ * The harness header: the drawing on the left, what it is on the right.
+ *
+ * Always exactly as tall as the drawing, so the header never grows with a
+ * long description — that is cut off instead, because the description is a
+ * reminder of where you are, not a document.
+ */
+export function headerLines(icon: string[], name: string, unit: string, description: string, width: number): string[] {
+	const drawing = icon.length ? icon : [""];
+	const textWidth = Math.max(12, width - visibleWidth(drawing[0]) - 6);
+	const text = [name, unit, "", ...wrap(description, textWidth)];
+	if (text.length > drawing.length) {
+		text.length = drawing.length;
+		const last = text[drawing.length - 1] ?? "";
+		text[drawing.length - 1] = `${last.slice(0, Math.max(0, textWidth - 1))}\u2026`;
+	}
+	return drawing.map((line, index) => `  ${line}  ${text[index] ?? ""}`.trimEnd());
+}

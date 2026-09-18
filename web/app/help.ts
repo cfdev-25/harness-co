@@ -32,6 +32,23 @@ const ASSET_MECHANICS = [
 ];
 
 export const HELP: Record<Tab, Help> = {
+  harness: {
+    summary: "The job someone sits down to do.",
+    what: "A harness is one way of working, with a name and a little drawing so it is recognisable at a glance. It holds exactly what you put in it and nothing else, which is the point: switching harnesses changes what the assistant has in front of it — its standing brief, what it knows, the methods it reaches for, and what it is allowed to run. A new harness starts empty, so nothing arrives by accident.",
+    example:
+      "Support and Bid writing are two harnesses on the same team. Support has the three-sentence house style, the refund window, and the order lookup. Bid writing has the long-form style, the win themes and the pricing sheet — and none of the refund machinery, which would only get in the way. The same person switches between them in a second.",
+    mechanics: [
+      "A harness starts with nothing in it. Open it and tick what belongs, or add something from its own page under Harnesses.",
+      "A harness holds things by name, so when someone writes their own version of one of them they keep it — they get theirs, in the same harness, without anybody reassigning anything.",
+      "Anything in no harness at all still exists and still belongs to whoever published it. It simply will not appear in a session that is in a harness.",
+      "Someone who has not chosen a harness gets everything they have, exactly as before harnesses existed. Choosing one narrows it; there is no way to end up with more.",
+      "Limits are not part of a harness. Where work may connect, what it may spend, and what needs approval are set on the organisation and the team and are the same in every harness. So is which model the work runs on.",
+      "Switching changes nothing on anyone's machine. Nothing is downloaded or removed — only what a session puts in front of the assistant changes.",
+      "Harnesses published by the organisation reach every team inside it, and a team's reach its people. Two may share a name at different levels; they are still two harnesses, told apart by who publishes them.",
+      "In the terminal, `harness switch` lists them and draws the one that was picked.",
+    ],
+  },
+
   system_prompt: {
     summary: "How the assistant should behave, always.",
     what: "The standing brief: tone, what to do first, what never to do. It is the day-one conversation you would have with a new colleague about how this team works. Nobody types it and nobody can skip it — it is in front of the assistant for every message, before anything else it is given.",

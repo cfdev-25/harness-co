@@ -28,3 +28,16 @@ export function row(label: string, value: string, note?: string): string {
 }
 
 export const absent = (text: string) => dim(`(${text})`);
+
+export type ColorMode = "truecolor" | "256" | "mono";
+
+/**
+ * What the terminal can be trusted with. `mono` whenever colour is already
+ * off for the reasons above, so a drawing piped to a file keeps its shape
+ * and loses its escapes.
+ */
+export function colorMode(): ColorMode {
+	if (!enabled) return "mono";
+	const declared = process.env.COLORTERM;
+	return declared === "truecolor" || declared === "24bit" ? "truecolor" : "256";
+}

@@ -1,7 +1,16 @@
 import { api } from "./api.js";
-import { assetsRoot, credentialsPath, harnessHome, type Manifest, readCredentials } from "./core.js";
+import {
+	assetsRoot,
+	credentialsPath,
+	harnessHome,
+	inHarness,
+	type Manifest,
+	type ManifestAsset,
+	readCredentials,
+} from "./core.js";
 import { childEnvironment } from "./env.js";
 import { differs, ensureRepo, g, worktreeTree } from "./git.js";
+import { harnessCard, resolveForSession } from "./harness.js";
 import { absent, bad, bold, dim, good, heading, row, warn } from "./style.js";
 
 /**
@@ -11,7 +20,7 @@ import { absent, bad, bold, dim, good, heading, row, warn } from "./style.js";
  * shown; the login token is not.
  */
 
-const SECTIONS = ["identity", "boundary", "model", "assets", "local", "env"] as const;
+const SECTIONS = ["identity", "harness", "boundary", "model", "assets", "local", "env"] as const;
 type Section = (typeof SECTIONS)[number];
 
 // Until the proxy and sandbox land, every boundary field is delivered but not
@@ -72,6 +81,23 @@ function identity(me: Me, apiUrl: string): string[] {
 	];
 }
 
+function harness(manifest: Manifest): string[] {
+	if (manifest.harness) {
+		const held = manifest.harness.assets?.length ?? 0;
+		return [
+			...harnessCard(manifest.harness),
+			row("contains", held === 0 ? bad("nothing yet") : `${held} name${held === 1 ? "" : "s"}`),
+		];
+	}
+	const available = manifest.harnesses ?? [];
+	return [
+		`  ${absent("none selected — everything you have is loaded")}`,
+		available.length
+			? row("available", available.map((item) => item.name).join(", "), "`harness switch`")
+			: row("available", absent("none created yet")),
+	];
+}
+
 function model(manifest: Manifest): string[] {
 	if (!manifest.model) return [`  ${bad("not configured")} ${dim("— `harness run` will fail")}`];
 	const { provider, model_id, base_url, key_ref, env_var } = manifest.model;
@@ -84,6 +110,11 @@ function model(manifest: Manifest): string[] {
 		// and written nowhere we can read.
 		row("key delivered as", env_var),
 	];
+}
+
+function membership(item: ManifestAsset, manifest: Manifest): string {
+	if (!manifest.harness) return "";
+	return inHarness(item, manifest.harness) ? "" : dim("  not in this harness");
 }
 
 function assets(manifest: Manifest, ownPath?: string): string[] {
@@ -102,7 +133,7 @@ function assets(manifest: Manifest, ownPath?: string): string[] {
 				const over = item.shadows ? warn(` overrides ${item.shadows.org_unit_path} v${item.shadows.seq}`) : "";
 				// Whether this is the team's or something the user added themselves.
 				const from = item.org_unit_path === ownPath ? bold("yours") : dim(`from ${item.org_unit_path ?? "?"}`);
-				return `    ${item.name.padEnd(22)}${`${seq}${files}`.padEnd(20)}${from}${over}`;
+				return `    ${item.name.padEnd(22)}${`${seq}${files}`.padEnd(20)}${from}${over}${membership(item, manifest)}`;
 			}),
 		];
 	});
@@ -149,10 +180,7 @@ export async function doctor(args: string[]): Promise<number> {
 	const show = (name: Section) => wanted.length === 0 || wanted.includes(name);
 
 	const credentials = await readCredentials();
-	const [me, manifest] = await Promise.all([
-		api<Me>(credentials, "/v1/me"),
-		api<Manifest>(credentials, "/v1/resolve"),
-	]);
+	const [me, manifest] = await Promise.all([api<Me>(credentials, "/v1/me"), resolveForSession(credentials)]);
 
 	if (args.includes("--json")) {
 		console.log(JSON.stringify({ me, manifest }, null, 2));
@@ -161,6 +189,7 @@ export async function doctor(args: string[]): Promise<number> {
 
 	const blocks: Array<[Section, string, string, string[]]> = [
 		["identity", "IDENTITY", "", identity(me, credentials.api_url)],
+		["harness", "HARNESS", "what this session loads", harness(manifest)],
 		["boundary", "BOUNDARY", `merged down the org tree · ${freshness(manifest)}`, flatten(manifest.boundary)],
 		["model", "MODEL", "", model(manifest)],
 		["assets", "ASSETS", freshness(manifest), assets(manifest, me.org_unit_path)],

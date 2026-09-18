@@ -68,3 +68,63 @@ login, so it was inert once the seed was gone. Both are recoverable from history
 
 `docs/supabase-migration-plan.md` §4 still describes the seed; it is kept as the
 historical record of what was planned, not as a description of the tree.
+
+## 2026-09-18 — Harnesses
+
+Design and tasks: [`harnesses.md`](harnesses.md). These decisions will be
+re-litigated by anyone who did not read it, so they are recorded here too.
+
+**A harness holds only what is put in it.** A new harness is empty, and
+nothing joins it later by default. It shipped the other way first — "in every
+harness unless narrowed", with an `assets.harness_scope` column defaulting to
+`all` — and that was wrong: a default that fills a harness means you cannot
+tell what a harness is *for* by looking at it, and every asset published
+afterwards silently joins every job. The column is gone.
+
+**A harness names `(kind, name)`, never an asset id.** This is what makes
+empty-by-default safe, and it is the decision most likely to be "simplified"
+by someone later. With ids: the team puts its `house-style` prompt in Support,
+a user pushes their own copy to extend it, resolution hands them theirs,
+theirs has no assignment, and Support silently loses the prompt. With names:
+the harness names the thing, the tree picks the version, and the user keeps
+their copy inside the harness. It also means promotion needs no harness
+bookkeeping at all — the copy has the same name — and that there is no
+cross-unit rule to enforce, because naming something grants nothing.
+
+**No harness is not an empty harness.** With nothing selected a session loads
+everything the user resolves, exactly as before harnesses existed. The absence
+of a harness is the absence of a filter, which is what keeps `harness run`
+working for anyone who has not adopted them.
+
+**Resolve, then filter — on the client.** `/v1/resolve` returns the whole
+resolved set plus the harness's list of names, and `materializeManifest` keeps
+the intersection. Filtering inside the resolution query is wrong because there
+is one work tree per user: hydration handed a per-harness set would delete
+clean asset directories on every switch and fetch them back on the next,
+reporting each as "no longer provided by your team". The filter therefore
+lives in `byKind`, where every kind inherits it from one line.
+
+**Harness names do not shadow.** Assets resolve nearest-ancestor-wins; two
+harnesses called "Support" at different heights are two harnesses, told apart
+by their owning unit. A harness is a workspace you choose, not a capability
+that overrides, and silently replacing the team's with a personal one would be
+a surprise with no upside. `harness switch <unit-path>/<name>` disambiguates.
+
+**The selection is local.** `$HARNESS_HOME/harness.json`, beside the git
+directory and outside the agent-writable `assets/`, so the agent cannot change
+which harness its user is in. A server-side per-user selection would add a
+table and an endpoint to answer a question the machine already knows, and the
+rest of the loop (`login`, `pull`, `status`) is local state plus a stateless
+server. Revisit if people switch machines often.
+
+**Deleting a harness deletes only the harness.** Its assignments go with it;
+every asset it named still exists, still has its history, and still resolves
+for everyone it resolved for. `DELETE` is a 204, and the audit event records
+what the harness held.
+
+**Boundaries and the model are not per harness.** `policy.json` is identical
+in every harness except `allowed_tools`, which is derived from the tools the
+harness contains and can only narrow — tighten-only with no new mechanism. The
+model comes from `model-default` resolved over the whole set, because it is
+wiring rather than context, which is also why an empty harness can still
+start.

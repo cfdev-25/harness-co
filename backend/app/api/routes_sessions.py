@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from app.api.deps import current_principal, current_user_unit, require_write
 from app.db import get_pool
 from app.domain.harness_sessions import owned_session
+from app.domain.harnesses import visible_harness
 from app.identity import Principal
 
 router = APIRouter(tags=["sessions"])
@@ -17,6 +18,7 @@ router = APIRouter(tags=["sessions"])
 class SessionCreate(BaseModel):
     id: UUID
     org_unit_id: UUID | None = None
+    harness_id: UUID | None = None
     name: str | None = Field(default=None, max_length=200)
     access: dict[str, Any] = Field(default_factory=lambda: {"visibility": "private"})
     model_metadata: dict[str, Any] = Field(default_factory=dict)
@@ -37,17 +39,21 @@ async def create_session(
     user_unit: Annotated[dict, Depends(current_user_unit)],
 ) -> dict:
     target = body.org_unit_id or user_unit["id"]
-    await require_write(get_pool(request), principal, user_unit["id"], target)
-    row = await get_pool(request).fetchrow(
+    pool = get_pool(request)
+    await require_write(pool, principal, user_unit["id"], target)
+    if body.harness_id is not None:
+        await visible_harness(pool, user_unit["id"], body.harness_id)
+    row = await pool.fetchrow(
         """insert into harness_sessions
-           (id,org_unit_id,owner_auth_user_id,name,access,model_metadata)
-           values($1,$2,$3,$4,$5,$6) returning *""",
+           (id,org_unit_id,owner_auth_user_id,name,access,model_metadata,harness_id)
+           values($1,$2,$3,$4,$5,$6,$7) returning *""",
         body.id,
         target,
         principal.auth_user_id,
         body.name,
         json.dumps(body.access),
         json.dumps(body.model_metadata),
+        body.harness_id,
     )
     return dict(row)
 

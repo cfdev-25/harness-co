@@ -18,6 +18,7 @@ from app.api.deps import (
 from app.db import get_pool, transaction
 from app.domain.asset_store import decode_files, lint_files, push_version
 from app.domain.audit import append_event
+from app.domain.harnesses import visible_harness
 from app.domain.org_tree import effective_boundary
 from app.errors import ApiError
 from app.identity import Principal
@@ -48,6 +49,10 @@ class AssetUpdate(BaseModel):
     status: Literal["active", "archived"]
 
 
+class HarnessAssignment(BaseModel):
+    harness_ids: list[UUID] = Field(default_factory=list, max_length=200)
+
+
 class PromoteInput(BaseModel):
     target_org_unit_id: UUID
     message: str | None = None
@@ -66,6 +71,31 @@ async def _visible_refs(connection, org_unit_id: UUID) -> set[str]:
         org_unit_id,
     )
     return {row["ref"] for row in rows}
+
+
+async def _harness_ids(connection, asset) -> list[str]:
+    """Harnesses at or above this asset's unit that contain its name.
+
+    At or above, because those are the harnesses whose audience this asset
+    can reach. Someone's personal harness may also name it; that is their
+    business and shows on their own harness screen.
+    """
+    rows = await connection.fetch(
+        """with recursive chain as (
+             select id,parent_id from org_units where id=$1
+             union all select p.id,p.parent_id from org_units p join chain c on c.parent_id=p.id
+           )
+           select h.id::text id
+             from harness_assets a
+             join harnesses h on h.id=a.harness_id
+             join chain c on c.id=h.org_unit_id
+            where a.kind=$2 and a.name=$3
+            order by 1""",
+        asset["org_unit_id"],
+        asset["kind"],
+        asset["name"],
+    )
+    return [row["id"] for row in rows]
 
 
 async def _asset_access(connection, principal, user_unit, asset_id):
@@ -88,7 +118,15 @@ async def list_assets(
     if not await can_read(pool, principal, user_unit["id"], org_unit_id):
         raise ApiError(403, "org_unit_not_visible", "You do not have access to this org unit.")
     rows = await pool.fetch(
-        """select a.*,v.seq head_seq,v.message head_message,v.created_at head_updated_at
+        """select a.*,v.seq head_seq,v.message head_message,v.created_at head_updated_at,
+                  coalesce((select array_agg(h.id::text order by h.id)
+                              from harness_assets ha
+                              join harnesses h on h.id=ha.harness_id
+                              join org_units hu on hu.id=h.org_unit_id
+                              join org_units au on au.id=a.org_unit_id
+                             where ha.kind=a.kind and ha.name=a.name
+                               and (au.path = hu.path or au.path like hu.path || '.%')), '{}')
+                  harness_ids
            from assets a
            left join asset_versions v on v.id=a.head_version_id
            where a.org_unit_id=$1 order by a.kind,a.name""",
@@ -104,8 +142,9 @@ async def get_asset(
     principal: Annotated[Principal, Depends(current_principal)],
     user_unit: Annotated[dict, Depends(current_user_unit)],
 ) -> dict:
-    asset = await _asset_access(get_pool(request), principal, user_unit, asset_id)
-    return dict(asset)
+    pool = get_pool(request)
+    asset = await _asset_access(pool, principal, user_unit, asset_id)
+    return {**dict(asset), "harness_ids": await _harness_ids(pool, asset)}
 
 
 @router.patch("/assets/{asset_id}")
@@ -137,6 +176,64 @@ async def update_asset(
             payload={"asset_id": str(asset_id), "status": body.status},
         )
         return dict(row)
+
+
+@router.put("/assets/{asset_id}/harnesses")
+async def set_asset_harnesses(
+    asset_id: UUID,
+    body: HarnessAssignment,
+    request: Request,
+    principal: Annotated[Principal, Depends(current_principal)],
+    user_unit: Annotated[dict, Depends(current_user_unit)],
+) -> dict:
+    """Which harnesses contain this asset's name.
+
+    The same table the harness screen writes, from the other side. What is
+    stored is the (kind, name), so this reads as "put triage in Support" —
+    and whoever's triage wins for a given user is the one they get.
+
+    Changing a harness needs write access to *that harness*, not to this
+    asset: the list belongs to the harness. Naming something grants nobody
+    access to it, because resolution is unchanged.
+    """
+    async with transaction(get_pool(request)) as connection:
+        asset = await _asset_access(connection, principal, user_unit, asset_id)
+        current = set(await _harness_ids(connection, asset))
+        wanted = {str(item) for item in body.harness_ids}
+        for harness_id in sorted(current ^ wanted):
+            harness = await visible_harness(connection, user_unit["id"], UUID(harness_id))
+            await require_write(connection, principal, user_unit["id"], harness["org_unit_id"])
+        for harness_id in sorted(current - wanted):
+            await connection.execute(
+                "delete from harness_assets where harness_id=$1 and kind=$2 and name=$3",
+                UUID(harness_id),
+                asset["kind"],
+                asset["name"],
+            )
+        for harness_id in sorted(wanted - current):
+            await connection.execute(
+                """insert into harness_assets(harness_id,kind,name) values($1,$2,$3)
+                   on conflict do nothing""",
+                UUID(harness_id),
+                asset["kind"],
+                asset["name"],
+            )
+        if current != wanted:
+            await append_event(
+                connection,
+                org_unit_id=asset["org_unit_id"],
+                actor_type="user",
+                actor_id=principal.auth_user_id,
+                event_class="authoritative",
+                action="asset.harnesses",
+                payload={
+                    "asset_id": str(asset_id),
+                    "kind": asset["kind"],
+                    "name": asset["name"],
+                    "harness_ids": sorted(wanted),
+                },
+            )
+        return {"harness_ids": await _harness_ids(connection, asset)}
 
 
 @router.get("/assets/{asset_id}/lineage")
@@ -376,6 +473,9 @@ async def promote(
             source_asset["name"],
         )
         if not target:
+            # Harnesses hold names, and the name has not changed, so a
+            # promoted copy is already in whatever harnesses named it. There
+            # is nothing to copy here and nothing that can be left behind.
             target = await connection.fetchrow(
                 "insert into assets(org_unit_id,kind,name) values($1,$2,$3) returning *",
                 body.target_org_unit_id,
@@ -400,7 +500,11 @@ async def promote(
             action="asset.promote",
             payload={"asset_id": str(target["id"]), "source_version_id": str(source["id"])},
         )
-        return {**dict(target), "version": dict(version)}
+        return {
+            **dict(target),
+            "harness_ids": await _harness_ids(connection, target),
+            "version": dict(version),
+        }
 
 
 @router.post("/assets/{asset_id}/rollback")

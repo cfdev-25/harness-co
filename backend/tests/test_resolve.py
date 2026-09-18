@@ -55,7 +55,7 @@ class FakeConnection:
         return self.candidates if "with recursive chain" in query else self.files
 
 
-def _candidate(kind, name, choice, *, unit, seq, version_id, asset_id):
+def _candidate(kind, name, choice, *, unit, seq, version_id, asset_id, scope="all", harnesses=()):
     return {
         "id": asset_id,
         "kind": kind,
@@ -65,6 +65,8 @@ def _candidate(kind, name, choice, *, unit, seq, version_id, asset_id):
         "version_id": version_id,
         "seq": seq,
         "file_hashes": {"SKILL.md": "h1"},
+        "harness_scope": scope,
+        "harness_ids": list(harnesses),
     }
 
 

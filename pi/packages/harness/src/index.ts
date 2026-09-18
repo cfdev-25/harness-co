@@ -1,7 +1,16 @@
 import { appendFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { type HarnessPolicy, isOutsidePath, parseRedactions, plainAction, redactText, redactValue } from "./core.js";
+import {
+	type HarnessCard,
+	type HarnessPolicy,
+	headerLines,
+	isOutsidePath,
+	parseRedactions,
+	plainAction,
+	redactText,
+	redactValue,
+} from "./core.js";
 
 interface AuditEvent {
 	action: "tool.call";
@@ -26,6 +35,38 @@ export default function harnessExtension(pi: ExtensionAPI) {
 	const audit: AuditEvent[] = [];
 	const calls = new Map<string, { startedAt: number; sentence: string; tool: string }>();
 	const redactions = parseRedactions(process.env.HARNESS_REDACTIONS);
+
+	/**
+	 * Show which harness this session is running in.
+	 *
+	 * The drawing arrives already rendered: the CLI and this process share a
+	 * terminal, so the parent's idea of what the terminal can do is the right
+	 * one. A missing or damaged file leaves the built-in header in place — a
+	 * header is decoration, and must never be the reason a session fails.
+	 */
+	async function showHarness(ctx: ExtensionContext) {
+		const dir = sessionDir();
+		if (!dir || ctx.mode !== "tui") return;
+		let card: HarnessCard;
+		try {
+			card = JSON.parse(await readFile(join(dir, "harness.json"), "utf8")) as HarnessCard;
+			if (typeof card.name !== "string" || !Array.isArray(card.lines)) return;
+		} catch {
+			return;
+		}
+		ctx.ui.setHeader((_tui, theme) => ({
+			// Nothing is cached, so there is nothing to throw away on a redraw.
+			invalidate: () => {},
+			render: (width: number) =>
+				headerLines(
+					card.lines,
+					theme.fg("accent", card.name),
+					theme.fg("muted", card.org_unit_path ?? ""),
+					card.description ?? "",
+					width,
+				),
+		}));
+	}
 
 	async function loadPolicy(ctx: ExtensionContext) {
 		const path = join(sessionDir() ?? ctx.cwd, "policy.json");
@@ -77,6 +118,7 @@ export default function harnessExtension(pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		await loadPolicy(ctx);
 		applyAllowlist(ctx);
+		await showHarness(ctx);
 		if (!started) {
 			started = true;
 			timer = setInterval(() => void flush(), 15_000);
