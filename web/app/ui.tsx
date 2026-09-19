@@ -74,7 +74,7 @@ export function Field({
   );
 }
 
-/* Collapsed, this is one more icon button beside (i) and (?), so a page with
+/* Collapsed, this is one more icon button beside (?), so a page with
    nothing to search costs nothing. Typing opens it; clearing or Escape while
    empty closes it again. */
 export function HeaderSearch({
@@ -97,6 +97,7 @@ export function HeaderSearch({
     return (
       <Button
         size="icon"
+        className="text-[17px] leading-none"
         onClick={() => setOpen(true)}
         aria-label={placeholder}
         title={placeholder}

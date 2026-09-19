@@ -114,11 +114,62 @@ async def list_assets(
     principal: Annotated[Principal, Depends(current_principal)],
     user_unit: Annotated[dict, Depends(current_user_unit)],
 ) -> list[dict]:
+    """Owned here, inherited from above, and published below.
+
+    A session still resolves only ancestors (nearest live name wins). The
+    extra rows are the ones further down the tree, so an org can see what
+    its teams and people have. Each fork is its own asset id; names may
+    repeat. Rows the caller cannot read are dropped.
+    """
     pool = get_pool(request)
     if not await can_read(pool, principal, user_unit["id"], org_unit_id):
         raise ApiError(403, "org_unit_not_visible", "You do not have access to this org unit.")
     rows = await pool.fetch(
-        """select a.*,v.seq head_seq,v.message head_message,v.created_at head_updated_at,
+        """with recursive
+           up as (
+             select id,parent_id,0 depth from org_units where id=$1
+             union all select p.id,p.parent_id,c.depth+1
+             from org_units p join up c on c.parent_id=p.id
+           ), down as (
+             select id,parent_id,0 depth from org_units where id=$1
+             union all select u.id,u.parent_id,d.depth+1
+             from org_units u join down d on u.parent_id=d.id
+           ), my_chain as (
+             select id,parent_id from org_units where id=$2
+             union all select p.id,p.parent_id
+             from org_units p join my_chain c on c.parent_id=p.id
+           ), admin_subtree as (
+             select u.id,u.parent_id from org_units u
+               join org_unit_admins a on a.org_unit_id=u.id and a.auth_user_id=$3
+             union all select u.id,u.parent_id
+             from org_units u join admin_subtree s on u.parent_id=s.id
+           ), readable as (
+             select id from my_chain
+             union
+             select id from admin_subtree
+           ), visible as (
+             select id from assets where org_unit_id=$1
+             union
+             select id from (
+               select a.id, row_number() over(
+                        partition by a.kind,a.name order by c.depth
+                      ) rn
+                 from up c
+                 join assets a on a.org_unit_id=c.id and a.status='active'
+             ) winners where rn=1
+             union
+             select a.id from down d
+             join assets a on a.org_unit_id=d.id
+             where d.depth>0
+           )
+           select a.*,u.path org_unit_path,
+                  case
+                    when a.org_unit_id=$1 then 'owned'
+                    when exists(select 1 from up c where c.id=a.org_unit_id and c.depth>0)
+                      then 'inherited'
+                    else 'below'
+                  end as origin,
+                  v.seq head_seq,v.message head_message,v.created_at head_updated_at,
                   coalesce((select array_agg(h.id::text order by h.id)
                               from harness_assets ha
                               join harnesses h on h.id=ha.harness_id
@@ -128,9 +179,20 @@ async def list_assets(
                                and (au.path = hu.path or au.path like hu.path || '.%')), '{}')
                   harness_ids
            from assets a
+           join visible vis on vis.id=a.id
+           join readable r on r.id=a.org_unit_id
+           join org_units u on u.id=a.org_unit_id
            left join asset_versions v on v.id=a.head_version_id
-           where a.org_unit_id=$1 order by a.kind,a.name""",
+           order by case
+                      when a.org_unit_id=$1 then 0
+                      when exists(select 1 from up c where c.id=a.org_unit_id and c.depth>0)
+                        then 1
+                      else 2
+                    end,
+                    a.kind, a.name, u.path""",
         org_unit_id,
+        user_unit["id"],
+        principal.auth_user_id,
     )
     return [dict(row) for row in rows]
 

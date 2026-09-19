@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import {
   ApiKey,
   Asset,
+  AssetScope,
   AuditEvent,
   BoundaryPolicy,
   BoundaryView,
@@ -143,6 +144,56 @@ function flatten(
 function matches(query: string, ...fields: (string | null | undefined)[]) {
   const needle = query.trim().toLowerCase();
   return !needle || fields.some((field) => field?.toLowerCase().includes(needle));
+}
+
+/** Dot-path as a branch: "acme.eng.ana" → "acme / eng / ana". */
+function branchPath(path?: string) {
+  return path?.split(".").join(" / ") ?? "—";
+}
+
+function isOwnedHere(asset: Asset) {
+  return (asset.origin ?? "owned") === "owned";
+}
+
+function isInventoryTab(tab: Tab) {
+  return tab === "harness" || ASSET_TABS.includes(tab);
+}
+
+/** One control: a switch whose label is the mode you are in. */
+function ScopeToggle({
+  scope,
+  onToggle,
+}: {
+  scope: AssetScope;
+  onToggle: () => void;
+}) {
+  const available = scope === "available";
+  return (
+    <Button
+      variant="none"
+      size="none"
+      role="switch"
+      aria-checked={available}
+      aria-label={available ? "Available. Switch to owned." : "Owned. Switch to available."}
+      title={available ? "Switch to owned" : "Switch to available"}
+      className="items-center gap-2 rounded-md border border-line bg-surface px-2 py-1.5 hover:border-accent"
+      onClick={onToggle}
+    >
+      <span
+        aria-hidden
+        className={`relative h-4 w-7 rounded-full transition-colors ${
+          available ? "bg-accent" : "bg-line"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 size-3 rounded-full bg-surface shadow-sm transition-[left] ${
+            available ? "left-3.5" : "left-0.5"
+          }`}
+        />
+      </span>
+      <span className="text-xs font-semibold">{available ? "Available" : "Owned"}</span>
+    </Button>
+  );
 }
 
 /* The asset tabs are one collection split by kind, so they share a request
@@ -378,66 +429,46 @@ function TreeItem({
   );
 }
 
-/* The unit you are in: the whole identity on hover, and on click the id
-   itself, which is the part you need anywhere else. */
-function UnitInfo({ unit, trail }: { unit: TreeNode; trail: TreeNode[] }) {
-  const [copied, setCopied] = useState(false);
-  const details = [
-    [...trail, unit].map((node) => node.name).join(" / "),
-    `${unit.role ?? "org unit"} · ${unit.id}`,
-    "Click to copy the org unit id.",
-  ].join("\n");
-
-  async function copy() {
-    await navigator.clipboard.writeText(unit.id);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1400);
-  }
-
-  return (
-    <Button
-      variant={copied ? "none" : "default"}
-      size="icon"
-      title={details}
-      aria-label={`Org unit ${unit.name} — click to copy its id`}
-      className={copied ? "border border-ok/40 bg-ok-soft text-ok" : ""}
-      onClick={() => void copy()}
-    >
-      {copied ? "✓" : "i"}
-    </Button>
-  );
-}
-
 /* Tab panels -------------------------------------------------------------- */
-
-/** How many harnesses hold this name. None means no harness loads it. */
-function HarnessScope({ asset }: { asset: Asset }) {
-  const count = asset.harness_ids?.length ?? 0;
-  if (count === 0) return <Badge tone="warn">none</Badge>;
-  return <Chip>{count === 1 ? "1 harness" : `${count} harnesses`}</Chip>;
-}
 
 function AssetsPanel({
   assets,
   noun,
   query,
+  scope,
   onOpen,
 }: {
   assets: Asset[];
   noun: string;
   query: string;
+  scope: AssetScope;
   onOpen: (asset: Asset, pane: Pane) => void;
 }) {
-  const shown = assets.filter((asset) =>
-    matches(query, asset.name, asset.head_message, STATUS_LABEL[asset.status ?? ""]),
+  const scoped = assets.filter((asset) =>
+    scope === "owned" ? isOwnedHere(asset) : !isOwnedHere(asset),
   );
+  const shown = scoped.filter((asset) =>
+    matches(
+      query,
+      asset.name,
+      asset.head_message,
+      asset.org_unit_path,
+      STATUS_LABEL[asset.status ?? ""],
+    ),
+  );
+  const ordered = [...shown].sort((a, b) => {
+    const path = (a.org_unit_path ?? "").localeCompare(b.org_unit_path ?? "");
+    return path || a.name.localeCompare(b.name);
+  });
 
   return (
     <>
-      <Toolbar count={query ? counter(shown.length, assets.length) : undefined} />
-      {shown.length ? (
-        <Table head={["Name", "Version", "Message", "Updated", "Harnesses", "Status", ""]}>
-          {shown.map((asset) => (
+      <Toolbar count={query ? counter(shown.length, scoped.length) : String(scoped.length)} />
+      {ordered.length ? (
+        <Table
+          head={["Name", "Ownership", "Path", "Version", "Message", "Updated", "Harnesses", "Status", ""]}
+        >
+          {ordered.map((asset) => (
             <Tr key={asset.id}>
               <Td className="whitespace-nowrap">
                 <Button
@@ -448,6 +479,14 @@ function AssetsPanel({
                 >
                   {asset.name}
                 </Button>
+              </Td>
+              <Td>
+                <Badge tone={isOwnedHere(asset) ? "accent" : "neutral"}>
+                  {isOwnedHere(asset) ? "owned" : "available"}
+                </Badge>
+              </Td>
+              <Td>
+                <Mono title={asset.org_unit_path}>{branchPath(asset.org_unit_path)}</Mono>
               </Td>
               <Td>
                 {asset.head_version_id ? (
@@ -470,7 +509,7 @@ function AssetsPanel({
                 </Mono>
               </Td>
               <Td>
-                <HarnessScope asset={asset} />
+                <Mono>{asset.harness_ids?.length ?? 0}</Mono>
               </Td>
               <Td>
                 <Badge tone={STATUS_TONE[asset.status ?? ""] ?? "neutral"}>
@@ -492,9 +531,11 @@ function AssetsPanel({
         </Table>
       ) : (
         <EmptyState>
-          {assets.length
+          {scoped.length
             ? `No ${noun} match “${query}”.`
-            : `No ${noun} are owned by this org unit.`}
+            : scope === "owned"
+              ? `No ${noun} are owned by this unit.`
+              : `No ${noun} are available from above or below.`}
         </EmptyState>
       )}
     </>
@@ -854,6 +895,7 @@ export function AdminApp() {
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [selected, setSelected] = useState<TreeNode>();
   const [tab, setTab] = useState<Tab>("harness");
+  const [assetScope, setAssetScope] = useState<AssetScope>("owned");
   const [search, setSearch] = useState("");
   const [result, setResult] = useState<TabResult>();
   const [loading, setLoading] = useState(false);
@@ -1065,7 +1107,6 @@ export function AdminApp() {
   if (needsOrg) return <Onboarding onCreated={() => void loadWorkspace()} />;
 
   const nodes = flatten(tree);
-  const trail = nodes.find(({ node }) => node.id === selected?.id)?.trail ?? [];
   /* Derived rather than stored: a result for another tab reads as "loading"
      instead of leaking into the panel for one frame. */
   const tabKey = selected ? tabKeyFor(selected.id, tab) : "";
@@ -1143,6 +1184,7 @@ export function AdminApp() {
                     setSelected(node);
                     setViewingId(undefined);
                     setOpenHarness(undefined);
+                    setAssetScope("owned");
                     setSearch("");
                   }}
                 />
@@ -1185,6 +1227,14 @@ export function AdminApp() {
               ))}
             </div>
             <span className="flex shrink-0 items-center gap-2 py-2">
+              {selected && isInventoryTab(tab) && !viewing && !openHarness && (
+                <ScopeToggle
+                  scope={assetScope}
+                  onToggle={() =>
+                    setAssetScope((current) => (current === "owned" ? "available" : "owned"))
+                  }
+                />
+              )}
               {selected && !viewing && !openHarness && tab !== "boundary" && (
                 <HeaderSearch
                   key={tab}
@@ -1193,7 +1243,6 @@ export function AdminApp() {
                   placeholder={`search ${tabLabel.toLowerCase()}…`}
                 />
               )}
-              {selected && <UnitInfo unit={selected} trail={trail} />}
               <Button
                 size="icon"
                 onClick={() => setShowDocs(true)}
@@ -1259,6 +1308,12 @@ export function AdminApp() {
                 </Button>
                 <h1 className="text-[17px] font-bold tracking-[-0.02em]">{viewing.name}</h1>
                 <KindTag kind={viewing.kind} />
+                <Badge tone={isOwnedHere(viewing) ? "accent" : "neutral"}>
+                  {isOwnedHere(viewing) ? "owned" : "available"}
+                </Badge>
+                {!isOwnedHere(viewing) && (
+                  <Mono title={viewing.org_unit_path}>{branchPath(viewing.org_unit_path)}</Mono>
+                )}
                 <Badge tone={STATUS_TONE[viewing.status ?? ""] ?? "neutral"}>
                   {STATUS_LABEL[viewing.status ?? ""] ?? viewing.status ?? "unknown"}
                 </Badge>
@@ -1293,6 +1348,7 @@ export function AdminApp() {
                 <AssetManage
                   key={`${viewing.id}:manage`}
                   asset={viewing}
+                  unit={selected}
                   api={api}
                   units={nodes}
                   onChanged={loadTab}
@@ -1327,6 +1383,7 @@ export function AdminApp() {
                     harnesses={list<Harness>(state.value)}
                     unit={selected}
                     query={search}
+                    scope={assetScope}
                     onOpen={setOpenHarness}
                     onCreate={() => setNewHarness(true)}
                   />
@@ -1336,6 +1393,7 @@ export function AdminApp() {
                   assets={assets}
                   noun={tabLabel.toLowerCase()}
                   query={search}
+                  scope={assetScope}
                   onOpen={openAsset}
                 />
               )}

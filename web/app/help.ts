@@ -27,7 +27,7 @@ export interface Help {
    one tab, not all of them. */
 const ASSET_MECHANICS = [
   "Every save is a version. You can read any of them, compare an old one against what is live, and put it back. The live version is the one in use — if your team requires review, a new version waits until someone approves it.",
-  "Scope follows the org chart. What the organisation publishes reaches every team; what a team publishes reaches its people; and anyone may keep their own copy of a name, which wins for them alone. Manage shows where a name is coming from and whether someone's copy has fallen behind the one it came from.",
+  "Scope follows the org chart. What the organisation publishes reaches every team; what a team publishes reaches its people; and anyone may keep their own copy of a name, which wins for them alone. Owned is what this unit published. Available is everything else that reaches it — inherited from above, or rolled up from a team or person below. The path is which branch the copy lives on. Manage shows whether someone's copy has fallen behind the one it came from.",
   "Disable switches something off without deleting it. Nothing resolves it any more, the history stays untouched, and enabling puts it straight back.",
 ];
 

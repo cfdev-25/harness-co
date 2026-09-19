@@ -9,6 +9,9 @@ export type JsonRecord = Record<string, unknown>;
 export type AssetTab = "system_prompt" | "memory" | "skill" | "prompt" | "tool" | "connection";
 export type Tab = AssetTab | "harness" | "boundary" | "keys" | "invites" | "audit";
 export type Pane = "document" | "manage";
+/** The two asset-list views: this unit's copies, or everyone else's that
+    reach it — inherited from above or rolled up from below. */
+export type AssetScope = "owned" | "available";
 
 export interface TreeNode {
   id: string;
@@ -66,6 +69,12 @@ export interface Asset {
   id: string;
   name: string;
   org_unit_id?: string;
+  /** Owning unit's path. Present on the list so inherited rows can say where
+      they come from without a second request. */
+  org_unit_path?: string;
+  /** owned = this unit; inherited = nearest live ancestor; below = a
+      descendant's own copy. Same name may appear more than once. */
+  origin?: "owned" | "inherited" | "below";
   kind?: string;
   status?: string;
   /* Harnesses at or above this asset's unit that contain its name. Empty

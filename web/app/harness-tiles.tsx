@@ -5,7 +5,7 @@
    use" is the question the tab exists to answer. */
 
 import { FormEvent, useState } from "react";
-import { Api, Harness, PixelIcon, TreeNode } from "@/lib/types";
+import { Api, AssetScope, Harness, PixelIcon, TreeNode } from "@/lib/types";
 import { blankIcon, PixelArt, PixelEditor } from "./pixel-editor";
 import { Badge, Button, EmptyState, Field, Modal, Mono, Notice, Toolbar } from "./ui";
 
@@ -98,17 +98,22 @@ export function HarnessTiles({
   harnesses,
   unit,
   query,
+  scope,
   onOpen,
   onCreate,
 }: {
   harnesses: Harness[];
   unit: TreeNode;
   query: string;
+  scope: AssetScope;
   onOpen: (harness: Harness) => void;
   onCreate: () => void;
 }) {
+  const scoped = harnesses.filter((harness) =>
+    scope === "owned" ? harness.org_unit_id === unit.id : harness.org_unit_id !== unit.id,
+  );
   const needle = query.trim().toLowerCase();
-  const shown = harnesses.filter(
+  const shown = scoped.filter(
     (harness) =>
       !needle ||
       harness.name.toLowerCase().includes(needle) ||
@@ -124,7 +129,7 @@ export function HarnessTiles({
     <>
       <Toolbar
         count={
-          query ? `${shown.length} / ${harnesses.length}` : undefined
+          query ? `${shown.length} / ${scoped.length}` : String(scoped.length)
         }
         actions={
           <Button variant="primary" size="sm" onClick={onCreate}>
@@ -166,9 +171,11 @@ export function HarnessTiles({
         </ul>
       ) : (
         <EmptyState>
-          {harnesses.length
+          {scoped.length
             ? `No harnesses match “${query}”.`
-            : "No harnesses yet. Create one, then choose what goes in it."}
+            : scope === "owned"
+              ? "No harnesses are owned by this unit."
+              : "No harnesses are available from above."}
         </EmptyState>
       )}
     </>

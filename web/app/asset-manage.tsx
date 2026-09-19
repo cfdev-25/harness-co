@@ -182,12 +182,14 @@ function Harnesses({
 
 export function AssetManage({
   asset,
+  unit,
   api,
   units,
   onChanged,
   onError,
 }: {
   asset: Asset;
+  unit: TreeNode;
   api: Api;
   units: { node: TreeNode; trail: TreeNode[] }[];
   onChanged: () => void;
@@ -196,6 +198,8 @@ export function AssetManage({
   const [rows, setRows] = useState<LineageRow[]>();
   const [busy, setBusy] = useState(false);
   const disabled = asset.status !== "active";
+  const inherited = asset.org_unit_id !== unit.id;
+  const owner = asset.org_unit_path?.split(".").pop();
 
   const loadLineage = useCallback(() => {
     api<unknown>(`/v1/assets/${encodeURIComponent(asset.id)}/lineage`)
@@ -236,6 +240,14 @@ export function AssetManage({
   return (
     <div className="grid items-start gap-6 pt-5 pb-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
       <section className="min-w-0">
+        {inherited && (
+          <div className="pb-3">
+            <Notice>
+              This {asset.kind?.replace("_", " ") ?? "asset"} belongs to {owner}. Changing it
+              changes it for everyone there.
+            </Notice>
+          </div>
+        )}
         <Heading>Where this name resolves</Heading>
         {rows === undefined ? (
           <EmptyState>Loading…</EmptyState>
