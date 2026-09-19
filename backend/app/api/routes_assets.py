@@ -53,6 +53,15 @@ class HarnessAssignment(BaseModel):
     harness_ids: list[UUID] = Field(default_factory=list, max_length=200)
 
 
+class ScopeGrant(BaseModel):
+    org_unit_id: UUID
+    key_ref: str | None = None
+
+
+class ScopeReplace(BaseModel):
+    scopes: list[ScopeGrant] = Field(default_factory=list, max_length=500)
+
+
 class PromoteInput(BaseModel):
     target_org_unit_id: UUID
     message: str | None = None
@@ -98,6 +107,17 @@ async def _harness_ids(connection, asset) -> list[str]:
     return [row["id"] for row in rows]
 
 
+async def _scope_rows(connection, asset_id: UUID) -> list[dict]:
+    rows = await connection.fetch(
+        """select s.org_unit_id, u.path org_unit_path, s.key_ref
+             from asset_scopes s join org_units u on u.id=s.org_unit_id
+            where s.asset_id=$1
+            order by u.path""",
+        asset_id,
+    )
+    return [dict(row) for row in rows]
+
+
 async def _asset_access(connection, principal, user_unit, asset_id):
     asset = await connection.fetchrow("select * from assets where id=$1", asset_id)
     if not asset:
@@ -105,6 +125,35 @@ async def _asset_access(connection, principal, user_unit, asset_id):
     if not await can_read(connection, principal, user_unit["id"], asset["org_unit_id"]):
         raise ApiError(403, "asset_not_visible", "You do not have access to this asset.")
     return asset
+
+
+async def _require_within_subtree(connection, owning_unit_id: UUID, target_ids: set[UUID]) -> None:
+    """Refuse any scope target outside the owning unit's own subtree.
+
+    A scope row means "this unit and everything beneath it" (0022_asset_scopes.sql),
+    so a target has to be the owning unit itself or somewhere under it — that is
+    what lets the owner reach its own descendants. Anything else would let the
+    asset reach sideways through the tree, which docs/scoping.md §0 forbids: a
+    unit sees what it owns plus what an ancestor scoped to it, never what a
+    cousin branch decided to hand it.
+    """
+    rows = await connection.fetch(
+        """with recursive subtree as (
+             select id from org_units where id=$1
+             union all select o.id from org_units o join subtree s on o.parent_id=s.id
+           ) select id from subtree where id=any($2::uuid[])""",
+        owning_unit_id,
+        list(target_ids),
+    )
+    in_subtree = {row["id"] for row in rows}
+    outside = sorted(target_ids - in_subtree, key=str)
+    if outside:
+        raise ApiError(
+            422,
+            "scope_target_outside_subtree",
+            f"Org unit {outside[0]} is not part of this asset's owning unit's subtree.",
+            {"org_unit_id": str(outside[0])},
+        )
 
 
 @router.get("/org-units/{org_unit_id}/assets")
@@ -296,6 +345,99 @@ async def set_asset_harnesses(
                 },
             )
         return {"harness_ids": await _harness_ids(connection, asset)}
+
+
+@router.get("/assets/{asset_id}/scopes")
+async def list_asset_scopes(
+    asset_id: UUID,
+    request: Request,
+    principal: Annotated[Principal, Depends(current_principal)],
+    user_unit: Annotated[dict, Depends(current_user_unit)],
+) -> list[dict]:
+    """The units this asset currently reaches. Readable by anyone who can read
+    the asset itself — seeing reach is not the sensitive half; changing it is.
+    """
+    pool = get_pool(request)
+    asset = await _asset_access(pool, principal, user_unit, asset_id)
+    return await _scope_rows(pool, asset["id"])
+
+
+@router.put("/assets/{asset_id}/scopes")
+async def set_asset_scopes(
+    asset_id: UUID,
+    body: ScopeReplace,
+    request: Request,
+    principal: Annotated[Principal, Depends(current_principal)],
+    user_unit: Annotated[dict, Depends(current_user_unit)],
+) -> list[dict]:
+    """Replace who this asset reaches, per docs/scoping.md §3.
+
+    Write access is checked at the asset's *owning* unit, not the caller's
+    own: scoping is the owner's act, the same authority `create_version`
+    already requires to change the asset at all. The whole set is deleted and
+    reinserted inside one transaction, so nobody outside this connection ever
+    observes the old grants gone and the new ones not yet written.
+    """
+    async with transaction(get_pool(request)) as connection:
+        asset = await _asset_access(connection, principal, user_unit, asset_id)
+        await require_write(connection, principal, user_unit["id"], asset["org_unit_id"])
+        wanted = {item.org_unit_id: item.key_ref for item in body.scopes}
+        await _require_within_subtree(connection, asset["org_unit_id"], set(wanted))
+        current = {
+            row["org_unit_id"]: row["key_ref"]
+            for row in await connection.fetch(
+                "select org_unit_id, key_ref from asset_scopes where asset_id=$1", asset_id
+            )
+        }
+        added = sorted(wanted.keys() - current.keys(), key=str)
+        removed = sorted(current.keys() - wanted.keys(), key=str)
+        # A credential swap on a unit that stays scoped changes no membership,
+        # so `added` and `removed` are both empty and nothing would be recorded
+        # — while the recipient's access silently changes from one key to
+        # another. That is the escalation an audit is most needed for.
+        recredentialed = sorted(
+            (
+                {
+                    "org_unit_id": str(unit_id),
+                    "from": current[unit_id],
+                    "to": wanted[unit_id],
+                }
+                for unit_id in wanted.keys() & current.keys()
+                if wanted[unit_id] != current[unit_id]
+            ),
+            key=lambda entry: entry["org_unit_id"],
+        )
+        await connection.execute("delete from asset_scopes where asset_id=$1", asset_id)
+        for org_unit_id, key_ref in wanted.items():
+            await connection.execute(
+                """insert into asset_scopes(asset_id, org_unit_id, key_ref, granted_by)
+                   values ($1,$2,$3,$4)""",
+                asset_id,
+                org_unit_id,
+                key_ref,
+                principal.auth_user_id,
+            )
+        if added or removed or recredentialed:
+            # Authoritative: who could use this asset, and from when, is
+            # exactly the question an audit exists to answer — the resulting
+            # set alone cannot answer it once the old rows are gone.
+            await append_event(
+                connection,
+                org_unit_id=asset["org_unit_id"],
+                actor_type="user",
+                actor_id=principal.auth_user_id,
+                event_class="authoritative",
+                action="asset.scopes",
+                payload={
+                    "asset_id": str(asset_id),
+                    "added": [str(unit_id) for unit_id in added],
+                    "removed": [str(unit_id) for unit_id in removed],
+                    # References, never values — a `secret://` ref is what the
+                    # console and `harness doctor` already show.
+                    "recredentialed": recredentialed,
+                },
+            )
+        return await _scope_rows(connection, asset_id)
 
 
 @router.get("/assets/{asset_id}/lineage")

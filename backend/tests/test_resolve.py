@@ -5,11 +5,15 @@ import os
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
+from types import SimpleNamespace
 
 import asyncpg
 import pytest
 
+from app.api import routes_assets
 from app.domain.resolve import model_from_assets, resolved_assets
+from app.errors import ApiError
+from app.identity import Principal
 
 
 def test_model_connection_is_read_from_cas_asset():
@@ -472,3 +476,270 @@ async def test_the_backfill_reaches_units_created_after_it_ran():
         resolved = await resolved_assets(connection, ana)
         assert sorted(a["name"] for a in resolved) == ["crm", "triage"]
         assert {a["asset_id"] for a in resolved} == {crm, triage}
+
+
+# ---------------------------------------------------------------------------
+# docs/scoping.md §9.2 — the scope endpoints.
+#
+# These call the route functions directly (not through TestClient/HTTP): the
+# functions FastAPI's decorators register are plain coroutines, and calling
+# them in-process keeps everything on the one event loop the scratch_db
+# connection was opened on — asyncpg connections are not safe to hand to a
+# second loop, which a real HTTP test client would require.
+# ---------------------------------------------------------------------------
+
+
+class ConnectionPool:
+    """Adapts a single scratch_db connection to the slice of asyncpg.Pool's
+    interface routes_assets.py uses (`.fetch`/`.execute` directly for reads,
+    `.acquire()` for the write endpoint's transaction), so the routes can run
+    against a real, transactional connection instead of a mock."""
+
+    def __init__(self, connection):
+        self._connection = connection
+
+    def __getattr__(self, name):
+        return getattr(self._connection, name)
+
+    def acquire(self):
+        return _acquire(self._connection)
+
+
+@asynccontextmanager
+async def _acquire(connection):
+    yield connection
+
+
+def _request(connection) -> SimpleNamespace:
+    pool = ConnectionPool(connection)
+    return SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(pool=pool)))
+
+
+@requires_postgres
+async def test_scoping_to_a_non_descendant_is_refused_with_422_naming_the_unit():
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        team_a = await _unit(connection, org, "team", "team-a")
+        team_b = await _unit(connection, org, "team", "team-b")
+        crm = await _asset(connection, team_a, "connection", "crm")
+
+        principal = Principal(uuid.uuid4())
+        user_unit = {"id": team_a}  # owns team_a: require_write passes trivially
+
+        with pytest.raises(ApiError) as caught:
+            await routes_assets.set_asset_scopes(
+                crm,
+                routes_assets.ScopeReplace(
+                    scopes=[routes_assets.ScopeGrant(org_unit_id=team_b)]
+                ),
+                _request(connection),
+                principal,
+                user_unit,
+            )
+        assert caught.value.status_code == 422
+        assert caught.value.detail["org_unit_id"] == str(team_b)
+        assert str(team_b) in caught.value.message
+
+        # Refused atomically: no row was written for the rejected request.
+        assert await connection.fetchval(
+            "select count(*) from asset_scopes where asset_id=$1", crm
+        ) == 0
+
+
+@requires_postgres
+async def test_scoping_to_a_descendant_resolves_there_and_removal_stops_it():
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        team_a = await _unit(connection, org, "team", "team-a")
+        ana = await _unit(connection, team_a, "user", "ana")
+        crm = await _asset(connection, team_a, "connection", "crm")
+
+        principal = Principal(uuid.uuid4())
+        user_unit = {"id": team_a}
+
+        result = await routes_assets.set_asset_scopes(
+            crm,
+            routes_assets.ScopeReplace(scopes=[routes_assets.ScopeGrant(org_unit_id=ana)]),
+            _request(connection),
+            principal,
+            user_unit,
+        )
+        assert [row["org_unit_id"] for row in result] == [ana]
+
+        resolved = await resolved_assets(connection, ana)
+        assert [a["name"] for a in resolved] == ["crm"]
+        assert resolved[0]["asset_id"] == crm
+
+        # Replacing with an empty set revokes it.
+        result = await routes_assets.set_asset_scopes(
+            crm,
+            routes_assets.ScopeReplace(scopes=[]),
+            _request(connection),
+            principal,
+            user_unit,
+        )
+        assert result == []
+        assert await resolved_assets(connection, ana) == []
+
+
+@requires_postgres
+async def test_caller_with_no_write_access_to_the_owning_unit_gets_403():
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        team_a = await _unit(connection, org, "team", "team-a")
+        team_b = await _unit(connection, org, "team", "team-b")
+        crm = await _asset(connection, org, "connection", "crm")
+
+        principal = Principal(uuid.uuid4())
+        # team_b can read org's asset (org is its ancestor) but administers
+        # nothing above itself, so it cannot scope an asset org owns.
+        user_unit = {"id": team_b}
+
+        with pytest.raises(ApiError) as caught:
+            await routes_assets.set_asset_scopes(
+                crm,
+                routes_assets.ScopeReplace(
+                    scopes=[routes_assets.ScopeGrant(org_unit_id=team_a)]
+                ),
+                _request(connection),
+                principal,
+                user_unit,
+            )
+        assert caught.value.status_code == 403
+        assert caught.value.code == "write_not_allowed"
+
+
+@requires_postgres
+async def test_replacing_the_scope_set_leaves_exactly_what_was_sent():
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        team_a = await _unit(connection, org, "team", "team-a")
+        ana = await _unit(connection, team_a, "user", "ana")
+        ben = await _unit(connection, team_a, "user", "ben")
+        crm = await _asset(connection, team_a, "connection", "crm")
+
+        principal = Principal(uuid.uuid4())
+        user_unit = {"id": team_a}
+
+        await routes_assets.set_asset_scopes(
+            crm,
+            routes_assets.ScopeReplace(
+                scopes=[
+                    routes_assets.ScopeGrant(org_unit_id=ana),
+                    routes_assets.ScopeGrant(org_unit_id=ben),
+                ]
+            ),
+            _request(connection),
+            principal,
+            user_unit,
+        )
+
+        # Second call replaces, rather than merging with, the first.
+        result = await routes_assets.set_asset_scopes(
+            crm,
+            routes_assets.ScopeReplace(
+                scopes=[routes_assets.ScopeGrant(org_unit_id=ana, key_ref="secret://acme/ro")]
+            ),
+            _request(connection),
+            principal,
+            user_unit,
+        )
+
+        assert [(row["org_unit_id"], row["key_ref"]) for row in result] == [
+            (ana, "secret://acme/ro")
+        ]
+        fetched = await routes_assets.list_asset_scopes(
+            crm, _request(connection), principal, user_unit
+        )
+        assert [(row["org_unit_id"], row["key_ref"]) for row in fetched] == [
+            (ana, "secret://acme/ro")
+        ]
+
+
+@requires_postgres
+async def test_the_audit_event_records_units_added_and_removed():
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        team_a = await _unit(connection, org, "team", "team-a")
+        ana = await _unit(connection, team_a, "user", "ana")
+        ben = await _unit(connection, team_a, "user", "ben")
+        crm = await _asset(connection, team_a, "connection", "crm")
+
+        principal = Principal(uuid.uuid4())
+        user_unit = {"id": team_a}
+
+        await routes_assets.set_asset_scopes(
+            crm,
+            routes_assets.ScopeReplace(scopes=[routes_assets.ScopeGrant(org_unit_id=ana)]),
+            _request(connection),
+            principal,
+            user_unit,
+        )
+        await routes_assets.set_asset_scopes(
+            crm,
+            routes_assets.ScopeReplace(scopes=[routes_assets.ScopeGrant(org_unit_id=ben)]),
+            _request(connection),
+            principal,
+            user_unit,
+        )
+
+        rows = await connection.fetch(
+            "select action, payload from audit_log where action='asset.scopes' order by id"
+        )
+        assert [dict(row["payload"]) for row in rows] == [
+            {
+                "asset_id": str(crm),
+                "added": [str(ana)],
+                "removed": [],
+                "recredentialed": [],
+            },
+            {
+                "asset_id": str(crm),
+                "added": [str(ben)],
+                "removed": [str(ana)],
+                "recredentialed": [],
+            },
+        ]
+
+
+@requires_postgres
+async def test_changing_only_a_credential_is_still_audited():
+    """A key swap changes no membership, so the added/removed diff is empty.
+
+    Silently moving a unit from a read-only key to a write one is the single
+    change an audit is most needed for, and the one a membership diff cannot
+    see on its own.
+    """
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        interns = await _unit(connection, org, "team", "interns")
+        crm = await _asset(connection, org, "connection", "crm")
+        principal = Principal(uuid.uuid4())
+
+        async def put(key_ref: str):
+            await routes_assets.set_asset_scopes(
+                crm,
+                routes_assets.ScopeReplace(
+                    scopes=[routes_assets.ScopeGrant(org_unit_id=interns, key_ref=key_ref)]
+                ),
+                _request(connection),
+                principal,
+                {"id": org},
+            )
+
+        await put("secret://acme/crm-readonly")
+        await put("secret://acme/crm-write")
+
+        rows = await connection.fetch(
+            "select payload from audit_log where action='asset.scopes' order by id"
+        )
+        assert len(rows) == 2, "the credential swap must produce its own event"
+        swap = dict(rows[1]["payload"])
+        assert swap["added"] == [] and swap["removed"] == []
+        assert swap["recredentialed"] == [
+            {
+                "org_unit_id": str(interns),
+                "from": "secret://acme/crm-readonly",
+                "to": "secret://acme/crm-write",
+            }
+        ]

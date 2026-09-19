@@ -73,6 +73,10 @@ create table asset_scopes (
 ```
 
 A row means: *this asset is available to this unit and everything beneath it.*
+The owning unit is itself a valid target, and a row naming it is how an asset
+reaches that unit's whole subtree — which is exactly what §4.1's backfill
+writes. An owner needs no row to see its own asset; it needs one to pass it
+down.
 
 **Scope is per asset, per unit — a table, not a column**, because a recipient
 may re-scope what it received. The org scopes the CRM connector to Marketing;
@@ -510,14 +514,21 @@ path (`visible_harnesses`) and should be looked at separately.
 
 ### 9.2 Scope endpoints — §3
 
-**Files.** `backend/app/api/routes_assets.py`; `backend/app/domain/audit.py`.
+**Files.** `backend/app/api/routes_assets.py`. `domain/audit.py` needed no
+change — `append_event` was already general enough.
 
 **Behaviour.** `GET /v1/assets/{id}/scopes` lists them. `PUT
 /v1/assets/{id}/scopes` replaces the set for one asset, taking a list of org
 unit ids, refusing any unit that is not a descendant of the owning unit.
-Every change is an authoritative audit event naming the asset and the units
-added and removed — who could use what, and from when, is exactly the question
-an audit is for.
+Every change is an authoritative audit event naming the asset, the units added
+and removed, **and any unit whose `key_ref` changed while its membership did
+not** — who could use what, with which credential, and from when. A membership
+diff alone cannot see a swap from a read-only key to a write one, which is the
+change an audit is most needed for. References are recorded, never values.
+
+Request and response shape follow `HarnessAssignment`'s precedent:
+`{"scopes": [{"org_unit_id", "key_ref"}]}` in, and
+`[{"org_unit_id", "org_unit_path", "key_ref"}]` back from both verbs.
 
 **Acceptance.** Scoping to a non-descendant is a 422 naming the unit. Revoking
 a scope is recorded. A member with no write access to the owning unit gets 403.

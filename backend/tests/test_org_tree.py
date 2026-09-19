@@ -98,8 +98,10 @@ def test_setting_one_budget_field_keeps_the_other_inherited():
 def test_names_and_role_order_are_plain_and_predictable():
     assert slugify(" Finance & Ops! ") == "finance-ops"
     validate_role_order("team", "org")
+    # A team inside a team is now legal (docs/scoping.md 5.4); a team inside a
+    # user is not, and that is what keeps the order meaningful.
     with pytest.raises(ApiError):
-        validate_role_order("team", "team")
+        validate_role_order("team", "user")
 
 
 def test_email_labels_stay_distinct_where_slugify_collided():
@@ -108,3 +110,19 @@ def test_email_labels_stay_distinct_where_slugify_collided():
     assert email_label("a@b.com") == "a-at-b-com"
     # Team and org names keep the simpler rule.
     assert slugify("Marketing Team") == "marketing-team"
+
+
+def test_a_team_may_hold_a_team():
+    """A sub-unit is how a group like `interns` gets scoped to in one click.
+
+    It is an ordinary org unit, so nothing else has to learn about it: scope
+    targets, boundary merging and resolution already handle any unit.
+    """
+    validate_role_order("team", "team")
+    validate_role_order("team", "org")
+
+
+def test_a_user_still_belongs_only_to_a_team():
+    with pytest.raises(ApiError) as caught:
+        validate_role_order("user", "org")
+    assert caught.value.code == "invalid_role_order"

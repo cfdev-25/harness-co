@@ -208,9 +208,14 @@ async def effective_boundary(connection: asyncpg.Connection, org_unit_id: Any) -
     return merge_boundaries([dict(row["policy"]) for row in rows])
 
 
+# A team may hold a team, so a group like `interns` is an ordinary org unit:
+# already a scope target, already a boundary level, already resolvable. That
+# keeps one parent per node, which is what lets `resolved_assets` stay a single
+# walk. A membership that cuts across teams is a different shape and is not
+# this (docs/scoping.md 5.4).
 ROLE_PARENT = {
     "org": {None, "org"},
-    "team": {"org"},
+    "team": {"org", "team"},
     "user": {"team"},
 }
 
@@ -265,7 +270,7 @@ def validate_role_order(role: str, parent_role: str | None) -> None:
     if role not in ROLE_PARENT or parent_role not in ROLE_PARENT[role]:
         messages = {
             "org": "An org can only be created at the root or inside another org.",
-            "team": "A team can only be created inside an org.",
+            "team": "A team can only be created inside an org or another team.",
             "user": "A user can only be created inside a team.",
         }
         raise ApiError(
