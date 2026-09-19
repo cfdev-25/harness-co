@@ -708,7 +708,35 @@ that appears to bind and does not — exactly the thing §11 exists to keep out
 of the console. Making a *default* stick is what the *allowlist* is for, and
 the console should say so at the point of choosing.
 
-### 12.4 Why the console should recommend OpenRouter
+### 12.4 Required things need a visible empty slot
+
+`model-default` is not an optional asset. Without it every session refuses
+(Pi) or silently falls back to a personal credential (Claude Code, G13). Yet
+in the console today it is invisible until it exists: the Connections tab
+lists what is there, so the one connection a workspace *must* have looks
+exactly like a workspace that simply has no connections.
+
+**The Connections tab always renders a `model-default` row — filled or
+empty.** Empty, it names what it is (the default model provider), what it
+needs (a provider, a model id, a base URL, and a key reference), and links to
+the key that would satisfy it. This is the same honesty rule as §11: a control
+that does nothing must not look like one that does, and a requirement that is
+missing must not look like a choice that was made.
+
+Two adjacent traps the row should close, both hit in practice:
+
+- **A secret is not a connection.** Adding an `api_keys` row — a name, an
+  `env_var`, a `secret://` reference — creates the *credential*. The
+  connection asset that points at it is a separate object, and nothing in the
+  console says so. The empty row is where that gets said.
+- **The name is `model-default`, with a hyphen.** The upper-snake-case rule
+  in the key form (`admin.tsx:1410`) governs the **environment variable**
+  (`MODEL_DEFAULT`), which is correct for an env var and wrong for an asset
+  name. Two adjacent fields, two different conventions, no label saying so.
+  `resolve.py:86` matches the hyphenated name exactly and silently finds
+  nothing otherwise.
+
+### 12.5 Why the console should recommend OpenRouter
 
 Not as a vendor preference — because of a structural problem the user hit
 before this section existed.
@@ -725,10 +753,17 @@ met in practice.
 - **An Anthropic-compatible endpoint** ("the Anthropic Skin") at
   `https://openrouter.ai/api`, alongside the OpenAI-shaped
   `/api/v1/chat/completions`. Extended thinking blocks and native tool use
-  pass through, which is what an agent actually depends on. So **one connector,
-  one key, one allowlist serves both agents** — Claude Code points
-  `ANTHROPIC_BASE_URL` at it, Pi points `baseUrl` at the OpenAI-shaped path.
-  This is the reason to recommend it; billing is secondary.
+  pass through, which is what an agent actually depends on. So **one account,
+  one key and one allowlist serve both agents** — Claude Code points
+  `ANTHROPIC_BASE_URL` at `/api`, Pi points `baseUrl` at `/api/v1`. This is
+  the reason to recommend it; billing is secondary.
+
+  **Correction, found while building the console form.** An earlier draft of
+  this section said one *connector* serves both agents. It does not, and the
+  distinction is the whole of §12.6. The key and the allowlist are shared; the
+  two agents need two different URLs, and a `model-default` carries exactly one
+  `base_url` (`resolve.py`, `core.ts` `Manifest["model"]`). Whichever address
+  is stored works for one agent and breaks the other.
 - **Guardrails** — an org-level object carrying a model **and** provider
   allowlist, spend limits, and data-privacy policy, assignable either to a
   member (covering all their keys) or to a single key as an extra layer.
@@ -748,6 +783,41 @@ right.
 The honest framing for the page: *we can enforce this for you at the proxy, or
 you can have your provider enforce it and we will show you what it decided.
 The second is less code and one fewer place for the boundary to be wrong.*
+
+### 12.6 One connection, two wire formats
+
+`model-default` has a single `base_url`. `adapters/claude.ts` puts it straight
+into `ANTHROPIC_BASE_URL`; `adapters/pi.ts` puts it straight into `baseUrl`
+beside a hardcoded `api: "openai-completions"`. Those are two different
+protocols at two different paths, and one string cannot be both. Today the
+console can only warn about whichever choice the admin makes.
+
+The fix belongs with `wire_format` in 14.6: a connection carries an endpoint
+**per wire format**, and the adapter picks the one it speaks.
+
+```json
+{
+  "provider": "openrouter",
+  "model_id": "anthropic/claude-opus-4.5",
+  "key_ref": "secret://acme/openrouter",
+  "endpoints": {
+    "anthropic-messages": "https://openrouter.ai/api",
+    "openai-completions":  "https://openrouter.ai/api/v1"
+  }
+}
+```
+
+`base_url` stays valid and means "this provider speaks one format, at this
+address" — which is every direct provider. An adapter whose `wireFormats`
+match no key in `endpoints` fails closed at plan time, naming both sides, per
+§5.2. That is what turns §12.5's recommendation from "pick the agent you
+want" into one connection that genuinely serves both.
+
+**Adjacent backend gap, found at the same time.** `GET
+/v1/org-units/{id}/api-keys` filters on `k.org_unit_id = $1` with no ancestor
+walk (`routes_api_keys.py:94`), so a team configuring its own `model-default`
+cannot select a key held at the org. Keys resolve up the tree everywhere else;
+this endpoint is the exception. It belongs in the same task.
 
 ## 13. Open spikes
 
@@ -1012,6 +1082,10 @@ suggested default set at the org is overridden by a user's own and the console
 shows both. `model.default` has no absolute control anywhere in the UI.
 `harness run` with no agent word picks `agent.default`. `doctor` shows each
 preference, its mode, the level that set it, and its §12.3 verdict.
+
+**Also in 14.6.** `endpoints` per wire format on the connection (§12.6), and
+an ancestor walk in `GET /v1/org-units/{id}/api-keys` so a team can select a
+key its org holds.
 
 **Out of scope.** Proxy-side enforcement of `model.allowlist`, which is Phase
 3 and needs the proxy to exist. Calling OpenRouter's provisioning API — §12.4
