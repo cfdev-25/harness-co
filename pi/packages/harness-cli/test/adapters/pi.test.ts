@@ -4,19 +4,20 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { pi } from "../../src/adapters/pi.js";
 import { type Manifest, sessionDir } from "../../src/core.js";
+import { planModel } from "../../src/model.js";
 
 const saved = { ...process.env };
 afterEach(() => {
 	process.env = { ...saved };
 });
 
-// The same wiring `run` does: pick a session id, derive its paths, hand the
-// adapter a context. Kept local to the test so the adapter itself only ever
-// sees the RenderContext shape it declares.
+// The same wiring `run` does: pick a session id, derive its paths, resolve
+// the model plan, hand the adapter a context. Kept local to the test so the
+// adapter itself only ever sees the RenderContext shape it declares.
 async function render(manifest: Manifest, id: string) {
 	const root = sessionDir(id);
 	const agent = join(root, "agent");
-	await pi.render({ manifest, id, sessionDir: root, agentDir: agent });
+	await pi.render({ manifest, id, sessionDir: root, agentDir: agent, model: planModel(manifest, pi) });
 	return { id, root, agent };
 }
 
@@ -43,6 +44,7 @@ describe("materialization", () => {
 				provider: "openai-compatible",
 				model_id: "example-model",
 				base_url: "https://api.example.com/v1",
+				wire_format: "openai-completions",
 				key_ref: "secret://acme/default-provider",
 				env_var: "PROVIDER_API_KEY",
 			},
@@ -83,6 +85,7 @@ describe("instruction ordering", () => {
 				provider: "p",
 				model_id: "m",
 				base_url: "http://x",
+				wire_format: "openai-completions",
 				key_ref: "r",
 				env_var: "E",
 			},
@@ -115,7 +118,14 @@ describe("saved prompts", () => {
 				},
 			],
 			boundary: {},
-			model: { provider: "p", model_id: "m", base_url: "http://x", key_ref: "r", env_var: "E" },
+			model: {
+				provider: "p",
+				model_id: "m",
+				base_url: "http://x",
+				wire_format: "openai-completions",
+				key_ref: "r",
+				env_var: "E",
+			},
 		} as unknown as Manifest;
 
 		const session = await render(manifest, "saved");
@@ -133,7 +143,14 @@ describe("harness membership", () => {
 		name,
 		files: [{ path: "F.md", content_b64: b64(`${name} body`) }],
 	});
-	const model = { provider: "p", model_id: "m", base_url: "http://x", key_ref: "r", env_var: "E" };
+	const model = {
+		provider: "p",
+		model_id: "m",
+		base_url: "http://x",
+		wire_format: "openai-completions",
+		key_ref: "r",
+		env_var: "E",
+	};
 	const drawing = { palette: ["#c8875a"], rows: Array<string>(16).fill("0".repeat(16)) };
 	const every = [
 		asset("skill", "shared"),
@@ -323,5 +340,27 @@ describe("capability vocabulary rendering", () => {
 		for (const name of ["read", "bash", "edit", "write", "grep", "find", "ls"]) {
 			expect(policy.allowed_tools).toContain(name);
 		}
+	});
+});
+
+describe("native mode", () => {
+	// agents.md §5.1/G13: a null `manifest.model` used to be pi.ts's own
+	// crash ("No model is configured for your workspace."). It is now a
+	// policy question src/model.ts answers before render ever runs, so a
+	// "native" plan reaches this adapter exactly like Claude Code's already
+	// did — this is the deliberate behaviour change 14.6 makes.
+	it("boots with no model configured, writing neither settings.json nor models.json", async () => {
+		process.env.HARNESS_HOME = await mkdtemp(join(tmpdir(), "harness-native-"));
+		const root = sessionDir("native-id");
+		const agent = join(root, "agent");
+		const manifest = {
+			user: { auth_user_id: "u", org_unit_path: "acme" },
+			assets: [],
+			boundary: { model_policy: { source: "none", user_credentials: "required" } },
+			model: null,
+		} as unknown as Manifest;
+		await pi.render({ manifest, id: "native-id", sessionDir: root, agentDir: agent, model: { kind: "native" } });
+		await expect(readFile(join(agent, "settings.json"), "utf8")).rejects.toThrow();
+		await expect(readFile(join(agent, "models.json"), "utf8")).rejects.toThrow();
 	});
 });

@@ -348,7 +348,7 @@ stays the agent-writable part and this does not.
 
 | Agent | Store mechanism |
 | --- | --- |
-| Claude Code | `CLAUDE_CONFIG_DIR=~/.harness/agents/claude`. Documented to relocate `.credentials.json` *and* key the macOS Keychain entry to that directory, so a harness login and the user's personal `claude` login do not collide. `store: "config-dir"`. |
+| Claude Code | `CLAUDE_CONFIG_DIR=~/.harness/agents/claude`, **plus `XDG_CONFIG_HOME`** — measured, `CLAUDE_CONFIG_DIR` alone still falls through to `~/.config/anthropic` (G13). Also `seed-and-harvest`, not `config-dir` as an earlier draft said: `render` regenerates session-specific files into the directory `CLAUDE_CONFIG_DIR` names, so pointing it at the stable store would let concurrent sessions clobber each other. |
 | Pi | `auth.json` is bound to `getAgentDir()` (`config.ts:548`); `AuthStorage` takes an `authPath` but the CLI does not expose one (`main.ts:179`). Per-session `PI_CODING_AGENT_DIR` would therefore throw the login away every session. `store: "seed-and-harvest"`: link or copy the stable `auth.json` into the session agent dir before spawn, write back after exit. Spike 2. |
 
 ### 6.2 What it costs, stated plainly

@@ -11,6 +11,7 @@ import {
 import { childEnvironment } from "./env.js";
 import { differs, ensureRepo, g, worktreeTree } from "./git.js";
 import { harnessCard, resolveForSession } from "./harness.js";
+import { effectivePolicy } from "./model.js";
 import { absent, bad, bold, dim, good, heading, row, warn } from "./style.js";
 
 /**
@@ -99,16 +100,30 @@ function harness(manifest: Manifest): string[] {
 }
 
 function model(manifest: Manifest): string[] {
-	if (!manifest.model) return [`  ${bad("not configured")} ${dim("— `harness run` will fail")}`];
-	const { provider, model_id, base_url, key_ref, env_var } = manifest.model;
+	if (!manifest.model) {
+		// agents.md §5.1: absent is not automatically a failure — it fails the
+		// boot only when the policy also forbids a personal login, which
+		// `effectivePolicy` (src/model.ts) is the one place that decides, so
+		// this line cannot drift from what `harness run` actually does.
+		const { source, userCredentials } = effectivePolicy(manifest);
+		return source === "none" && userCredentials === "forbidden"
+			? [`  ${bad("not configured")} ${dim("— `harness run` will refuse to start")}`]
+			: [`  ${absent("none")} ${dim("— sessions use your own sign-in (`harness auth <agent>`)")}`];
+	}
+	const { provider, model_id, base_url, wire_format, endpoints, key_ref, env_var } = manifest.model;
 	return [
 		row("provider", provider),
 		row("model", model_id),
-		row("base url", base_url),
-		row("key reference", key_ref),
+		...(endpoints
+			? Object.entries(endpoints).map(([format, url]) => row(`endpoint (${format})`, url))
+			: [
+					row("base url", base_url ?? absent("none")),
+					row("wire format", wire_format ?? absent("none — will refuse")),
+				]),
+		row("key reference", key_ref ?? absent("none — gateway mode")),
 		// The variable's name, never its value: values are delivered at spawn
 		// and written nowhere we can read.
-		row("key delivered as", env_var),
+		row("key delivered as", env_var ?? absent("none")),
 	];
 }
 

@@ -9,6 +9,7 @@ import { adapters } from "./adapters/registry.js";
 import type { Adapter } from "./adapters/types.js";
 import { api } from "./api.js";
 import { adopt, identify, record, reset, status } from "./assets.js";
+import { authList, authLogin, authLogout, harvestAgentCredentials, seedAgentCredentials } from "./auth.js";
 import { assetsRoot, type Manifest, readCredentials, sessionDir, writeCredentials } from "./core.js";
 import { doctor } from "./doctor.js";
 import { denyReadArgv } from "./enforcers/filesystem.js";
@@ -16,6 +17,7 @@ import { childEnvironment } from "./env.js";
 import { findHarness, readSelection, resolveForSession, switchHarness } from "./harness.js";
 import { help, manual, VERSION } from "./help.js";
 import { hydrate } from "./hydrate.js";
+import { describePlan, planModel } from "./model.js";
 import { createSpool, supervise } from "./supervise.js";
 
 async function prompt(message: string): Promise<string> {
@@ -77,6 +79,33 @@ interface DeliveredKey {
 	ref: string;
 	env_var: string;
 	value: string;
+}
+
+/**
+ * `harness auth <agent> | --list | --logout <agent>` (agents.md §6.1). This
+ * runs entirely outside the jail — no manifest, no credentials, no session —
+ * because a native login needs a browser and a credential store that
+ * survives the process, both of which the sandbox exists to deny a session.
+ */
+export async function authCommand(args: string[]): Promise<number> {
+	if (args.includes("--list")) {
+		for (const { agentId, loggedIn } of await authList()) {
+			console.log(`${agentId.padEnd(8)}${loggedIn ? "signed in" : "not signed in"}`);
+		}
+		return 0;
+	}
+	const logoutIndex = args.indexOf("--logout");
+	if (logoutIndex >= 0) {
+		const agentId = args[logoutIndex + 1];
+		if (!agentId) throw new Error("`harness auth --logout <agent>` needs an agent name.");
+		await authLogout(agentId);
+		return 0;
+	}
+	const agentId = args[0];
+	if (!agentId) throw new Error("Say which agent: `harness auth <agent>`, or `harness auth --list`.");
+	await authLogin(agentId);
+	console.log(`Signed in to ${agentId}. \`harness run --${agentId}\` will use it once your org's policy allows it.`);
+	return 0;
 }
 
 /** Hydration on its own, so the asset loop does not require a session. */
@@ -171,19 +200,24 @@ export async function run(args: string[]): Promise<number> {
 				"`harness switch` picks one. Loading everything you have.",
 		);
 	}
+	// agents.md §5.1's table, computed once so both adapters reach the same
+	// decision — this throws to refuse the boot outright (e.g. no model and
+	// personal credentials forbidden), before anything is rendered or spawned.
+	const plan = planModel(manifest, adapter);
+	console.log(describePlan(plan));
 	const id = randomUUID();
 	const root = sessionDir(id);
-	const ctx = { manifest, id, sessionDir: root, agentDir: join(root, "agent") };
+	const ctx = { manifest, id, sessionDir: root, agentDir: join(root, "agent"), model: plan };
 	await adapter.render(ctx);
 	await api(credentials, "/v1/sessions", {
 		method: "POST",
 		body: JSON.stringify({
 			id: id,
 			harness_id: manifest.harness?.id ?? null,
-			model_metadata: manifest.model ?? {},
+			model_metadata: plan.kind === "org" ? { provider: plan.provider, model_id: plan.modelId } : {},
 		}),
 	});
-	const refs = manifest.model?.key_ref ? [manifest.model.key_ref] : [];
+	const refs = plan.kind === "org" && plan.keyRef ? [plan.keyRef] : [];
 	const deliveredRaw = await api<DeliveredKey[] | { keys: DeliveredKey[] }>(credentials, "/v1/api-keys/deliver", {
 		method: "POST",
 		body: JSON.stringify({ refs, session_id: id }),
@@ -200,9 +234,22 @@ export async function run(args: string[]): Promise<number> {
 			// still needs the provider key in its environment, so transcript
 			// redaction still has a job. Both leave together in 3.2.
 			HARNESS_REDACTIONS: JSON.stringify(redactions),
-			...Object.fromEntries(delivered.map((key) => [key.env_var, key.value])),
+			// Delivered under the *agent's* credential env var (agents.md §5.2),
+			// never the server's own `key.env_var` — Claude Code only ever reads
+			// its own two names, whatever the org called the key.
+			...(plan.kind === "org" && plan.credentialEnvVar
+				? Object.fromEntries(delivered.map((key) => [plan.credentialEnvVar as string, key.value]))
+				: {}),
 		},
 	});
+	// A "native" session runs on the signed-in agent's own credential, seeded
+	// from the stable per-(user, agent) store `harness auth` maintains
+	// (agents.md §6.1) — never on whatever is ambient on the machine, which
+	// is exactly the hole G13 names. Gated on the plan, not on whether a
+	// stored credential file happens to exist: a session with no login yet
+	// still gets the seed's (no-op) attempt and the agent's own "not signed
+	// in" message, rather than silently reaching past the harness for one.
+	if (plan.kind === "native") await seedAgentCredentials(adapter.id, ctx.agentDir);
 	await createSpool(root);
 	// agents.md §7.1.1: every `tool/<name>` the selected harness excludes, or
 	// that `tool.<name>` does not permit, must stop existing for this session
@@ -230,6 +277,7 @@ export async function run(args: string[]): Promise<number> {
 			child.once("exit", (exitCode, signal) => resolveExit(exitCode ?? (signal ? 1 : 0)));
 		});
 	} finally {
+		if (plan.kind === "native") await harvestAgentCredentials(adapter.id, ctx.agentDir);
 		await watcher?.stop();
 	}
 	return code;
@@ -336,6 +384,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
 	if (command === "help") return help();
 	if (command === "man") return manual();
 	if (command === "login") await login(args);
+	else if (command === "auth") return authCommand(args);
 	else if (command === "whoami") await whoami();
 	else if (command === "resolve") await resolveManifest(args);
 	else if (command === "push") await pushAsset(args);

@@ -44,7 +44,14 @@ vi.mock("../src/api.js", () => ({
 					: null,
 				assets: [],
 				boundary: {},
-				model: { provider: "p", model_id: "m", base_url: "http://x", key_ref: "r", env_var: "E" },
+				model: {
+					provider: "p",
+					model_id: "m",
+					base_url: "http://x",
+					wire_format: "openai-completions",
+					key_ref: "r",
+					env_var: "E",
+				},
 			};
 		}
 		if (path === "/v1/sessions") return {};
@@ -80,6 +87,10 @@ const { readSelection, writeSelection } = await import("../src/harness.js");
 function fakeAdapter(id: string): Adapter {
 	return {
 		id,
+		// Both formats: these tests are about agent/harness selection and
+		// argument shape, not wire-format matching (test/model.test.ts owns
+		// that), so this double should never be the reason one fails closed.
+		wireFormats: ["openai-completions", "anthropic-messages"],
 		render: async () => {},
 		launch: () => ({ argv: [`${id}-entry`], env: { ADAPTER_ID: id } }),
 	};

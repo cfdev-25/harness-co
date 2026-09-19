@@ -58,13 +58,30 @@ export interface Manifest {
 	harnesses?: Array<{ id: string; name: string; org_unit_path: string }>;
 	/** One array; `kind` is data. A new kind needs no change here. */
 	assets: ManifestAsset[];
-	boundary: Record<string, unknown> & { deploy_tools?: string[]; allowed_tools?: string[] };
+	boundary: Record<string, unknown> & {
+		deploy_tools?: string[];
+		allowed_tools?: string[];
+		// agents.md §5.1. Either field may be unset — "nobody in the chain
+		// configured this" — which src/model.ts defaults, not this type.
+		model_policy?: {
+			source?: "proxied" | "gateway" | "none" | null;
+			user_credentials?: "forbidden" | "allowed" | "required" | null;
+		};
+	};
 	model: null | {
 		provider: string;
 		model_id: string;
-		base_url: string;
-		key_ref: string;
-		env_var: string;
+		key_ref?: string;
+		env_var?: string | null;
+		// §5.2/§12.4: a connection speaks one wire format at one address
+		// (`base_url` + `wire_format`, every direct provider), or several at
+		// once (`endpoints`, keyed by wire format — OpenRouter's "Anthropic
+		// Skin" alongside its OpenAI-shaped path). `base_url` alone, with no
+		// `wire_format`, cannot be matched against any adapter — src/model.ts
+		// fails closed on it rather than guessing a format.
+		base_url?: string;
+		wire_format?: "anthropic-messages" | "openai-completions";
+		endpoints?: Record<string, string>;
 	};
 }
 

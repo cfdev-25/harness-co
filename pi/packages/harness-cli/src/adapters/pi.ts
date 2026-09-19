@@ -67,44 +67,53 @@ function renderPiNames(capability: string): string[] {
 }
 
 async function render(ctx: RenderContext): Promise<void> {
-	const { manifest, id, sessionDir: root, agentDir: agent } = ctx;
-	if (!manifest.model) throw new Error("No model is configured for your workspace.");
+	const { manifest, id, sessionDir: root, agentDir: agent, model } = ctx;
 	await mkdir(join(agent, "skills"), { recursive: true, mode: 0o700 });
 	await mkdir(join(agent, "prompts"), { recursive: true, mode: 0o700 });
 	await mkdir(join(agent, "sessions"), { recursive: true, mode: 0o700 });
 
-	const providerId = manifest.model.provider;
-	await writeFile(
-		join(agent, "settings.json"),
-		`${JSON.stringify(
-			{
-				defaultProvider: providerId,
-				defaultModel: manifest.model.model_id,
-				defaultProjectTrust: "never",
-				enableInstallTelemetry: false,
-				enableAnalytics: false,
-			},
-			null,
-			2,
-		)}\n`,
-	);
-	await writeFile(
-		join(agent, "models.json"),
-		`${JSON.stringify(
-			{
-				providers: {
-					[providerId]: {
-						baseUrl: manifest.model.base_url,
-						apiKey: `$${manifest.model.env_var}`,
-						api: "openai-completions",
-						models: [{ id: manifest.model.model_id, name: manifest.model.model_id }],
+	// A null-model session (agents.md §5.1 "native") writes neither file: with
+	// nothing here, Pi falls back to whatever its own `/login` picked in the
+	// auth.json seeded into this directory before spawn (src/auth.ts) — the
+	// same as a first run of Pi with no harness involved at all. Writing a
+	// stub provider entry here would be the accidental credential G13 is
+	// about, in the other direction.
+	if (model.kind === "org") {
+		const providerId = model.provider;
+		await writeFile(
+			join(agent, "settings.json"),
+			`${JSON.stringify(
+				{
+					defaultProvider: providerId,
+					defaultModel: model.modelId,
+					defaultProjectTrust: "never",
+					enableInstallTelemetry: false,
+					enableAnalytics: false,
+				},
+				null,
+				2,
+			)}\n`,
+		);
+		await writeFile(
+			join(agent, "models.json"),
+			`${JSON.stringify(
+				{
+					providers: {
+						[providerId]: {
+							baseUrl: model.baseUrl,
+							// Gateway connections (agents.md §5.3) carry no key at all —
+							// "unused" documents that this value is never read.
+							apiKey: model.credentialEnvVar ? `$${model.credentialEnvVar}` : "unused",
+							api: model.wireFormat,
+							models: [{ id: model.modelId, name: model.modelId }],
+						},
 					},
 				},
-			},
-			null,
-			2,
-		)}\n`,
-	);
+				null,
+				2,
+			)}\n`,
+		);
+	}
 	const byKind = assetsByKind(manifest);
 	for (const skill of byKind("skill")) await writeAssetFiles(join(agent, "skills", safeName(skill.name)), skill);
 
@@ -161,10 +170,18 @@ async function render(ctx: RenderContext): Promise<void> {
 	}
 }
 
-function launch(ctx: RenderContext): { argv: string[]; env: Record<string, string> } {
-	// Two levels up from src/adapters/: the package root, then its siblings.
+/** Two levels up from src/adapters/: the package root, then its siblings.
+    Shared with src/auth.ts, which spawns the same bundle for `harness auth
+    pi` — outside the jail, without `--offline`, so `/login` can reach the
+    provider. */
+export function locatePiBinary(): string {
 	const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-	const piEntry = resolve(packageRoot, "../coding-agent/dist/bundle/cli.js");
+	return resolve(packageRoot, "../coding-agent/dist/bundle/cli.js");
+}
+
+function launch(ctx: RenderContext): { argv: string[]; env: Record<string, string> } {
+	const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
+	const piEntry = locatePiBinary();
 	const extension = resolve(packageRoot, "../harness/dist/index.js");
 	const theme = resolve(packageRoot, "../harness/themes/harness-dark.json");
 	return {
@@ -173,6 +190,10 @@ function launch(ctx: RenderContext): { argv: string[]; env: Record<string, strin
 			// interpreter; `run` spawns argv[0] verbatim.
 			process.execPath,
 			piEntry,
+			// Disables startup catalog refresh, package-update checks and
+			// telemetry only (main.ts:565, model-runtime.ts:196) — never the
+			// OAuth refresh a native-mode session needs, which is not gated by
+			// PI_OFFLINE anywhere in the coding agent.
 			"--offline",
 			"--no-approve",
 			"--no-extensions",
@@ -196,4 +217,12 @@ function launch(ctx: RenderContext): { argv: string[]; env: Record<string, strin
 	};
 }
 
-export const pi: Adapter = { id: "pi", render, launch };
+export const pi: Adapter = {
+	id: "pi",
+	// Pi's own `models.json` `api` field accepts either shape (`ai/src/types.ts`
+	// KnownApi); openai-completions first because that is what a bare
+	// `base_url` connection has always meant here (agents.md §12.4).
+	wireFormats: ["openai-completions", "anthropic-messages"],
+	render,
+	launch,
+};

@@ -6,6 +6,9 @@ Usage
   harness [run] [<agent>] [--<harness>] [-- <agent args>]
                                           Start a session (default command)
   harness login --token <token>          Save your credentials
+  harness auth <agent>                   Sign in to an agent's own account
+  harness auth --list                    Show which agents you are signed in to
+  harness auth --logout <agent>          Sign out of an agent
   harness switch [name]                  Choose the harness your sessions run in
   harness whoami                         Show who you are and where you sit
   harness pull                           Fetch your team's assets without a session
@@ -135,7 +138,19 @@ ENVIRONMENT
 
 SIGNING IN
   Once per machine. "harness login" stores a token and every later command
-  reuses it. To sign out, or to start completely fresh:
+  reuses it.
+
+  Separately, if your organisation lets you bring your own subscription
+  instead of its model ("model_policy.user_credentials: allowed" or
+  "required"), "harness auth <agent>" runs that agent's own sign-in flow —
+  outside any session, into a store only the harness reads:
+
+    harness auth claude       sign in to Claude Code
+    harness auth pi           sign in to Pi
+    harness auth --list       see which agents you are signed in to
+    harness auth --logout pi  sign out
+
+  To sign out of the harness itself, or to start completely fresh:
 
     rm -rf ~/.config/harness        forget the login
     rm -rf ~/.harness               forget the local copy of team assets

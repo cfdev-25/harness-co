@@ -139,6 +139,82 @@ def test_a_child_cannot_drop_a_required_deploy_confirmation():
     with pytest.raises(ApiError) as caught:
         validate_tightening({"deploy_tools": []}, parent)
     assert caught.value.detail["field"] == "deploy_tools"
+def test_model_policy_merge_is_unset_when_nobody_set_it():
+    merged = merge_boundaries([])
+    assert merged["model_policy"] == {"source": None, "user_credentials": None}
+
+
+def test_model_policy_merge_takes_the_nearest_explicit_setter():
+    policies = [
+        {"model_policy": {"source": "proxied", "user_credentials": "forbidden"}},
+        {},
+        {"model_policy": {"user_credentials": "allowed"}},
+    ]
+    merged = merge_boundaries(policies)
+    # Nobody below the org overrode `source`, so the org's stands.
+    assert merged["model_policy"]["source"] == "proxied"
+    # A team relaxed `user_credentials`; that is the nearest setter.
+    assert merged["model_policy"]["user_credentials"] == "allowed"
+
+
+@pytest.mark.parametrize(
+    ("parent_policy", "child_policy", "field"),
+    [
+        (
+            {"source": "none"},
+            {"source": "proxied"},
+            "model_policy.source",
+        ),
+        (
+            {"source": "none"},
+            {"source": "gateway"},
+            "model_policy.source",
+        ),
+        (
+            {"user_credentials": "forbidden"},
+            {"user_credentials": "allowed"},
+            "model_policy.user_credentials",
+        ),
+        (
+            {"user_credentials": "forbidden"},
+            {"user_credentials": "required"},
+            "model_policy.user_credentials",
+        ),
+    ],
+)
+def test_model_policy_cannot_loosen_out_of_its_strictest_value(parent_policy, child_policy, field):
+    with pytest.raises(ApiError) as caught:
+        validate_tightening({"model_policy": child_policy}, {"model_policy": parent_policy})
+    assert caught.value.code == "boundary_loosens"
+    assert caught.value.detail["field"] == field
+
+
+def test_model_policy_lateral_moves_are_not_loosening():
+    # proxied <-> gateway, and allowed <-> required, carry no order: neither
+    # widens what §5.1's other axis already permits.
+    validate_tightening(
+        {"model_policy": {"source": "gateway"}},
+        {"model_policy": {"source": "proxied"}},
+    )
+    validate_tightening(
+        {"model_policy": {"user_credentials": "required"}},
+        {"model_policy": {"user_credentials": "allowed"}},
+    )
+    validate_tightening(
+        {"model_policy": {"user_credentials": "allowed"}},
+        {"model_policy": {"user_credentials": "required"}},
+    )
+
+
+def test_model_policy_may_tighten_toward_the_strictest_value():
+    validate_tightening(
+        {"model_policy": {"source": "none"}},
+        {"model_policy": {"source": "proxied"}},
+    )
+    validate_tightening(
+        {"model_policy": {"user_credentials": "forbidden"}},
+        {"model_policy": {"user_credentials": "allowed"}},
+    )
 
 
 def test_names_and_role_order_are_plain_and_predictable():

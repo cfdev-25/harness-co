@@ -5,11 +5,18 @@ import { delimiter, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { claude } from "../../src/adapters/claude.js";
 import { type Manifest, sessionDir } from "../../src/core.js";
+import type { ModelPlan } from "../../src/model.js";
 
 const saved = { ...process.env };
 afterEach(() => {
 	process.env = { ...saved };
 });
+
+// render() never reads ctx.model — only launch() does — so these tests pass
+// a manifest and leave the plan to whichever "launch" test exercises it. The
+// policy decision that produces a plan is src/model.ts's job (test/model.test.ts),
+// not this adapter's.
+const NATIVE_PLAN: ModelPlan = { kind: "native" };
 
 // Same wiring `run` does: pick a session id, derive its paths, hand the
 // adapter a context. Kept local to the test so the adapter itself only ever
@@ -17,7 +24,7 @@ afterEach(() => {
 async function render(manifest: Manifest, id: string) {
 	const root = sessionDir(id);
 	const agent = join(root, "agent");
-	await claude.render({ manifest, id, sessionDir: root, agentDir: agent });
+	await claude.render({ manifest, id, sessionDir: root, agentDir: agent, model: NATIVE_PLAN });
 	return { id, root, agent };
 }
 
@@ -31,7 +38,23 @@ async function fakeClaudeOnPath(): Promise<string> {
 	return bin;
 }
 
-const model = { provider: "p", model_id: "m", base_url: "http://x", key_ref: "r", env_var: "E" };
+const model = {
+	provider: "p",
+	model_id: "m",
+	base_url: "http://x",
+	wire_format: "anthropic-messages",
+	key_ref: "r",
+	env_var: "E",
+};
+const orgPlan: ModelPlan = {
+	kind: "org",
+	provider: "p",
+	modelId: "m",
+	baseUrl: "http://x",
+	wireFormat: "anthropic-messages",
+	keyRef: "r",
+	credentialEnvVar: "ANTHROPIC_AUTH_TOKEN",
+};
 
 describe("materialization", () => {
 	it("writes skills, commands, CLAUDE.md, hooks, and the manifest", async () => {
@@ -72,7 +95,14 @@ describe("materialization", () => {
 		await expect(readFile(join(session.root, "harness.json"), "utf8")).rejects.toThrow();
 	});
 
-	it("boots with no model configured, unlike Pi's adapter", async () => {
+	// 14.6, deliberate change: this used to be titled "...unlike Pi's adapter"
+	// — Pi's render() threw on a null model, Claude Code's silently ignored
+	// it. Both were wrong (agents.md §5.1): whether a null model refuses the
+	// boot is now a policy decision made once in src/model.ts's `planModel`
+	// (test/model.test.ts), before either adapter's render() runs. This test
+	// now shows the part that is still true either way — render() itself
+	// never looks at `manifest.model`, so a null one is never its problem.
+	it("does not need a model to render — refusing on one is planModel's job, not render's", async () => {
 		process.env.HARNESS_HOME = await mkdtemp(join(tmpdir(), "claude-nomodel-"));
 		const manifest = {
 			user: { auth_user_id: "u", org_unit_path: "acme" },
@@ -189,6 +219,7 @@ describe("launch", () => {
 			id: "launch-id",
 			sessionDir: session.root,
 			agentDir: session.agent,
+			model: orgPlan,
 		});
 		expect(launched.argv[0]).toBe(claudeBin);
 		expect(launched.argv).toEqual([
@@ -199,9 +230,12 @@ describe("launch", () => {
 			"user",
 		]);
 		expect(launched.env.CLAUDE_CONFIG_DIR).toBe(session.agent);
+		// G13: closes the `~/.config/anthropic` leak (verified via `claude auth
+		// status --json`, doctor.ts comment for the exact before/after).
+		expect(launched.env.XDG_CONFIG_HOME).toBe(session.agent);
 	});
 
-	it("sets the model env vars only when a model is configured", async () => {
+	it("sets the model env vars only when using the organisation's model", async () => {
 		await fakeClaudeOnPath();
 		const withModel = claude.launch({
 			manifest: {
@@ -213,6 +247,7 @@ describe("launch", () => {
 			id: "m1",
 			sessionDir: "/tmp/x",
 			agentDir: "/tmp/x/agent",
+			model: orgPlan,
 		});
 		expect(withModel.env.ANTHROPIC_BASE_URL).toBe("http://x");
 		expect(withModel.env.ANTHROPIC_MODEL).toBe("m");
@@ -227,6 +262,7 @@ describe("launch", () => {
 			id: "m2",
 			sessionDir: "/tmp/y",
 			agentDir: "/tmp/y/agent",
+			model: NATIVE_PLAN,
 		});
 		expect(withoutModel.env.ANTHROPIC_BASE_URL).toBeUndefined();
 		expect(withoutModel.env.ANTHROPIC_MODEL).toBeUndefined();
@@ -245,6 +281,7 @@ describe("launch", () => {
 				id: "no-bin",
 				sessionDir: "/tmp/z",
 				agentDir: "/tmp/z/agent",
+				model: orgPlan,
 			}),
 		).toThrow(/claude.*is not installed|not on your PATH/i);
 	});

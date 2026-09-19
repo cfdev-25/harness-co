@@ -30,6 +30,24 @@ class Budget(BaseModel):
     requests_per_minute: int | None = Field(default=None, ge=0)
 
 
+class ModelPolicy(BaseModel):
+    """agents.md §5.1's two independent axes.
+
+    `source` is what the org provides; `none` is its strictest value, because
+    a subtree can decline the org's model but cannot conjure one the org never
+    offered. `user_credentials` is what the user may bring; `forbidden` is its
+    strictest value, for the same reason in the other direction. Both are
+    `None` when nobody in the chain has set them, which `merge_boundaries` and
+    `validate_tightening` treat exactly like every other unset boundary field
+    — not a default, an absence for the client to default safely (§5.1: "an
+    absent model must not become an accidental one").
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    source: Literal["proxied", "gateway", "none"] | None = None
+    user_credentials: Literal["forbidden", "allowed", "required"] | None = None
+
+
 class Boundary(BaseModel):
     model_config = ConfigDict(extra="forbid")
     egress_allowlist: list[str] | None = None
@@ -44,6 +62,7 @@ class Boundary(BaseModel):
     # stores an agent's private vocabulary even if an admin still types one.
     allowed_tools: list[str] | None = None
     deploy_tools: list[str] | None = None
+    model_policy: ModelPolicy | None = None
 
     @field_validator("allowed_tools", "deploy_tools")
     @classmethod
@@ -51,6 +70,14 @@ class Boundary(BaseModel):
         if value is None:
             return None
         return [to_capability(item) for item in value]
+
+
+# agents.md §5.1: `none` and `forbidden` are each axis's strictest value, so
+# only a move *out of* them is a loosening. `proxied`<->`gateway` and
+# `allowed`<->`required` carry no order relative to each other — either is a
+# lateral policy choice a child may make freely.
+_MODEL_SOURCE_PROVIDES_MODEL = {"proxied": True, "gateway": True, "none": False}
+_MODEL_CREDENTIALS_PERMIT_OWN = {"forbidden": False, "allowed": True, "required": True}
 
 
 def slugify(value: str) -> str:
@@ -117,6 +144,21 @@ def merge_boundaries(policies: list[dict[str, Any]]) -> dict[str, Any]:
     # an allowlist: nobody requiring a confirmation and an empty list both
     # mean the same thing, "confirm nothing extra".
     deploy_tools = sorted({tool for p in policies for tool in p.get("deploy_tools", [])})
+
+    def nearest(key: str, subkey: str) -> str | None:
+        """The deepest explicit setter in the chain, or `None` if nobody set it.
+
+        `write-time validate_tightening` already refused any save that would
+        have let a child loosen `source`/`user_credentials` past its parent's
+        effective value, so by the time a full chain reaches here the nearest
+        setter's value is already at least as strict as every ancestor's —
+        the same reasoning `load_policy`'s "own_load" already relies on.
+        """
+        return next(
+            (p[key][subkey] for p in reversed(policies) if p.get(key, {}).get(subkey) is not None),
+            None,
+        )
+
     return {
         "egress_allowlist": intersection(defined_egress),
         "connector_allowlist": intersection(defined_connectors),
@@ -136,6 +178,10 @@ def merge_boundaries(policies: list[dict[str, Any]]) -> dict[str, Any]:
             )
         },
         "budget": caps,
+        "model_policy": {
+            "source": nearest("model_policy", "source"),
+            "user_credentials": nearest("model_policy", "user_credentials"),
+        },
     }
 
 
@@ -228,6 +274,38 @@ def validate_tightening(child: dict[str, Any], parent: dict[str, Any]) -> None:
                 f"{field.replace('_', ' ').capitalize()} cannot exceed the parent limit.",
                 {"field": f"budget.{field}"},
             )
+    child_model_policy = child.get("model_policy") or {}
+    parent_model_policy = parent.get("model_policy") or {}
+    child_source = child_model_policy.get("source")
+    parent_source = parent_model_policy.get("source")
+    if (
+        child_source is not None
+        and parent_source is not None
+        and not _MODEL_SOURCE_PROVIDES_MODEL[parent_source]
+        and _MODEL_SOURCE_PROVIDES_MODEL[child_source]
+    ):
+        raise ApiError(
+            422,
+            "boundary_loosens",
+            "Model source cannot provide a model because the parent's "
+            'model_policy.source is "none".',
+            {"field": "model_policy.source"},
+        )
+    child_credentials = child_model_policy.get("user_credentials")
+    parent_credentials = parent_model_policy.get("user_credentials")
+    if (
+        child_credentials is not None
+        and parent_credentials is not None
+        and not _MODEL_CREDENTIALS_PERMIT_OWN[parent_credentials]
+        and _MODEL_CREDENTIALS_PERMIT_OWN[child_credentials]
+    ):
+        raise ApiError(
+            422,
+            "boundary_loosens",
+            "User credentials cannot be permitted because the parent's "
+            'model_policy.user_credentials is "forbidden".',
+            {"field": "model_policy.user_credentials"},
+        )
 
 
 async def ancestor_rows(connection: asyncpg.Connection, org_unit_id: Any) -> list[asyncpg.Record]:

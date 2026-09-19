@@ -96,7 +96,9 @@ async function render(ctx: RenderContext): Promise<void> {
 	await writeFile(join(root, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 }
 
-function locateClaudeBinary(): string {
+/** Shared with src/auth.ts, which locates the same binary for `harness auth
+    claude`, outside the jail. */
+export function locateClaudeBinary(): string {
 	for (const dir of (process.env.PATH ?? "").split(delimiter)) {
 		if (!dir) continue;
 		const candidate = join(dir, "claude");
@@ -118,6 +120,21 @@ function launch(ctx: RenderContext): { argv: string[]; env: Record<string, strin
 	const settingsPath = join(ctx.agentDir, "claude-settings.json");
 	const env: Record<string, string> = {
 		CLAUDE_CONFIG_DIR: ctx.agentDir,
+		// G13: `CLAUDE_CONFIG_DIR` relocates `.claude` — settings, history,
+		// `.credentials.json` — but not `~/.config/anthropic`, a second,
+		// separate profile store the same binary also reads. Verified against
+		// 2.1.278: a fresh `CLAUDE_CONFIG_DIR` alone still reports
+		// `{"loggedIn":true,...}` from `claude auth status --json`, off
+		// whatever is in `~/.config/anthropic`; adding a fresh
+		// `XDG_CONFIG_HOME` alongside it flips that same call to
+		// `{"loggedIn":false}`. That profile store apparently keys off
+		// `$XDG_CONFIG_HOME/anthropic` the same way most XDG-aware tools key
+		// off `$XDG_CONFIG_HOME`, so pointing it at the session's own
+		// (otherwise-unused) agent directory removes the ambient credential
+		// without touching the deny-read set this repo has no sandbox to
+		// enforce yet (agents.md §13 Spike 3 — full closure still needs it,
+		// e.g. for the macOS Keychain entry a login can also leave behind).
+		XDG_CONFIG_HOME: ctx.agentDir,
 		// Verified present in the 2.1.275 binary: the harness chose this
 		// binary off PATH, and a session should not silently become a
 		// different one, or phone home while it runs (docs/claude-code-notes.md
@@ -129,16 +146,14 @@ function launch(ctx: RenderContext): { argv: string[]; env: Record<string, strin
 		DISABLE_ERROR_REPORTING: "1",
 		CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
 	};
-	if (ctx.manifest.model) {
-		env.ANTHROPIC_BASE_URL = ctx.manifest.model.base_url;
-		env.ANTHROPIC_MODEL = ctx.manifest.model.model_id;
-		// Claude Code's own credential precedence only reads ANTHROPIC_API_KEY,
-		// ANTHROPIC_AUTH_TOKEN, or apiKeyHelper — never an arbitrary variable
-		// name. `index.ts` delivers the provider key under the org's own
-		// `model.env_var` (core.ts), so proxied auth only lands here today when
-		// an org happens to have named its key one of those two. 13.6 adds
-		// `wire_format` and a real per-agent credential mapping; inventing one
-		// now would guess at a shape that task, not this one, is meant to define.
+	if (ctx.model.kind === "org") {
+		env.ANTHROPIC_BASE_URL = ctx.model.baseUrl;
+		env.ANTHROPIC_MODEL = ctx.model.modelId;
+		// The credential *value* is delivered by index.ts, under
+		// `ctx.model.credentialEnvVar` — always ANTHROPIC_AUTH_TOKEN for this
+		// adapter (agents.md §5.2), never whatever name the org happened to
+		// register the key under, because that is the only variable name
+		// Claude Code's own precedence reads ahead of a native login.
 	}
 	return {
 		argv: [claudeBinary, "--settings", settingsPath, "--setting-sources", "user"],
@@ -146,4 +161,9 @@ function launch(ctx: RenderContext): { argv: string[]; env: Record<string, strin
 	};
 }
 
-export const claude: Adapter = { id: "claude", render, launch };
+export const claude: Adapter = {
+	id: "claude",
+	wireFormats: ["anthropic-messages"],
+	render,
+	launch,
+};
