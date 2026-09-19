@@ -11,7 +11,14 @@ import asyncpg
 import pytest
 
 from app.api import routes_assets
-from app.domain.resolve import model_from_assets, resolved_assets
+from app.domain.resolve import (
+    descendant_owners,
+    model_from_assets,
+    resolved_assets,
+    shadowed_copy,
+    subtree_owner,
+    version_files,
+)
 from app.errors import ApiError
 from app.identity import Principal
 
@@ -743,3 +750,593 @@ async def test_changing_only_a_credential_is_still_audited():
                 "to": "secret://acme/crm-write",
             }
         ]
+
+
+# ---------------------------------------------------------------------------
+# docs/scoping.md §5.2 / §9.6 — a name collision is a conflict, raised at the
+# moment it would be created, never resolved silently.
+# ---------------------------------------------------------------------------
+
+
+def _files(content: bytes = b"body") -> list[routes_assets.FileInput]:
+    return [
+        routes_assets.FileInput(path="SKILL.md", content_b64=base64.b64encode(content).decode())
+    ]
+
+
+async def _head_version_id(connection, asset_id) -> uuid.UUID:
+    return await connection.fetchval("select head_version_id from assets where id=$1", asset_id)
+
+
+async def _provenance(connection, asset_id) -> dict:
+    row = await connection.fetchrow(
+        """select v.provenance from assets a join asset_versions v on v.id=a.head_version_id
+           where a.id=$1""",
+        asset_id,
+    )
+    return dict(row["provenance"])
+
+
+# --- domain-level: the three query helpers routes_assets.py builds on ------
+
+
+@requires_postgres
+async def test_shadowed_copy_is_none_when_the_ancestor_is_not_scoped_down():
+    """An ancestor that owns the name but never scoped it reaches nobody, so
+    it must not read as a collision — nothing about the descendant's resolved
+    set would change if the descendant pushed the same name."""
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        marketing = await _unit(connection, org, "team", "marketing")
+        await _asset(connection, org, "skill", "triage")
+
+        assert await shadowed_copy(connection, marketing, "skill", "triage") is None
+
+
+@requires_postgres
+async def test_shadowed_copy_finds_the_scoped_ancestor():
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        marketing = await _unit(connection, org, "team", "marketing")
+        org_triage = await _asset(connection, org, "skill", "triage")
+        await _scope(connection, org_triage, marketing, org)
+
+        found = await shadowed_copy(connection, marketing, "skill", "triage")
+        assert found["asset_id"] == org_triage
+        assert found["org_unit_path"] == "acme"
+        assert found["version_id"] == await _head_version_id(connection, org_triage)
+
+
+@requires_postgres
+async def test_descendant_owners_lists_every_unit_below_that_already_owns_the_name():
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        team_a = await _unit(connection, org, "team", "team-a")
+        team_b = await _unit(connection, org, "team", "team-b")
+        await _asset(connection, team_a, "skill", "triage")
+        await _asset(connection, team_b, "skill", "triage")
+
+        below = await descendant_owners(connection, org, "skill", "triage")
+        assert sorted(row["org_unit_path"] for row in below) == ["acme.team-a", "acme.team-b"]
+
+
+@requires_postgres
+async def test_subtree_owner_finds_a_match_anywhere_below_not_just_the_direct_unit():
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        marketing = await _unit(connection, org, "team", "marketing")
+        ana = await _unit(connection, marketing, "user", "ana")
+        await _asset(connection, ana, "connection", "crm")
+
+        # marketing itself owns nothing, but its subtree — ana — does.
+        found = await subtree_owner(
+            connection, marketing, "connection", "crm", excluding=uuid.uuid4()
+        )
+        assert found is not None
+        assert found["org_unit_path"] == "acme.marketing.ana"
+
+
+# --- (a): a push colliding with an ancestor -------------------------------
+
+
+@requires_postgres
+async def test_push_colliding_with_a_scoped_ancestor_is_refused_and_creates_no_asset():
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        marketing = await _unit(connection, org, "team", "marketing")
+        org_triage = await _asset(connection, org, "skill", "triage")
+        await _scope(connection, org_triage, marketing, org)
+
+        principal = Principal(uuid.uuid4())
+        user_unit = {"id": marketing}
+        with pytest.raises(ApiError) as caught:
+            await routes_assets.create_asset(
+                routes_assets.AssetCreate(
+                    org_unit_id=marketing,
+                    kind="skill",
+                    name="triage",
+                    message="my own triage",
+                    files=_files(),
+                ),
+                _request(connection),
+                principal,
+                user_unit,
+            )
+        assert caught.value.status_code == 409
+        assert caught.value.code == "name_collision"
+        assert caught.value.detail["asset_id"] == str(org_triage)
+        assert caught.value.detail["org_unit_path"] == "acme"
+        # `_asset()` seeds an empty file set; the shape under test is that the
+        # ancestor's *actual* files are what travel in the 409, whatever they
+        # are — proven against the real lookup rather than a hand-built list.
+        assert caught.value.detail["files"] == await version_files(connection, {})
+        assert caught.value.detail["resolutions"] == ["rename", "take_theirs", "keep_mine", "merge"]
+
+        # Refused atomically: no shadow was created.
+        count = await connection.fetchval(
+            "select count(*) from assets where org_unit_id=$1 and kind='skill' and name='triage'",
+            marketing,
+        )
+        assert count == 0
+
+
+@requires_postgres
+async def test_push_of_a_name_an_unscoped_ancestor_owns_succeeds_without_a_collision():
+    """The mirror of the above: an ancestor merely owning the name (never
+    scoped this far) must not block a push of the same name — resolving it
+    could never have reached this unit anyway."""
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        marketing = await _unit(connection, org, "team", "marketing")
+        await _asset(connection, org, "skill", "triage")
+
+        principal = Principal(uuid.uuid4())
+        result = await routes_assets.create_asset(
+            routes_assets.AssetCreate(
+                org_unit_id=marketing,
+                kind="skill",
+                name="triage",
+                message="my own triage",
+                files=_files(),
+            ),
+            _request(connection),
+            principal,
+            {"id": marketing},
+        )
+        assert result["shadows_below"] == []
+
+
+@requires_postgres
+async def test_keep_mine_records_who_chose_the_override():
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        marketing = await _unit(connection, org, "team", "marketing")
+        org_triage = await _asset(connection, org, "skill", "triage")
+        await _scope(connection, org_triage, marketing, org)
+        collision = await shadowed_copy(connection, marketing, "skill", "triage")
+
+        principal = Principal(uuid.uuid4())
+        result = await routes_assets.create_asset(
+            routes_assets.AssetCreate(
+                org_unit_id=marketing,
+                kind="skill",
+                name="triage",
+                message="keeping mine",
+                files=_files(),
+                override_of=collision["version_id"],
+            ),
+            _request(connection),
+            principal,
+            {"id": marketing},
+        )
+        provenance = await _provenance(connection, result["id"])
+        assert provenance["override_of"] == str(org_triage)
+        # And it still shadows the org's, exactly like a shadow nobody chose —
+        # this only changes how the shadow was made, never how it resolves.
+        resolved = await resolved_assets(connection, marketing)
+        [triage] = [a for a in resolved if a["name"] == "triage"]
+        assert triage["asset_id"] == result["id"]
+        assert triage["shadows"]["asset_id"] == org_triage
+
+
+@requires_postgres
+async def test_keep_mine_is_allowed_for_a_connection():
+    """A connection names a credential; it is not one.
+
+    docs/scoping.md §5.5 puts connections in the asset family, so a team may
+    keep its own. The credential stays the owner's by a different route —
+    `asset_scopes.key_ref` — which the recipient cannot set.
+    """
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        team = await _unit(connection, org, "team", "marketing")
+        theirs = await _asset(connection, org, "connection", "model-default")
+        await _scope(connection, theirs, team, org)
+
+        collision = await shadowed_copy(connection, team, "connection", "model-default")
+        assert collision is not None, "the org's copy must be seen as a collision"
+
+        created = await routes_assets.create_asset(
+            routes_assets.AssetCreate(
+                org_unit_id=team,
+                kind="connection",
+                name="model-default",
+                message="ours",
+                files=[routes_assets.FileInput(path="model.json", content_b64="e30=")],
+                override_of=collision["version_id"],
+            ),
+            _request(connection),
+            Principal(uuid.uuid4()),
+            {"id": team},
+        )
+        assert created["id"]
+
+
+@requires_postgres
+async def test_an_override_that_does_not_match_the_current_collision_is_refused():
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        marketing = await _unit(connection, org, "team", "marketing")
+        org_triage = await _asset(connection, org, "skill", "triage")
+        await _scope(connection, org_triage, marketing, org)
+
+        principal = Principal(uuid.uuid4())
+        with pytest.raises(ApiError) as caught:
+            await routes_assets.create_asset(
+                routes_assets.AssetCreate(
+                    org_unit_id=marketing,
+                    kind="skill",
+                    name="triage",
+                    message="keeping mine",
+                    files=_files(),
+                    override_of=uuid.uuid4(),
+                ),
+                _request(connection),
+                principal,
+                {"id": marketing},
+            )
+        assert caught.value.status_code == 409
+        assert caught.value.code == "name_collision"
+
+
+@requires_postgres
+async def test_an_override_offered_with_nothing_to_override_is_refused():
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        principal = Principal(uuid.uuid4())
+        with pytest.raises(ApiError) as caught:
+            await routes_assets.create_asset(
+                routes_assets.AssetCreate(
+                    org_unit_id=org,
+                    kind="skill",
+                    name="triage",
+                    message="nothing to override",
+                    files=_files(),
+                    override_of=uuid.uuid4(),
+                ),
+                _request(connection),
+                principal,
+                {"id": org},
+            )
+        assert caught.value.status_code == 422
+        assert caught.value.code == "invalid_override"
+
+
+# --- (b): pushing a name descendants already have -------------------------
+
+
+@requires_postgres
+async def test_push_at_an_ancestor_reports_the_units_it_would_now_shadow():
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        team_a = await _unit(connection, org, "team", "team-a")
+        await _asset(connection, team_a, "skill", "triage")
+
+        principal = Principal(uuid.uuid4())
+        result = await routes_assets.create_asset(
+            routes_assets.AssetCreate(
+                org_unit_id=org,
+                kind="skill",
+                name="triage",
+                message="org triage",
+                files=_files(),
+            ),
+            _request(connection),
+            principal,
+            {"id": org},
+        )
+        assert [row["org_unit_path"] for row in result["shadows_below"]] == ["acme.team-a"]
+        # Informational only: team-a's own copy still resolves for team-a,
+        # because nothing scoped the org's new copy down to it.
+        resolved = await resolved_assets(connection, team_a)
+        [triage] = [a for a in resolved if a["name"] == "triage"]
+        assert triage["org_unit_path"] == "acme.team-a"
+
+
+# --- (c): a scope grant that would silently create a collision -----------
+
+
+@requires_postgres
+async def test_scoping_to_a_unit_whose_subtree_already_has_the_name_is_refused():
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        marketing = await _unit(connection, org, "team", "marketing")
+        marketing_crm = await _asset(connection, marketing, "connection", "crm")
+        org_crm = await _asset(connection, org, "connection", "crm")
+
+        principal = Principal(uuid.uuid4())
+        with pytest.raises(ApiError) as caught:
+            await routes_assets.set_asset_scopes(
+                org_crm,
+                routes_assets.ScopeReplace(
+                    scopes=[routes_assets.ScopeGrant(org_unit_id=marketing)]
+                ),
+                _request(connection),
+                principal,
+                {"id": org},
+            )
+        assert caught.value.status_code == 409
+        assert caught.value.code == "name_collision"
+        assert caught.value.detail["colliding_asset_id"] == str(marketing_crm)
+        assert caught.value.detail["resolutions"] == ["rename", "take_theirs", "keep_mine", "merge"]
+
+        # Refused atomically: no scope row was written.
+        assert await connection.fetchval(
+            "select count(*) from asset_scopes where asset_id=$1", org_crm
+        ) == 0
+
+
+@requires_postgres
+async def test_scoping_reaches_a_grandchild_whose_own_copy_already_exists():
+    """The reach of a scope row is the whole subtree (docs/scoping.md §3), so
+    the check has to look past the directly-named unit — granting the org
+    itself must catch a copy two levels down, not just at the org."""
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        marketing = await _unit(connection, org, "team", "marketing")
+        ana = await _unit(connection, marketing, "user", "ana")
+        await _asset(connection, ana, "skill", "triage")
+        org_triage = await _asset(connection, org, "skill", "triage")
+
+        principal = Principal(uuid.uuid4())
+        with pytest.raises(ApiError) as caught:
+            await routes_assets.set_asset_scopes(
+                org_triage,
+                routes_assets.ScopeReplace(scopes=[routes_assets.ScopeGrant(org_unit_id=org)]),
+                _request(connection),
+                principal,
+                {"id": org},
+            )
+        assert caught.value.status_code == 409
+        assert caught.value.detail["colliding_org_unit_path"] == "acme.marketing.ana"
+
+
+@requires_postgres
+async def test_a_confirmed_override_lets_the_scope_grant_through():
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        marketing = await _unit(connection, org, "team", "marketing")
+        marketing_triage = await _asset(connection, marketing, "skill", "triage")
+        org_triage = await _asset(connection, org, "skill", "triage")
+
+        principal = Principal(uuid.uuid4())
+        # The marketing admin confirms "keep mine" against the org's copy —
+        # before the org has scoped it down at all (§5.2(c) fires exactly
+        # when that scope grant is attempted, not before).
+        await routes_assets.create_version(
+            marketing_triage,
+            routes_assets.VersionCreate(
+                message="confirming our own triage",
+                parent_version_id=await _head_version_id(connection, marketing_triage),
+                files=_files(b"marketing content"),
+                override_of=await _head_version_id(connection, org_triage),
+            ),
+            _request(connection),
+            principal,
+            {"id": marketing},
+        )
+
+        # Now the org can scope its copy down without being refused.
+        result = await routes_assets.set_asset_scopes(
+            org_triage,
+            routes_assets.ScopeReplace(scopes=[routes_assets.ScopeGrant(org_unit_id=marketing)]),
+            _request(connection),
+            principal,
+            {"id": org},
+        )
+        assert [row["org_unit_id"] for row in result] == [marketing]
+        # And marketing's own, knowingly-overriding copy still wins there.
+        resolved = await resolved_assets(connection, marketing)
+        [triage] = [a for a in resolved if a["name"] == "triage"]
+        assert triage["asset_id"] == marketing_triage
+        assert triage["shadows"]["asset_id"] == org_triage
+
+
+@requires_postgres
+async def test_re_granting_an_already_scoped_unit_is_idempotent():
+    """Only *newly* added units are checked, so replacing the set with one
+    that already included a unit must not start failing just because that
+    unit picked up a competing asset in the meantime — that unit's admin
+    already saw (or resolved) this the first time it was granted."""
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        marketing = await _unit(connection, org, "team", "marketing")
+        org_crm = await _asset(connection, org, "connection", "crm")
+        principal = Principal(uuid.uuid4())
+        user_unit = {"id": org}
+
+        await routes_assets.set_asset_scopes(
+            org_crm,
+            routes_assets.ScopeReplace(scopes=[routes_assets.ScopeGrant(org_unit_id=marketing)]),
+            _request(connection),
+            principal,
+            user_unit,
+        )
+        await _asset(connection, marketing, "connection", "crm")
+
+        result = await routes_assets.set_asset_scopes(
+            org_crm,
+            routes_assets.ScopeReplace(scopes=[routes_assets.ScopeGrant(org_unit_id=marketing)]),
+            _request(connection),
+            principal,
+            user_unit,
+        )
+        assert [row["org_unit_id"] for row in result] == [marketing]
+
+
+@requires_postgres
+async def test_take_theirs_by_archiving_the_local_copy_clears_the_collision():
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        marketing = await _unit(connection, org, "team", "marketing")
+        marketing_crm = await _asset(connection, marketing, "connection", "crm")
+        org_crm = await _asset(connection, org, "connection", "crm")
+        await connection.execute(
+            "update assets set status='archived' where id=$1", marketing_crm
+        )
+
+        result = await routes_assets.set_asset_scopes(
+            org_crm,
+            routes_assets.ScopeReplace(scopes=[routes_assets.ScopeGrant(org_unit_id=marketing)]),
+            _request(connection),
+            Principal(uuid.uuid4()),
+            {"id": org},
+        )
+        assert [row["org_unit_id"] for row in result] == [marketing]
+
+
+# --- create_version's override_of is opt-in and never gates an ordinary edit
+
+
+@requires_postgres
+async def test_an_ordinary_edit_to_an_existing_shadow_needs_no_override():
+    """The core non-regression: a shadow that already exists keeps being
+    pushed to exactly as before — this feature changes how a collision is
+    made, never how an existing one is edited or resolved."""
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        marketing = await _unit(connection, org, "team", "marketing")
+        org_triage = await _asset(connection, org, "skill", "triage")
+        await _scope(connection, org_triage, marketing, org)
+        # A shadow from before this feature shipped: no override_of anywhere.
+        marketing_triage = await _asset(connection, marketing, "skill", "triage")
+
+        version = await routes_assets.create_version(
+            marketing_triage,
+            routes_assets.VersionCreate(
+                message="an ordinary edit",
+                parent_version_id=await _head_version_id(connection, marketing_triage),
+                files=_files(b"edited"),
+            ),
+            _request(connection),
+            Principal(uuid.uuid4()),
+            {"id": marketing},
+        )
+        assert "override_of" not in version["provenance"]
+
+        # And it resolves exactly as any pre-existing shadow does: nearest
+        # ancestor wins for marketing, the org's copy is what it shadows.
+        resolved = await resolved_assets(connection, marketing)
+        [triage] = [a for a in resolved if a["name"] == "triage"]
+        assert triage["asset_id"] == marketing_triage
+        assert triage["shadows"]["asset_id"] == org_triage
+
+
+@requires_postgres
+async def test_override_of_must_name_a_real_current_collision():
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        marketing = await _unit(connection, org, "team", "marketing")
+        marketing_triage = await _asset(connection, marketing, "skill", "triage")
+
+        with pytest.raises(ApiError) as caught:
+            await routes_assets.create_version(
+                marketing_triage,
+                routes_assets.VersionCreate(
+                    message="bogus override",
+                    parent_version_id=await _head_version_id(connection, marketing_triage),
+                    files=_files(b"edited"),
+                    override_of=uuid.uuid4(),
+                ),
+                _request(connection),
+                Principal(uuid.uuid4()),
+                {"id": marketing},
+            )
+        assert caught.value.status_code == 422
+        assert caught.value.code == "invalid_override"
+
+
+@requires_postgres
+async def test_lineage_carries_the_common_ancestor_version_and_the_override_decision():
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        marketing = await _unit(connection, org, "team", "marketing")
+        org_triage = await _asset(connection, org, "skill", "triage")
+        org_triage_version = await _head_version_id(connection, org_triage)
+
+        # promote() requires admin rights at the target, unlike the other
+        # route calls in this file — a real login row satisfies the FK
+        # org_unit_admins needs.
+        auth_user_id = uuid.uuid4()
+        await connection.execute(
+            "insert into auth.users(id, email) values ($1, 'admin@acme.test')", auth_user_id
+        )
+        await connection.execute(
+            "insert into org_unit_admins(auth_user_id, org_unit_id, level) values ($1,$2,'admin')",
+            auth_user_id,
+            marketing,
+        )
+        principal = Principal(auth_user_id)
+        promoted = await routes_assets.promote(
+            org_triage,
+            routes_assets.PromoteInput(target_org_unit_id=marketing),
+            _request(connection),
+            principal,
+            {"id": org},
+        )
+        marketing_triage = promoted["id"]
+        await _scope(connection, org_triage, marketing, org)
+
+        rows = await routes_assets.lineage(
+            marketing_triage, _request(connection), principal, {"id": marketing}
+        )
+        mine = next(row for row in rows if row["asset_id"] == marketing_triage)
+        assert mine["promoted_from_asset_id"] == org_triage
+        assert mine["promoted_from_version_id"] == org_triage_version
+        assert mine["override_of"] is None  # promoted, not yet a chosen override
+
+        await routes_assets.create_version(
+            marketing_triage,
+            routes_assets.VersionCreate(
+                message="confirming our own triage",
+                parent_version_id=mine["version_id"],
+                files=_files(b"marketing content"),
+                override_of=org_triage_version,
+            ),
+            _request(connection),
+            principal,
+            {"id": marketing},
+        )
+        rows = await routes_assets.lineage(
+            marketing_triage, _request(connection), principal, {"id": marketing}
+        )
+        mine = next(row for row in rows if row["asset_id"] == marketing_triage)
+        assert mine["override_of"] == str(org_triage)
+
+
+@requires_postgres
+async def test_a_sub_team_can_actually_be_inserted():
+    """The Python gate and the database trigger both decide role order.
+
+    `validate_role_order` was changed for sub-teams and the trigger was not,
+    and nothing caught it because the only test called the Python function.
+    A rule enforced in two places needs a test that reaches both.
+    """
+    async with scratch_db(_all_migrations()) as connection:
+        org = await _unit(connection, None, "org", "acme")
+        team = await _unit(connection, org, "team", "marketing")
+        interns = await _unit(connection, team, "team", "interns")
+
+        skill = await _asset(connection, org, "skill", "triage")
+        await _scope(connection, skill, interns, org)
+        assert [a["name"] for a in await resolved_assets(connection, interns)] == ["triage"]

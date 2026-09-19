@@ -616,9 +616,13 @@ flow records who chose it. Every pre-existing shadow keeps resolving exactly
 as it does today — this changes how collisions are *made*, never how existing
 ones resolve.
 
-For a **resource** kind (§5.5) the conflict offers **rename** and **take
-theirs** only. **Keep mine** is absent, because a recipient does not decide
-what a name the owner published points at.
+**Every asset kind offers all four**, connections included. An earlier draft
+of this task suppressed **keep mine** for connections; that contradicts §5.5,
+where connections sit in the asset family. A connection *names* a credential
+rather than being one, and the credential stays the owner's by a different
+route — `asset_scopes.key_ref`, which the recipient cannot set. The surfaces
+that genuinely are top-down — boundary, connectors, people, audit — are not
+assets and never reach this code, so there is no kind here to suppress.
 
 **Out of scope.** Server-side git ([`asset-sync.md`](asset-sync.md) §9 — the
 control plane stays Postgres and JSON; a three-pane editor needs no git).

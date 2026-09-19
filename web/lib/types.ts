@@ -107,6 +107,13 @@ export interface LineageRow {
   /** The asset this one's live version was promoted from, if it was. */
   promoted_from_asset_id?: string | null;
   promoted_from_seq?: number | null;
+  /** The exact version promoted from — the common ancestor a merge needs,
+      distinct from the seq above, which cannot be fetched by itself. */
+  promoted_from_version_id?: string | null;
+  /** The asset id this row's live version has knowingly chosen to override,
+      if any (docs/scoping.md §5.2). Null on a shadow made before that
+      choice existed to make. */
+  override_of?: string | null;
 }
 
 export interface Version {

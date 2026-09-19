@@ -326,8 +326,13 @@ export function ModelDefaultRow({
   const activeRow = [ownRow, inheritedRow].find((asset) => asset?.status === "active");
   /* What the form edits: our own copy if this unit has one — even disabled —
      because the database will not let a second row share this name at the
-     same unit. With none, editing creates this unit's first copy, which may
-     shadow an inherited one without touching it. */
+     same unit. With none, editing creates this unit's first copy — which, if
+     an inherited one already reaches here, the server now refuses
+     (docs/scoping.md §5.3/§5.5: a connection is a pointer to a credential,
+     so a unit may not silently decide its own). The generic error banner
+     names whoever already publishes it; the fix is asking that unit's admin
+     to scope a different connector down, not overriding the connection
+     itself. */
   const editTarget = ownRow;
   const contentRow = activeRow ?? ownRow ?? inheritedRow;
   const assetId = contentRow?.id;

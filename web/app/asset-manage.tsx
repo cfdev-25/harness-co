@@ -6,6 +6,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { list } from "@/lib/api";
 import { Api, Asset, Harness, LineageRow, TreeNode } from "@/lib/types";
+import { AssetConflict } from "./asset-conflict";
 import {
   Badge,
   Button,
@@ -23,6 +24,14 @@ import {
 /** Paths are dot-separated slugs, so a segment count is the unit's depth. */
 function depthOf(path: string) {
   return path.split(".").length;
+}
+
+/** The nearest active row above `row` on its own path — exactly what a
+    collision this row shadows, or is shadowed by, would be. */
+function nearestAncestorRow(row: LineageRow, rows: LineageRow[]): LineageRow | undefined {
+  return rows
+    .filter((other) => other.status === "active" && row.path.startsWith(`${other.path}.`))
+    .sort((a, b) => b.path.length - a.path.length)[0];
 }
 
 function Heading({ children }: { children: string }) {
@@ -53,7 +62,20 @@ function Drift({ row, rows }: { row: LineageRow; rows: LineageRow[] }) {
 
 /* Broad to narrow, one row per org unit that has this name. The indent is the
    org tree, so where a name is overridden is the shape of the list. */
-function Lineage({ rows, asset }: { rows: LineageRow[]; asset: Asset }) {
+function Lineage({
+  rows,
+  asset,
+  api,
+  onResolved,
+  onError,
+}: {
+  rows: LineageRow[];
+  asset: Asset;
+  api: Api;
+  onResolved: () => void;
+  onError: (cause: unknown) => void;
+}) {
+  const [resolving, setResolving] = useState(false);
   const base = Math.min(...rows.map((row) => depthOf(row.path)));
   const here = rows.find((row) => row.asset_id === asset.id);
   /* A session resolves a name from the nearest active unit at or above it, so
@@ -62,51 +84,81 @@ function Lineage({ rows, asset }: { rows: LineageRow[]; asset: Asset }) {
     ? rows.filter((row) => row.path === here.path || here.path.startsWith(`${row.path}.`))
     : [];
   const resolved = [...chain].reverse().find((row) => row.status === "active");
+  const ancestor = here ? nearestAncestorRow(here, rows) : undefined;
+  /* A collision worth opening the editor for: this copy is the one actually
+     in use, and something above it is too. Every asset kind may be overridden
+     — a connection included, since it names a credential rather than being
+     one, and `asset_scopes.key_ref` keeps the credential the owner's
+     (docs/scoping.md §5.5). */
+  const canResolve =
+    Boolean(here) && here?.asset_id === resolved?.asset_id && Boolean(ancestor?.version_id);
 
   return (
-    <ol className="relative m-0 grid list-none gap-1 p-0">
-      {rows.map((row) => {
-        const indent = (depthOf(row.path) - base) * 22;
-        const isHere = row.asset_id === asset.id;
-        return (
-          <li
-            key={row.asset_id}
-            className={
-              indent
-                ? "relative before:absolute before:top-1/2 before:-left-3 before:h-px before:w-3 before:bg-line"
-                : ""
-            }
-            style={{ marginLeft: `${indent}px` }}
-          >
-            <div
-              className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border px-3 py-2.5 ${
-                isHere ? "border-accent bg-accent-soft/40" : "border-line bg-surface"
-              }`}
+    <>
+      <ol className="relative m-0 grid list-none gap-1 p-0">
+        {rows.map((row) => {
+          const indent = (depthOf(row.path) - base) * 22;
+          const isHere = row.asset_id === asset.id;
+          return (
+            <li
+              key={row.asset_id}
+              className={
+                indent
+                  ? "relative before:absolute before:top-1/2 before:-left-3 before:h-px before:w-3 before:bg-line"
+                  : ""
+              }
+              style={{ marginLeft: `${indent}px` }}
             >
-              <span className="flex min-w-0 items-center gap-2">
-                <span className="truncate text-[13px] font-semibold">{row.name}</span>
-                <Mono>{row.role}</Mono>
-              </span>
-              {row.version_id ? (
-                <span className="flex items-center gap-2">
-                  <Chip title={row.version_id}>{shortId(row.version_id)}</Chip>
-                  <Mono title={dateTime(row.updated_at)}>
-                    v{row.seq} · {day(row.updated_at)}
-                  </Mono>
+              <div
+                className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border px-3 py-2.5 ${
+                  isHere ? "border-accent bg-accent-soft/40" : "border-line bg-surface"
+                }`}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="truncate text-[13px] font-semibold">{row.name}</span>
+                  <Mono>{row.role}</Mono>
                 </span>
-              ) : (
-                <Mono>no version pushed</Mono>
-              )}
-              <span className="ml-auto flex flex-wrap items-center gap-2">
-                <Drift row={row} rows={rows} />
-                {row.status !== "active" && <Badge tone="warn">disabled</Badge>}
-                {row.asset_id === resolved?.asset_id && <Badge tone="ok">in use here</Badge>}
-              </span>
-            </div>
-          </li>
-        );
-      })}
-    </ol>
+                {row.version_id ? (
+                  <span className="flex items-center gap-2">
+                    <Chip title={row.version_id}>{shortId(row.version_id)}</Chip>
+                    <Mono title={dateTime(row.updated_at)}>
+                      v{row.seq} · {day(row.updated_at)}
+                    </Mono>
+                  </span>
+                ) : (
+                  <Mono>no version pushed</Mono>
+                )}
+                <span className="ml-auto flex flex-wrap items-center gap-2">
+                  <Drift row={row} rows={rows} />
+                  {row.status !== "active" && <Badge tone="warn">disabled</Badge>}
+                  {row.asset_id === resolved?.asset_id && <Badge tone="ok">in use here</Badge>}
+                  {isHere && canResolve && (
+                    <Button size="sm" onClick={() => setResolving(true)}>
+                      Resolve
+                    </Button>
+                  )}
+                </span>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+      {resolving && here && ancestor && (
+        <AssetConflict
+          name={asset.name}
+          myAssetId={asset.id}
+          mine={here}
+          theirs={ancestor}
+          api={api}
+          onClose={() => setResolving(false)}
+          onError={onError}
+          onResolved={() => {
+            setResolving(false);
+            onResolved();
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -252,7 +304,16 @@ export function AssetManage({
         {rows === undefined ? (
           <EmptyState>Loading…</EmptyState>
         ) : rows.length ? (
-          <Lineage rows={rows} asset={asset} />
+          <Lineage
+            rows={rows}
+            asset={asset}
+            api={api}
+            onError={onError}
+            onResolved={() => {
+              onChanged();
+              loadLineage();
+            }}
+          />
         ) : (
           <EmptyState>No org unit visible to you has this asset.</EmptyState>
         )}

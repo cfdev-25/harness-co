@@ -20,10 +20,29 @@ from app.domain.asset_store import decode_files, lint_files, push_version
 from app.domain.audit import append_event
 from app.domain.harnesses import visible_harness
 from app.domain.org_tree import effective_boundary
+from app.domain.resolve import (
+    ancestor_version,
+    descendant_owners,
+    shadowed_copy,
+    subtree_owner,
+    version_files,
+)
 from app.errors import ApiError
 from app.identity import Principal
 
 router = APIRouter(tags=["assets"])
+
+# docs/scoping.md §5.3, §5.5: a connection is a pointer to a credential the
+# Every asset kind is content and may be overridden — including `connection`,
+# which is a config file naming a credential, not the credential itself
+# (docs/scoping.md §5.5). The credential stays the owner's: `asset_scopes`
+# carries a per-recipient `key_ref`, so who gets which key is decided by
+# whoever owns the asset and never by the recipient.
+#
+# The administration surfaces that genuinely are top-down — boundary,
+# connectors, people, audit — are not assets and never reach this code, so
+# there is no kind here to suppress.
+RESOLUTIONS = ["rename", "take_theirs", "keep_mine", "merge"]
 
 
 class FileInput(BaseModel):
@@ -37,12 +56,24 @@ class AssetCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     message: str = Field(min_length=1, max_length=500)
     files: list[FileInput]
+    # The ancestor VERSION id a 409 name_collision named, echoed back to say
+    # "yes, I saw that and I am choosing to override it anyway" — docs/
+    # scoping.md §5.2's "keep mine" and "merge" resolutions. It must match
+    # what is colliding *now*, the same optimistic-concurrency shape push
+    # already uses for `parent_version_id` (asset_store.push_version).
+    override_of: UUID | None = None
 
 
 class VersionCreate(BaseModel):
     message: str = Field(min_length=1, max_length=500)
     parent_version_id: UUID | None
     files: list[FileInput]
+    # Confirms "keep mine" for a collision raised at scope-grant time (docs/
+    # scoping.md §5.2(c)): the asset already exists here, so no new name is
+    # being created, but the admin scoping an ancestor's copy down to this
+    # unit is refused (`set_asset_scopes`) until this unit's own version
+    # records that it knowingly overrides it.
+    override_of: UUID | None = None
 
 
 class AssetUpdate(BaseModel):
@@ -391,6 +422,36 @@ async def set_asset_scopes(
         }
         added = sorted(wanted.keys() - current.keys(), key=str)
         removed = sorted(current.keys() - wanted.keys(), key=str)
+        # docs/scoping.md §5.2(c): granting reach to a unit whose own subtree
+        # already owns this (kind, name) would silently create the shadow
+        # §5.2 forbids creating without a person choosing it — the org's
+        # `crm` reaching a team that already wrote its own. Only *newly*
+        # added units are checked: re-sending a set that already included a
+        # unit must stay idempotent, and a unit already holding the grant was
+        # already surfaced (or resolved) the first time it was added.
+        for unit_id in added:
+            collision = await subtree_owner(
+                connection, unit_id, asset["kind"], asset["name"], excluding=asset_id
+            )
+            if not collision:
+                continue
+            if dict(collision["provenance"]).get("override_of") == str(asset_id):
+                continue  # already knowingly kept — not a new collision
+            raise ApiError(
+                409,
+                "name_collision",
+                f"{collision['org_unit_path']} already has its own "
+                f"'{asset['kind']}/{asset['name']}'. Scoping this one there "
+                "would silently take it over.",
+                {
+                    "asset_id": str(asset_id),
+                    "org_unit_id": str(unit_id),
+                    "colliding_asset_id": str(collision["asset_id"]),
+                    "colliding_org_unit_id": str(collision["org_unit_id"]),
+                    "colliding_org_unit_path": collision["org_unit_path"],
+                    "resolutions": RESOLUTIONS,
+                },
+            )
         # A credential swap on a unit that stays scoped changes no membership,
         # so `added` and `removed` are both empty and nothing would be recorded
         # — while the recipient's access silently changes from one key to
@@ -467,7 +528,17 @@ async def lineage(
            select u.id org_unit_id,u.name,u.role,u.path,
                   a.id asset_id,a.status,
                   v.id version_id,v.seq,v.created_at updated_at,
-                  src.asset_id promoted_from_asset_id,src.seq promoted_from_seq
+                  src.asset_id promoted_from_asset_id,src.seq promoted_from_seq,
+                  -- The exact version this copy forked from, when it is
+                  -- known — the common ancestor a merge (docs/scoping.md
+                  -- §5.2) needs, distinct from `promoted_from_seq`, which is
+                  -- only a number and cannot be fetched by itself.
+                  src.id promoted_from_version_id,
+                  -- Which asset this copy's live version has already, and
+                  -- knowingly, chosen to override — null on a shadow made
+                  -- before this shipped, so the console can tell the two
+                  -- apart instead of re-asking a question already answered.
+                  v.provenance->>'override_of' override_of
              from related r
              join org_units u on u.id=r.id
              join assets a on a.org_unit_id=u.id and a.kind=$2 and a.name=$3
@@ -511,6 +582,41 @@ async def create_asset(
                 "unknown_asset_kind",
                 f"Unknown kind '{body.kind}'. Known kinds: {kinds}.",
             )
+        # docs/scoping.md §5.2(a): a name an ancestor already has, reaching
+        # here, is a collision the moment it is created — not something that
+        # silently becomes a personal override. `override_of` is how the
+        # console says a person already chose to override it; anything else
+        # (including a stale version id from a collision that has since
+        # moved) is refused with the same detail a fresh push would get.
+        collision = await shadowed_copy(connection, body.org_unit_id, body.kind, body.name)
+        if collision and body.override_of == collision["version_id"]:
+            # Recorded by asset id, not version id: identity is what an
+            # override is about ("I am consciously keeping mine instead of
+            # that asset"), and it must keep meaning the same thing after the
+            # overridden asset gains later versions. `override_of` on the
+            # wire is the version id instead, purely so the client proves it
+            # saw *this* collision rather than a stale one — the same
+            # optimistic-concurrency shape as push's `parent_version_id`.
+            provenance_override: dict = {"override_of": str(collision["asset_id"])}
+        elif collision:
+            raise ApiError(
+                409,
+                "name_collision",
+                f"'{body.kind}/{body.name}' already exists at {collision['org_unit_path']}.",
+                {
+                    "asset_id": str(collision["asset_id"]),
+                    "org_unit_id": str(collision["org_unit_id"]),
+                    "org_unit_path": collision["org_unit_path"],
+                    "version_id": str(collision["version_id"]),
+                    "version_seq": collision["seq"],
+                    "files": await version_files(connection, dict(collision["file_hashes"])),
+                    "resolutions": RESOLUTIONS,
+                },
+            )
+        elif body.override_of is not None:
+            raise ApiError(422, "invalid_override", "There is no collision here to override.")
+        else:
+            provenance_override = {}
         asset = await connection.fetchrow(
             """insert into assets(org_unit_id,kind,name) values($1,$2,$3) returning *""",
             body.org_unit_id,
@@ -522,6 +628,8 @@ async def create_asset(
         ).get("push_review", False) and not await is_admin(
             connection, principal.auth_user_id, body.org_unit_id
         )
+        provenance = {"pending_review": True} if pending else {}
+        provenance.update(provenance_override)
         version = await push_version(
             connection,
             asset_id=asset["id"],
@@ -529,7 +637,7 @@ async def create_asset(
             files=files,
             author_id=principal.auth_user_id,
             message=body.message,
-            provenance={"pending_review": True} if pending else {},
+            provenance=provenance,
             make_head=not pending,
         )
         await append_event(
@@ -541,7 +649,11 @@ async def create_asset(
             action="asset.create",
             payload={"asset_id": str(asset["id"]), "version_id": str(version["id"])},
         )
-        return {**dict(asset), "version": version}
+        # docs/scoping.md §5.2(b): informational only. Until this name is
+        # scoped down that far these units still resolve their own copy
+        # unchanged — this just says what would start shadowing if it were.
+        shadows_below = await descendant_owners(connection, body.org_unit_id, body.kind, body.name)
+        return {**dict(asset), "version": version, "shadows_below": shadows_below}
 
 
 @router.post("/assets/{asset_id}/versions", status_code=status.HTTP_201_CREATED)
@@ -561,6 +673,25 @@ async def create_version(
         pending = boundary["build_policy"]["push_review"] and not await is_admin(
             connection, principal.auth_user_id, asset["org_unit_id"]
         )
+        # This asset already exists here, so no new name is being created and
+        # nothing below is required to gate an ordinary edit — that would
+        # regress every existing shadow, which docs/scoping.md §5.2 explicitly
+        # says this feature must not touch. `override_of` is opt-in: it
+        # exists only so a unit can *confirm* "keep mine" for a collision
+        # `set_asset_scopes` raised (§5.2(c)), by recording, on a real new
+        # version, exactly which ancestor copy it knowingly keeps overriding.
+        provenance_override: dict = {}
+        if body.override_of is not None:
+            ancestor = await ancestor_version(connection, asset["org_unit_id"], body.override_of)
+            if (
+                not ancestor
+                or ancestor["kind"] != asset["kind"]
+                or ancestor["name"] != asset["name"]
+            ):
+                raise ApiError(422, "invalid_override", "There is no collision here to override.")
+            provenance_override = {"override_of": str(ancestor["asset_id"])}
+        provenance = {"pending_review": True} if pending else {}
+        provenance.update(provenance_override)
         version = await push_version(
             connection,
             asset_id=asset_id,
@@ -568,7 +699,7 @@ async def create_version(
             files=files,
             author_id=principal.auth_user_id,
             message=body.message,
-            provenance={"pending_review": True} if pending else {},
+            provenance=provenance,
             make_head=not pending,
         )
         await append_event(
@@ -676,6 +807,10 @@ async def promote(
             source_asset["kind"],
             source_asset["name"],
         )
+        # docs/scoping.md §5.2(b): informational, same as a fresh push — a
+        # promote to a unit that had no asset of this name yet is also this
+        # name coming into existence there for the first time.
+        shadows_below: list[dict] = []
         if not target:
             # Harnesses hold names, and the name has not changed, so a
             # promoted copy is already in whatever harnesses named it. There
@@ -685,6 +820,9 @@ async def promote(
                 body.target_org_unit_id,
                 source_asset["kind"],
                 source_asset["name"],
+            )
+            shadows_below = await descendant_owners(
+                connection, body.target_org_unit_id, source_asset["kind"], source_asset["name"]
             )
         version = await _copy_version(
             connection,
@@ -708,6 +846,7 @@ async def promote(
             **dict(target),
             "harness_ids": await _harness_ids(connection, target),
             "version": dict(version),
+            "shadows_below": shadows_below,
         }
 
 
