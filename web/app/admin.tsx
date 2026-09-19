@@ -24,6 +24,7 @@ import { HELP } from "./help";
 import { ThemePicker } from "./theme-picker";
 import { AssetDocument } from "./asset-document";
 import { AssetManage } from "./asset-manage";
+import { ModelDefaultRow } from "./model-default";
 import { HarnessDialog, HarnessTiles } from "./harness-tiles";
 import { HarnessScreen } from "./harness-screen";
 import {
@@ -401,7 +402,7 @@ function AssetsPanel({
   );
 }
 
-function ControlRow({
+export function ControlRow({
   label,
   hint,
   setHere,
@@ -1298,6 +1299,15 @@ export function AdminApp() {
                     onCreate={() => setNewHarness(true)}
                   />
                 ))}
+              {tab === "keys" && (
+                <ModelDefaultRow
+                  unit={selected}
+                  api={api}
+                  onChanged={loadTab}
+                  onError={fail}
+                  onAddKey={() => setShowCreateKey(true)}
+                />
+              )}
               {assetTab && (
                 <AssetsPanel
                   assets={assets}
