@@ -1,9 +1,7 @@
-import { randomUUID } from "node:crypto";
 import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, normalize, resolve, sep } from "node:path";
-import { type Icon, renderIcon } from "./pixels.js";
-import { colorMode } from "./style.js";
+import type { Icon } from "./pixels.js";
 
 export interface Credentials {
 	api_url: string;
@@ -70,12 +68,6 @@ export interface Manifest {
 	};
 }
 
-export interface SessionPaths {
-	id: string;
-	root: string;
-	agent: string;
-}
-
 export function harnessHome(): string {
 	return process.env.HARNESS_HOME ?? join(homedir(), ".harness");
 }
@@ -140,111 +132,6 @@ export function safeName(name: string): string {
 	const clean = basename(name);
 	if (!name || clean !== name || name === "." || name === "..") throw new Error(`Unsafe asset name: ${name}`);
 	return clean;
-}
-
-async function writeAssetFiles(root: string, asset: ManifestAsset): Promise<void> {
-	for (const file of asset.files) {
-		const target = join(root, safeRelative(file.path));
-		await mkdir(dirname(target), { recursive: true });
-		await writeFile(target, Buffer.from(file.content_b64, "base64"), { mode: 0o600 });
-	}
-}
-
-export async function materializeManifest(manifest: Manifest, id: string = randomUUID()): Promise<SessionPaths> {
-	if (!manifest.model) throw new Error("No model is configured for your workspace.");
-	const root = sessionDir(id);
-	const agent = join(root, "agent");
-	await mkdir(join(agent, "skills"), { recursive: true, mode: 0o700 });
-	await mkdir(join(agent, "prompts"), { recursive: true, mode: 0o700 });
-	await mkdir(join(agent, "sessions"), { recursive: true, mode: 0o700 });
-
-	const providerId = manifest.model.provider;
-	await writeFile(
-		join(agent, "settings.json"),
-		`${JSON.stringify(
-			{
-				defaultProvider: providerId,
-				defaultModel: manifest.model.model_id,
-				defaultProjectTrust: "never",
-				enableInstallTelemetry: false,
-				enableAnalytics: false,
-			},
-			null,
-			2,
-		)}\n`,
-	);
-	await writeFile(
-		join(agent, "models.json"),
-		`${JSON.stringify(
-			{
-				providers: {
-					[providerId]: {
-						baseUrl: manifest.model.base_url,
-						apiKey: `$${manifest.model.env_var}`,
-						api: "openai-completions",
-						models: [{ id: manifest.model.model_id, name: manifest.model.model_id }],
-					},
-				},
-			},
-			null,
-			2,
-		)}\n`,
-	);
-	// The whole resolved set was hydrated; a session lays out what the
-	// selected harness contains. One filter, and every kind below inherits it.
-	const byKind = (kind: string) =>
-		(manifest.assets ?? []).filter((asset) => asset.kind === kind && inHarness(asset, manifest.harness));
-	for (const skill of byKind("skill")) await writeAssetFiles(join(agent, "skills", safeName(skill.name)), skill);
-
-	const contents = (asset: ManifestAsset) =>
-		asset.files.map((file) => Buffer.from(file.content_b64, "base64").toString("utf8")).join("\n\n");
-
-	// Broadest scope first, so a user's own system prompt extends the team's
-	// rather than preceding it. A shorter owning path means a wider unit.
-	const scope = (asset: ManifestAsset) => (asset.org_unit_path ?? "").length;
-	const render = (assets: ManifestAsset[]) =>
-		[...assets]
-			.sort((a, b) => scope(a) - scope(b) || a.name.localeCompare(b.name))
-			.map((asset) => `## ${asset.name}\n\n${contents(asset)}`);
-	// System prompts are the preamble; memories are standing context after it.
-	// Both end up in the system prompt for every message of the session.
-	const instructions = [...render(byKind("system_prompt")), ...render(byKind("memory"))].join("\n\n");
-	await writeFile(join(agent, "AGENTS.md"), `${instructions}\n`);
-
-	// A saved prompt is not an instruction: nothing reaches the model until
-	// someone picks it from `/`. One file per name, because the agent takes the
-	// command name from the filename.
-	for (const saved of byKind("prompt")) {
-		await writeFile(join(agent, "prompts", `${safeName(saved.name)}.md`), contents(saved), { mode: 0o600 });
-	}
-
-	const builtins = ["read", "bash", "edit", "write", "grep", "find", "ls"];
-	const allowedTools = Array.from(
-		new Set([...builtins, ...(manifest.boundary.allowed_tools ?? []), ...byKind("tool").map((tool) => tool.name)]),
-	);
-	await writeFile(
-		join(root, "policy.json"),
-		`${JSON.stringify(
-			{
-				...manifest.boundary,
-				allowed_tools: allowedTools,
-				deploy_tools: manifest.boundary.deploy_tools ?? [],
-				session_id: id,
-			},
-			null,
-			2,
-		)}\n`,
-	);
-	await writeFile(join(root, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
-	// The drawing is rendered here, not in the agent: the CLI and the agent
-	// share a terminal, so the parent's capability detection is the right
-	// one, and the extension stays a reader of small files.
-	if (manifest.harness) {
-		const { id: selected, name, description, org_unit_path, icon } = manifest.harness;
-		const card = { id: selected, name, description, org_unit_path, lines: renderIcon(icon, colorMode()) };
-		await writeFile(join(root, "harness.json"), `${JSON.stringify(card, null, 2)}\n`);
-	}
-	return { id, root, agent };
 }
 
 /**

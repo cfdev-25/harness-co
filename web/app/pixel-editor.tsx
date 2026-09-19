@@ -15,22 +15,22 @@ export const MAX_COLORS = 16;
    recognisable. Sixteen of them, which is also the most an icon may hold, so
    a drawing can never want a colour it cannot store. */
 export const SWATCHES = [
-  "#2b211c",
-  "#776a60",
-  "#ddcfc0",
-  "#f2e8dc",
-  "#c8875a",
-  "#9e5c33",
-  "#dfb76c",
-  "#7e5c1f",
-  "#3c6547",
-  "#a8bd8c",
-  "#8a3b2d",
-  "#d47c6c",
-  "#31536b",
+  "#10151c",
+  "#181e28",
+  "#2c3544",
+  "#8b96a8",
+  "#e6eaf0",
+  "#5b9bd5",
+  "#3d7eb8",
+  "#1a2a3d",
+  "#7dbe8a",
+  "#d4b45a",
+  "#e08972",
+  "#331c18",
+  "#222a36",
+  "#6a7586",
   "#7aa7c7",
-  "#5b4a7a",
-  "#a68fc0",
+  "#0a0e14",
 ];
 
 export function blankIcon(): PixelIcon {

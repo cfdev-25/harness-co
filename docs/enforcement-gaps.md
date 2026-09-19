@@ -183,6 +183,52 @@ terminate. Control plane unreachable past the manifest TTL → terminate.
 
 ---
 
+## G13 — The agent authenticates from the user's own profile (high, live)
+
+`harness run claude` appeared to work against an org with **no `model-default`
+connection at all**. It was not using the org's model. It was using the
+developer's personal Anthropic credential.
+
+`CLAUDE_CONFIG_DIR` relocates `~/.claude` — settings, history,
+`.credentials.json`, and the macOS Keychain entry. It does **not** relocate
+`~/.config/anthropic`, where the Anthropic profile (`active_config`,
+`configs/`, `credentials/`) lives. `childEnvironment` passes `HOME` verbatim by
+design (`env.ts:26` — `~/.harness` paths must resolve inside the jail), so the
+profile stays reachable. With a fresh config dir there is no `/login`
+credential to outrank it, so the active profile wins outright.
+
+Demonstrated:
+
+```
+CLAUDE_CONFIG_DIR=$(mktemp -d) claude -p '...'                    → OK
+HOME=$(mktemp -d) CLAUDE_CONFIG_DIR=$(mktemp -d) claude -p '...'  → Not logged in
+```
+
+Three separate problems, and the third is the worst:
+
+1. **The boundary leaks.** §4's mandatory deny-read lists `~/.config/harness`
+   and not `~/.config/anthropic`. Once the sandbox lands, an agent could read
+   the user's personal provider credential — the same class as `~/.aws`, and
+   missing for the same reason `~/.config/harness` was missing before G7.
+2. **Metering and revocation are bypassed.** Traffic billed to a personal
+   account is invisible to the org: not in `api_keys`, not in the audit log,
+   not revocable by closing the session.
+3. **It is silent, and the two agents disagree.** On the identical manifest,
+   Pi refused (`No model is configured for your workspace.`) and Claude Code
+   ran anyway. One of those is right and neither is honest: the user was told
+   nothing about which credential paid for the session. `agents.md` §0 requires
+   a difference between agents to be *declared, not discovered*; this one was
+   discovered by accident.
+
+**Fix.** Add `~/.config/anthropic` — and each adapter's own ambient credential
+locations — to the deny-read set, sourced from the adapter rather than a fixed
+list, since this is per-agent knowledge that moves with the agent. Independent
+of the sandbox, make a null `manifest.model` resolve through
+`boundary.model_policy` (`agents.md` §5.1) so both adapters reach the same
+decision and say which credential a session is about to use. Native mode stays
+available — but as a mode the org chose, not as an accident of `$HOME`.
+
+
 ## Corrections to earlier drafts
 
 | We said | Correction |
@@ -207,7 +253,7 @@ terminate. Control plane unreachable past the manifest TTL → terminate.
 
 ## Priority
 
-**Now, no sandbox needed:** G1, G2. One `harness-cli` refactor, no backend
+**Now, no sandbox needed:** G1, G2, G13 (the model-policy half). One `harness-cli` refactor, no backend
 change, no user-visible difference. Until it lands, "the agent holds nothing"
 is false.
 

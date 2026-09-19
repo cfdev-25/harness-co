@@ -61,7 +61,7 @@ export function HarnessDialog({
         {!harness && (
           <Notice tone="accent">
             It starts empty. Once it exists you choose what goes in, from anything{" "}
-            <strong className="font-semibold text-ink">{unit.name}</strong> has.
+            <strong className="font-semibold text-fg">{unit.name}</strong> has.
           </Notice>
         )}
         <Field
@@ -145,7 +145,7 @@ export function HarnessTiles({
                 variant="none"
                 size="none"
                 full
-                className="h-full items-start gap-3.5 rounded-lg border border-line bg-surface p-4 text-left hover:border-accent hover:bg-sunken"
+                className="h-full items-start gap-3.5 rounded-lg border border-line bg-surface p-4 text-left hover:border-accent hover:bg-overlay"
                 onClick={() => onOpen(harness)}
               >
                 <PixelArt icon={harness.icon} size={56} />

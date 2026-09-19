@@ -1,15 +1,17 @@
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, join } from "node:path";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
-import { fileURLToPath } from "node:url";
+import { adapters } from "./adapters/registry.js";
+import type { Adapter } from "./adapters/types.js";
 import { api } from "./api.js";
 import { adopt, identify, record, reset, status } from "./assets.js";
-import { type Manifest, materializeManifest, readCredentials, writeCredentials } from "./core.js";
+import { type Manifest, readCredentials, sessionDir, writeCredentials } from "./core.js";
 import { doctor } from "./doctor.js";
 import { childEnvironment } from "./env.js";
-import { readSelection, resolveForSession, switchHarness } from "./harness.js";
+import { findHarness, readSelection, resolveForSession, switchHarness } from "./harness.js";
 import { help, manual, VERSION } from "./help.js";
 import { hydrate } from "./hydrate.js";
 import { createSpool, supervise } from "./supervise.js";
@@ -84,9 +86,78 @@ export async function pull(): Promise<number> {
 	return 0;
 }
 
-export async function run(piArgs: string[]): Promise<number> {
+const RESERVED_RUN_FLAGS = new Set(["--help", "-h", "--version", "-v"]);
+
+interface RunArgs {
+	agentWord?: string;
+	harnessFlag?: string;
+	passthrough: string[];
+	before: string[];
+}
+
+/**
+ * `run pi --marketing -- --resume`: the agent is the one undashed word
+ * before `--`, the harness is the one non-reserved dashed word, and `--`
+ * hands everything after it to the agent verbatim (agents.md §2). Reserved
+ * flags are excluded from the harness-flag count here so they keep their
+ * ordinary CLI meaning instead of being mistaken for a harness name — `run`
+ * checks `before` for them before looking at the rest of this.
+ */
+function splitRunArgs(args: string[]): RunArgs {
+	const cut = args.indexOf("--");
+	const before = cut < 0 ? args : args.slice(0, cut);
+	const passthrough = cut < 0 ? [] : args.slice(cut + 1);
+	const undashed = before.filter((arg) => !arg.startsWith("-"));
+	const dashed = before.filter((arg) => arg.startsWith("-") && !RESERVED_RUN_FLAGS.has(arg));
+	if (undashed.length > 1) {
+		throw new Error(
+			"`harness run` takes one agent name; agent arguments go after `--`, e.g. " +
+				`\`harness run ${undashed[0]} -- ${undashed.slice(1).join(" ")}\`.`,
+		);
+	}
+	if (dashed.length > 1) {
+		throw new Error(`\`harness run\` takes one harness flag; you gave ${dashed.join(" and ")}.`);
+	}
+	return { agentWord: undashed[0], harnessFlag: dashed[0]?.slice(2), passthrough, before };
+}
+
+/**
+ * The agent is a positional, matched against the registry before anything
+ * else runs: a typo'd name silently launching the wrong agent is the one
+ * failure this command must not have, so it is never passed through
+ * (agents.md §2).
+ */
+function selectAdapter(agentWord: string | undefined): Adapter {
+	const known = Object.keys(adapters);
+	if (agentWord) {
+		const found = adapters[agentWord];
+		if (!found) throw new Error(`"${agentWord}" is not an agent this CLI knows. You have: ${known.join(", ")}.`);
+		return found;
+	}
+	if (known.length === 1) return adapters[known[0]];
+	throw new Error(`Say which agent: ${known.join(", ")}.`);
+}
+
+export async function run(args: string[]): Promise<number> {
+	const { agentWord, harnessFlag, passthrough, before } = splitRunArgs(args);
+	if (before.includes("--help") || before.includes("-h")) return help();
+	if (before.includes("--version") || before.includes("-v")) {
+		console.log(VERSION);
+		return 0;
+	}
+	// Resolved with zero I/O, and before login is even checked: a typo in the
+	// agent name is wrong regardless of who is signed in.
+	const adapter = selectAdapter(agentWord);
+
 	const credentials = await readCredentials();
-	const manifest = await resolveForSession(credentials);
+	// The flag is a per-run override, never the persisted selection — that
+	// stays `switch`'s file, so the two cannot fight over it (agents.md §2).
+	const manifest = harnessFlag
+		? await api<Manifest>(
+				credentials,
+				`/v1/resolve?harness_id=${encodeURIComponent((await findHarness(credentials, harnessFlag)).id)}`,
+			)
+		: await resolveForSession(credentials);
 	// Hydration always sees the whole resolved set. Handing it a per-harness
 	// one would delete clean directories on every switch and fetch them back
 	// on the next — see docs/harnesses.md §3.
@@ -98,11 +169,14 @@ export async function run(piArgs: string[]): Promise<number> {
 				"`harness switch` picks one. Loading everything you have.",
 		);
 	}
-	const session = await materializeManifest(manifest);
+	const id = randomUUID();
+	const root = sessionDir(id);
+	const ctx = { manifest, id, sessionDir: root, agentDir: join(root, "agent") };
+	await adapter.render(ctx);
 	await api(credentials, "/v1/sessions", {
 		method: "POST",
 		body: JSON.stringify({
-			id: session.id,
+			id: id,
 			harness_id: manifest.harness?.id ?? null,
 			model_metadata: manifest.model ?? {},
 		}),
@@ -110,22 +184,16 @@ export async function run(piArgs: string[]): Promise<number> {
 	const refs = manifest.model?.key_ref ? [manifest.model.key_ref] : [];
 	const deliveredRaw = await api<DeliveredKey[] | { keys: DeliveredKey[] }>(credentials, "/v1/api-keys/deliver", {
 		method: "POST",
-		body: JSON.stringify({ refs, session_id: session.id }),
+		body: JSON.stringify({ refs, session_id: id }),
 	});
 	const delivered = Array.isArray(deliveredRaw) ? deliveredRaw : deliveredRaw.keys;
 	const redactions = Object.fromEntries(delivered.map((key) => [key.ref, key.value]));
-	const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-	const piEntry = resolve(packageRoot, "../coding-agent/dist/bundle/cli.js");
-	const extension = resolve(packageRoot, "../harness/dist/index.js");
-	const theme = resolve(packageRoot, "../harness/themes/harness-dark.json");
+	const launched = adapter.launch(ctx);
 	const env = childEnvironment({
-		sessionId: session.id,
-		sessionDir: session.root,
+		sessionId: id,
+		sessionDir: root,
 		adapterEnv: {
-			// Until the Pi adapter lands (build-plan 2.1) these live inline.
-			PI_CODING_AGENT_DIR: session.agent,
-			PI_CODING_AGENT_SESSION_DIR: join(session.agent, "sessions"),
-			PI_TELEMETRY: "0",
+			...launched.env,
 			// Until the proxy injects credentials (build-plan 3.2) the agent
 			// still needs the provider key in its environment, so transcript
 			// redaction still has a job. Both leave together in 3.2.
@@ -133,34 +201,21 @@ export async function run(piArgs: string[]): Promise<number> {
 			...Object.fromEntries(delivered.map((key) => [key.env_var, key.value])),
 		},
 	});
-	await createSpool(session.root);
+	await createSpool(root);
 	let code = 1;
 	let watcher: { stop(): Promise<void> } | undefined;
 	try {
 		code = await new Promise<number>((resolveExit, reject) => {
-			const child = spawn(
-				process.execPath,
-				[
-					piEntry,
-					"--offline",
-					"--no-approve",
-					"--no-extensions",
-					"-e",
-					extension,
-					"--theme",
-					theme,
-					"--use-theme",
-					"harness-dark",
-					// Discovery off, so nothing from this machine is loaded, and
-					// then the one directory we delivered named explicitly.
-					"--no-prompt-templates",
-					"--prompt-template",
-					join(session.agent, "prompts"),
-					...piArgs,
-				],
-				{ stdio: "inherit", env, cwd: process.cwd() },
-			);
-			watcher = supervise({ child, sessionId: session.id, sessionDir: session.root, credentials });
+			// argv[0] is the executable the adapter chose. Not every agent is a
+			// node bundle — Claude Code ships a native binary — so the command
+			// is the adapter's to name, never this function's to assume.
+			const [command, ...rest] = [...launched.argv, ...passthrough];
+			const child = spawn(command, rest, {
+				stdio: "inherit",
+				env,
+				cwd: process.cwd(),
+			});
+			watcher = supervise({ child, sessionId: id, sessionDir: root, credentials });
 			child.once("error", reject);
 			child.once("exit", (exitCode, signal) => resolveExit(exitCode ?? (signal ? 1 : 0)));
 		});

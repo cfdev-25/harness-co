@@ -3,7 +3,8 @@ export const VERSION = "0.1.0";
 const USAGE = `harness — run a coding agent under your team's policy
 
 Usage
-  harness [run] [-- <agent args>]        Start a session (default command)
+  harness [run] [<agent>] [--<harness>] [-- <agent args>]
+                                          Start a session (default command)
   harness login --token <token>          Save your credentials
   harness switch [name]                  Choose the harness your sessions run in
   harness whoami                         Show who you are and where you sit
@@ -55,6 +56,28 @@ HARNESSES
   "push" and "reset" behave the same in all of them — only what a session
   loads changes. "harness doctor harness" shows where you are and how much
   is in it.
+
+AGENTS
+  The agent is the runtime that runs the session — Pi today, more later. It
+  is a word, not a flag, because you are naming the tool you are booting:
+
+    harness run pi                run Pi
+    harness run                   the only agent you have, if there is one
+
+  An agent name that is not one this CLI knows is never launched — you get a
+  list of what is available instead.
+
+  The harness stays a flag, because it is a per-session override of the same
+  choice "harness switch" makes, not a new kind of thing:
+
+    harness run pi --marketing        boot straight into "marketing"
+    harness run claude --team/support qualified, when a bare name is ambiguous
+
+  The flag does not move your switched-to harness — it only changes this one
+  run. Everything after "--" belongs to the agent and is passed through
+  untouched:
+
+    harness run pi -- --resume
 
 YOUR OWN BRANCH
   The copy on your machine is yours. Edit it freely — the next session will

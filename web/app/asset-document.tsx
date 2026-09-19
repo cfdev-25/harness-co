@@ -227,7 +227,7 @@ export function AssetDocument({
                 {comparing ? (
                   <span className="text-[13px] text-muted">
                     {proposed ? "proposed against" : "compared with"} the live version{" "}
-                    <strong className="font-semibold text-ink">v{liveVersion?.seq}</strong>
+                    <strong className="font-semibold text-fg">v{liveVersion?.seq}</strong>
                   </span>
                 ) : (
                   <span className="text-[13px] text-muted">

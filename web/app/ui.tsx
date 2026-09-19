@@ -17,9 +17,9 @@ const BUTTON_BASE =
   "inline-flex cursor-pointer rounded-md transition duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-45";
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
-  primary: "border border-ink bg-ink font-semibold text-ink-text hover:bg-ink-raised",
-  default: "border border-line bg-surface text-ink hover:border-accent hover:bg-sunken",
-  ghost: "border border-ink-line bg-ink-raised text-ink-text hover:border-accent",
+  primary: "border border-accent bg-accent font-semibold text-ink hover:bg-accent-deep",
+  default: "border border-line bg-surface text-fg hover:border-accent hover:bg-overlay",
+  ghost: "border border-line bg-surface text-fg hover:border-accent",
   bare: "bg-transparent",
   none: "",
 };
@@ -53,7 +53,7 @@ export function Button({
 }
 
 export const CONTROL_CLASS =
-  "w-full rounded-md border border-line bg-surface px-3 py-2.5 text-[13px] text-ink outline-none transition focus:border-accent focus:ring-3 focus:ring-accent/20";
+  "w-full rounded-md border border-line bg-surface px-3 py-2.5 text-[13px] text-fg outline-none transition focus:border-accent focus:ring-3 focus:ring-accent/20";
 
 export function Field({
   label,
@@ -125,7 +125,7 @@ export function HeaderSearch({
       onBlur={() => {
         if (!value) setOpen(false);
       }}
-      className="w-40 rounded-md border border-accent bg-surface px-2.5 py-1 font-mono text-[11px] text-ink outline-none transition placeholder:text-faint focus:ring-3 focus:ring-accent/20"
+      className="w-40 rounded-md border border-accent bg-surface px-2.5 py-1 font-mono text-[11px] text-fg outline-none transition placeholder:text-faint focus:ring-3 focus:ring-accent/20"
     />
   );
 }
@@ -150,7 +150,7 @@ const BADGE_TONES: Record<Tone, string> = {
   ok: "border-ok/25 bg-ok-soft text-ok",
   hold: "border-hold/25 bg-hold-soft text-hold",
   warn: "border-warn/30 bg-warn-soft text-warn",
-  accent: "border-accent/35 bg-accent-soft text-accent-deep",
+  accent: "border-accent/35 bg-accent-soft text-accent",
   neutral: "border-line bg-sunken text-muted",
 };
 
@@ -195,7 +195,7 @@ const KIND_DOT: Record<string, string> = {
   connection: "bg-accent",
   memory: "bg-hold",
   prompt: "bg-accent-deep",
-  system_prompt: "bg-ink",
+  system_prompt: "bg-ink-text",
   skill: "bg-ok",
   tool: "bg-muted",
 };
@@ -214,7 +214,7 @@ export function Chip({ children, title }: { children: ReactNode; title?: string 
   return (
     <span
       title={title}
-      className="inline-flex max-w-full items-center truncate rounded-md border border-line bg-sunken px-1.5 py-0.5 font-mono text-[11px] text-ink"
+      className="inline-flex max-w-full items-center truncate rounded-md border border-line bg-sunken px-1.5 py-0.5 font-mono text-[11px] text-fg"
     >
       {children}
     </span>
@@ -297,7 +297,7 @@ export function Alert({ children }: { children: ReactNode }) {
 export function Disclosure({ summary, children }: { summary: ReactNode; children: ReactNode }) {
   return (
     <details className="group min-w-0">
-      <summary className="flex cursor-pointer items-center gap-1.5 text-muted select-none hover:text-ink">
+      <summary className="flex cursor-pointer items-center gap-1.5 text-muted select-none hover:text-fg">
         <span className="font-mono text-[10px] transition-transform group-open:rotate-90">▶</span>
         <span className="min-w-0 flex-1 truncate">{summary}</span>
       </summary>
@@ -308,7 +308,7 @@ export function Disclosure({ summary, children }: { summary: ReactNode; children
 
 export function Json({ value }: { value: unknown }) {
   return (
-    <pre className="mt-2 max-h-96 overflow-auto rounded-md bg-ink px-3.5 py-3 font-mono text-[11px] leading-relaxed whitespace-pre text-ink-text">
+    <pre className="mt-2 max-h-96 overflow-auto rounded-md bg-sunken px-3.5 py-3 font-mono text-[11px] leading-relaxed whitespace-pre text-fg">
       {JSON.stringify(value, null, 2)}
     </pre>
   );
@@ -355,24 +355,22 @@ export function Td({ className = "", children }: { className?: string; children:
 
 /* Brand and shell --------------------------------------------------------- */
 
+const BRAND_MASK =
+  "shrink-0 bg-current [mask:url(/harness-mark.png)_center/contain_no-repeat] [-webkit-mask:url(/harness-mark.png)_center/contain_no-repeat]";
+
 export function BrandMark({ small = false }: { small?: boolean }) {
   return (
     <span
-      aria-hidden
-      className={
-        small
-          ? "grid size-7 shrink-0 place-items-center rounded-[8px_8px_3px_8px] bg-accent text-sm font-bold text-ink"
-          : "grid size-11 shrink-0 place-items-center rounded-[13px_13px_5px_13px] bg-ink text-xl font-bold text-accent"
-      }
-    >
-      H
-    </span>
+      role="img"
+      aria-label="Harness Manager"
+      className={small ? `inline-block h-8 w-12 ${BRAND_MASK}` : `inline-block h-12 w-18 ${BRAND_MASK}`}
+    />
   );
 }
 
 export function Eyebrow({ children }: { children: ReactNode }) {
   return (
-    <p className="text-[11px] font-bold tracking-[0.13em] text-accent-deep uppercase">{children}</p>
+    <p className="text-[11px] font-bold tracking-[0.13em] text-accent uppercase">{children}</p>
   );
 }
 
@@ -393,23 +391,23 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-30 grid place-items-center bg-ink/60 p-5 backdrop-blur-[3px]"
+      className="fixed inset-0 z-30 grid place-items-center bg-black/50 p-5 backdrop-blur-[2px]"
       role="presentation"
       onMouseDown={onClose}
     >
       <section
-        className="max-h-[min(720px,90vh)] w-full max-w-[540px] overflow-auto rounded-xl border border-line bg-surface shadow-[0_24px_80px_rgba(20,14,11,0.34)]"
+        className="max-h-[min(720px,90vh)] w-full max-w-[540px] overflow-auto rounded-xl border border-line bg-overlay shadow-[0_16px_64px_rgba(0,0,0,0.55)]"
         role="dialog"
         aria-modal="true"
         aria-label={title}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <header className="sticky top-0 flex items-center justify-between gap-4 border-b border-line bg-surface px-5 py-4">
+        <header className="sticky top-0 flex items-center justify-between gap-4 border-b border-line bg-overlay px-5 py-4">
           <h2 className="text-[13px] font-bold tracking-[0.06em] uppercase">{title}</h2>
           <Button
             variant="bare"
             size="none"
-            className="items-center justify-center px-2 py-0.5 text-xl text-muted hover:text-ink"
+            className="items-center justify-center px-2 py-0.5 text-xl text-muted hover:text-fg"
             onClick={onClose}
             aria-label="Close"
           >
@@ -448,7 +446,7 @@ export function CommandBlock({
         {hint && <span className="font-mono text-[11px] text-faint">{hint}</span>}
       </div>
       <div className="flex min-w-0 items-stretch gap-2">
-        <code className="min-w-0 flex-1 overflow-x-auto rounded-md border border-ink-line bg-ink px-3 py-2.5 font-mono text-[11px] whitespace-pre text-ink-text">
+        <code className="min-w-0 flex-1 overflow-x-auto rounded-md border border-line bg-sunken px-3 py-2.5 font-mono text-[11px] whitespace-pre text-fg">
           {command}
         </code>
         <Button

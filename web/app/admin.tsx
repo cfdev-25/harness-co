@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ApiError, list, request } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import {
@@ -19,6 +21,7 @@ import {
   TreeNode,
 } from "@/lib/types";
 import { HELP } from "./help";
+import { ThemePicker } from "./theme-picker";
 import { AssetDocument } from "./asset-document";
 import { AssetManage } from "./asset-manage";
 import { HarnessDialog, HarnessTiles } from "./harness-tiles";
@@ -36,7 +39,6 @@ import {
   Disclosure,
   Dot,
   EmptyState,
-  Eyebrow,
   Field,
   HeaderSearch,
   Json,
@@ -216,149 +218,6 @@ function brief(value: unknown) {
   return text.length > 28 ? `${text.slice(0, 27)}…` : text;
 }
 
-/* Signed-out screens ------------------------------------------------------ */
-
-function AuthShell({
-  eyebrow,
-  title,
-  description,
-  children,
-}: {
-  eyebrow?: string;
-  title: string;
-  description?: string;
-  children: ReactNode;
-}) {
-  return (
-    <main className="brand-wash grid min-h-screen place-items-center bg-canvas p-6">
-      <section className="w-full max-w-[460px] overflow-hidden rounded-xl border border-line bg-surface shadow-[0_24px_64px_rgba(43,33,28,0.14)]">
-        <div className="relative flex items-center gap-3 overflow-hidden bg-ink px-8 py-7 max-sm:px-6">
-          <span
-            aria-hidden
-            className="pointer-events-none absolute -right-20 -bottom-28 size-52 rounded-full border-[20px] border-accent/25"
-          />
-          <BrandMark small />
-          <span className="relative leading-tight">
-            <strong className="block text-[15px] text-ink-text">Harness</strong>
-            <span className="block font-mono text-[10px] text-ink-muted">control plane</span>
-          </span>
-        </div>
-        <div className="p-8 max-sm:p-6">
-          {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
-          <h1 className="mt-1.5 text-[26px] font-bold tracking-[-0.03em]">{title}</h1>
-          {description && (
-            <p className="mt-2 text-[13px] leading-relaxed text-muted">{description}</p>
-          )}
-          {children}
-        </div>
-      </section>
-    </main>
-  );
-}
-
-function Login() {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    const action =
-      mode === "signin"
-        ? supabase.auth.signInWithPassword({ email, password })
-        : supabase.auth.signUp({ email, password });
-    const { error: cause } = await action;
-    setBusy(false);
-    if (cause) setError(cause.message);
-  }
-
-  return (
-    <AuthShell
-      title={mode === "signin" ? "Sign in" : "Create account"}
-      description={
-        mode === "signin"
-          ? "Administer org units, assets, connectors, and boundaries."
-          : "Your workspace is created when you accept an invite or start an organization."
-      }
-    >
-      <form className="mt-6 grid gap-4" onSubmit={submit}>
-        <Field
-          label="Email"
-          id="email"
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          required
-          autoFocus
-        />
-        <Field
-          label="Password"
-          id="password"
-          type="password"
-          autoComplete={mode === "signin" ? "current-password" : "new-password"}
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          required
-        />
-        {error && <Alert>{error}</Alert>}
-        <Button variant="primary" full type="submit" disabled={busy}>
-          {busy ? "Working…" : mode === "signin" ? "Sign in" : "Sign up"}
-        </Button>
-      </form>
-      <Button
-        full
-        className="mt-3"
-        onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-      >
-        {mode === "signin" ? "Need an account?" : "Have an account?"}
-      </Button>
-    </AuthShell>
-  );
-}
-
-function Onboarding({ onCreated }: { onCreated: () => void }) {
-  const [error, setError] = useState("");
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    try {
-      await request("/v1/orgs", {
-        method: "POST",
-        body: JSON.stringify({
-          org_name: form.get("org_name"),
-          team_name: form.get("team_name") || "General",
-        }),
-      });
-      onCreated();
-    } catch (cause) {
-      setError((cause as Error).message);
-    }
-  }
-
-  return (
-    <AuthShell
-      eyebrow="First run"
-      title="Create an organization"
-      description="Or ask an admin to invite this email to their team."
-    >
-      <form className="mt-6 grid gap-4" onSubmit={submit}>
-        <Field label="Organization name" id="org_name" name="org_name" required autoFocus />
-        <Field label="First team" id="team_name" name="team_name" defaultValue="General" />
-        {error && <Alert>{error}</Alert>}
-        <Button variant="primary" full type="submit">
-          Create
-        </Button>
-      </form>
-    </AuthShell>
-  );
-}
-
 /* Navigation -------------------------------------------------------------- */
 
 function TreeItem({
@@ -388,7 +247,7 @@ function TreeItem({
         <Button
           variant="bare"
           size="none"
-          className="size-5 items-center justify-center text-[9px] text-faint hover:text-accent-deep"
+          className="size-5 items-center justify-center text-[9px] text-faint hover:text-accent"
           onClick={() => setOpen((value) => !value)}
           aria-label={`${open ? "Collapse" : "Expand"} ${node.name}`}
           disabled={!hasChildren}
@@ -474,7 +333,7 @@ function AssetsPanel({
                 <Button
                   variant="bare"
                   size="none"
-                  className="text-[13px] font-semibold underline-offset-4 hover:text-accent-deep hover:underline"
+                  className="text-[13px] font-semibold underline-offset-4 hover:text-accent hover:underline"
                   onClick={() => onOpen(asset, "document")}
                 >
                   {asset.name}
@@ -886,9 +745,69 @@ function AuditPanel({ events, query }: { events: AuditEvent[]; query: string }) 
   );
 }
 
+function ProfileMenu({
+  identity,
+  onMintCli,
+  onLogout,
+}: {
+  identity?: Identity;
+  onMintCli: () => void;
+  onLogout: () => void;
+}) {
+  return (
+    <div className="group relative">
+      <button
+        type="button"
+        className="grid size-8 place-items-center rounded-full border border-line bg-surface text-fg transition hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        aria-haspopup="menu"
+        aria-label="Profile"
+      >
+        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.75">
+          <circle cx="12" cy="8" r="3.25" />
+          <path d="M5.2 19c1.1-3.1 3.4-4.7 6.8-4.7s5.7 1.6 6.8 4.7" strokeLinecap="round" />
+        </svg>
+      </button>
+      <div className="invisible absolute top-full right-0 z-30 w-64 pt-1.5 opacity-0 transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+        <div className="grid gap-2 rounded-lg border border-line bg-overlay p-2 shadow-[0_16px_40px_rgba(0,0,0,0.28)]">
+          {identity?.email && (
+            <div className="grid gap-0.5 px-2 py-1.5">
+              <span className="truncate font-mono text-[12px]">{identity.email}</span>
+              <span className="flex items-center gap-1.5 text-[11px] tracking-[0.06em] text-muted uppercase">
+                <Dot tone="ok" />
+                {identity.role_unit ? `${identity.role} · ${identity.role_unit}` : (identity.role ?? "user")}
+              </span>
+            </div>
+          )}
+          <div className="px-1">
+            <ThemePicker labeled />
+          </div>
+          <div className="grid">
+            <button
+              type="button"
+              className="rounded-md px-2.5 py-2 text-left text-[13px] text-fg hover:bg-surface"
+              onClick={onMintCli}
+            >
+              CLI token
+            </button>
+            <button
+              type="button"
+              className="rounded-md px-2.5 py-2 text-left text-[13px] text-fg hover:bg-surface"
+              onClick={onLogout}
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* Application ------------------------------------------------------------- */
 
 export function AdminApp() {
+  const router = useRouter();
+  const [authReady, setAuthReady] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [needsOrg, setNeedsOrg] = useState(false);
   const [identity, setIdentity] = useState<Identity>();
@@ -917,6 +836,7 @@ export function AdminApp() {
   const [showDocs, setShowDocs] = useState(false);
   const [cliToken, setCliToken] = useState("");
   const loadSequence = useRef(0);
+  const leaving = useRef(false);
 
   const fail = useCallback((cause: unknown) => {
     setError({
@@ -926,13 +846,15 @@ export function AdminApp() {
   }, []);
 
   const logout = useCallback(async () => {
+    leaving.current = true;
     await supabase.auth.signOut();
     setSignedIn(false);
     setNeedsOrg(false);
     setIdentity(undefined);
     setSelected(undefined);
     setTree([]);
-  }, []);
+    router.replace("/");
+  }, [router]);
 
   const api = useCallback(
     async <T,>(path: string, init?: RequestInit) => {
@@ -970,13 +892,19 @@ export function AdminApp() {
   }, [api, fail]);
 
   useEffect(() => {
+    if (needsOrg) router.replace("/login");
+  }, [needsOrg, router]);
+
+  useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       const next = Boolean(session);
       setSignedIn(next);
+      setAuthReady(true);
       if (next) void loadWorkspace();
+      else if (!leaving.current) router.replace("/login");
     });
     return () => data.subscription.unsubscribe();
-  }, [loadWorkspace]);
+  }, [loadWorkspace, router]);
 
   /* Keyed on the group, not the tab, so the five asset tabs read one reply
      and switching between them does not go back to the server. */
@@ -1103,8 +1031,7 @@ export function AdminApp() {
     }
   }
 
-  if (!signedIn) return <Login />;
-  if (needsOrg) return <Onboarding onCreated={() => void loadWorkspace()} />;
+  if (!authReady || !signedIn || needsOrg) return <main className="min-h-screen bg-canvas" />;
 
   const nodes = flatten(tree);
   /* Derived rather than stored: a result for another tab reads as "loading"
@@ -1133,33 +1060,16 @@ export function AdminApp() {
 
   return (
     <div className="grid min-h-screen grid-cols-[264px_1fr] grid-rows-[52px_1fr] max-md:grid-cols-1 max-md:grid-rows-[52px_auto_1fr]">
-      <header className="z-20 col-span-full flex items-center gap-4 border-b border-ink-line bg-ink px-4 text-ink-text max-md:col-span-1 max-md:row-start-1">
-        <BrandMark small />
-        <span className="leading-tight">
-          <strong className="block text-[13px]">Harness</strong>
-          <span className="block font-mono text-[10px] text-ink-muted">control plane</span>
-        </span>
-        <div className="ml-auto flex items-center gap-2">
-          {identity?.email && (
-            <span
-              className="flex items-center gap-2 rounded-md border border-ink-line bg-ink-raised px-2.5 py-1.5 font-mono text-[11px] max-md:hidden"
-              title={
-                identity.role_unit ? `${identity.role} at ${identity.role_unit}` : identity.role
-              }
-            >
-              <Dot tone="ok" />
-              <span className="max-w-[16rem] truncate">{identity.email}</span>
-              <span className="rounded border border-ink-line px-1 tracking-[0.06em] text-ink-muted uppercase">
-                {identity.role ?? "user"}
-              </span>
-            </span>
-          )}
-          <Button variant="ghost" size="sm" onClick={() => void mintCliToken()}>
-            CLI token
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => void logout()}>
-            Sign out
-          </Button>
+      <header className="z-20 col-span-full flex items-center gap-4 border-b border-line bg-canvas px-4 text-fg max-md:col-span-1 max-md:row-start-1">
+        <Link href="/" aria-label="Harness">
+          <BrandMark small />
+        </Link>
+        <div className="ml-auto">
+          <ProfileMenu
+            identity={identity}
+            onMintCli={() => void mintCliToken()}
+            onLogout={() => void logout()}
+          />
         </div>
       </header>
 
@@ -1196,10 +1106,10 @@ export function AdminApp() {
         )}
       </aside>
 
-      <main className="grid min-w-0 grid-rows-[auto_1fr] bg-surface max-md:row-start-3">
+      <main className="grid min-w-0 grid-rows-[auto_1fr] bg-canvas max-md:row-start-3">
         {/* The tab strip is the page header. Which unit you are in, and what
             the page means, are both a button away rather than on the page. */}
-        <div className="sticky top-0 z-10 min-w-0 border-b border-line bg-surface px-[clamp(20px,3.5vw,44px)]">
+        <div className="sticky top-0 z-10 min-w-0 border-b border-line bg-canvas px-[clamp(20px,3.5vw,44px)]">
           <div className="flex min-w-0 items-center gap-4">
             <div className="flex min-w-0 flex-1 items-stretch gap-6 overflow-x-auto" role="tablist">
               {TABS.map(({ id, label }) => (
@@ -1216,8 +1126,8 @@ export function AdminApp() {
                     aria-selected={tab === id}
                     className={`-mb-px rounded-none border-b-2 px-0.5 py-3 text-[13px] font-semibold ${
                       tab === id
-                        ? "border-accent text-ink"
-                        : "border-transparent text-muted hover:text-ink"
+                        ? "border-accent text-fg"
+                        : "border-transparent text-muted hover:text-fg"
                     }`}
                     onClick={() => openTab(id)}
                   >
@@ -1286,7 +1196,7 @@ export function AdminApp() {
             <div className="pt-5">
               {state.code === 403 ? (
                 <Notice tone="hold">
-                  <strong className="font-semibold text-ink">Administrator access required</strong>
+                  <strong className="font-semibold text-fg">Administrator access required</strong>
                   <p className="mt-0.5">{state.message}</p>
                 </Notice>
               ) : (
@@ -1326,8 +1236,8 @@ export function AdminApp() {
                       aria-current={pane === id}
                       className={`border capitalize ${
                         pane === id
-                          ? "border-accent bg-accent-soft text-accent-deep"
-                          : "border-line bg-surface text-muted hover:text-ink"
+                          ? "border-accent bg-accent-soft text-accent"
+                          : "border-line bg-surface text-muted hover:text-fg"
                       }`}
                       onClick={() => setPane(id)}
                     >
@@ -1435,7 +1345,7 @@ export function AdminApp() {
               <p className="mt-2 text-[13px] leading-relaxed text-muted">{HELP[tab].what}</p>
             </div>
             <section className="rounded-lg border border-line bg-sunken p-4">
-              <h3 className="text-[10px] font-bold tracking-[0.1em] text-accent-deep uppercase">
+              <h3 className="text-[10px] font-bold tracking-[0.1em] text-accent uppercase">
                 For example
               </h3>
               <p className="mt-1.5 text-[13px] leading-relaxed">{HELP[tab].example}</p>

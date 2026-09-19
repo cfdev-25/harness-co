@@ -110,6 +110,45 @@ async function ask(question: string): Promise<string> {
 const label = (harness: HarnessRow) => `${harness.org_unit_path}/${harness.name}`;
 
 /**
+ * Case-insensitive match against a bare name or its qualified `org/name`
+ * form. Shared by `switch` and `run --<harness>` so a name that resolves one
+ * way resolves the other, and an ambiguous one is ambiguous in both.
+ */
+function matchHarnesses(harnesses: HarnessRow[], wanted: string): HarnessRow[] {
+	const needle = wanted.toLowerCase();
+	return harnesses.filter(
+		(harness) => harness.name.toLowerCase() === needle || label(harness).toLowerCase() === needle,
+	);
+}
+
+async function listHarnesses(credentials: Credentials): Promise<HarnessRow[]> {
+	const me = await api<{ org_unit_id?: string }>(credentials, "/v1/me");
+	if (!me.org_unit_id) throw new Error("Your account does not have a user workspace.");
+	return api<HarnessRow[]>(credentials, `/v1/org-units/${encodeURIComponent(me.org_unit_id)}/harnesses`);
+}
+
+/**
+ * Resolve `run --<harness>` to a harness, using the exact matching rule
+ * `switch` uses. This is a per-run override — the caller decides what to do
+ * with the result, but it must never be the thing that writes
+ * `~/.harness/harness.json`, or the flag and `switch` would fight over the
+ * same file (agents.md §2).
+ */
+export async function findHarness(credentials: Credentials, wanted: string): Promise<HarnessRow> {
+	const harnesses = await listHarnesses(credentials);
+	const matches = matchHarnesses(harnesses, wanted);
+	if (matches.length === 0) {
+		const list = harnesses.map((harness) => `  ${label(harness)}`).join("\n");
+		throw new Error(`No harness called "${wanted}". You have:\n${list}`);
+	}
+	if (matches.length > 1) {
+		const list = matches.map((harness) => `  --${label(harness)}`).join("\n");
+		throw new Error(`"${wanted}" is the name of more than one harness. Say which one:\n${list}`);
+	}
+	return matches[0];
+}
+
+/**
  * Pick the harness the next session runs in.
  *
  * Names do not shadow between org units, so two teams may both have a
@@ -123,12 +162,7 @@ export async function switchHarness(args: string[]): Promise<number> {
 		return 0;
 	}
 	const credentials = await readCredentials();
-	const me = await api<{ org_unit_id?: string }>(credentials, "/v1/me");
-	if (!me.org_unit_id) throw new Error("Your account does not have a user workspace.");
-	const harnesses = await api<HarnessRow[]>(
-		credentials,
-		`/v1/org-units/${encodeURIComponent(me.org_unit_id)}/harnesses`,
-	);
+	const harnesses = await listHarnesses(credentials);
 	if (harnesses.length === 0) {
 		console.error("You have no harnesses yet. Create one in the web console.");
 		return 1;
@@ -137,10 +171,7 @@ export async function switchHarness(args: string[]): Promise<number> {
 	const wanted = args.find((arg) => !arg.startsWith("-"));
 	let chosen: HarnessRow | undefined;
 	if (wanted) {
-		const needle = wanted.toLowerCase();
-		const matches = harnesses.filter(
-			(harness) => harness.name.toLowerCase() === needle || label(harness).toLowerCase() === needle,
-		);
+		const matches = matchHarnesses(harnesses, wanted);
 		if (matches.length === 0) {
 			console.error(`No harness called "${wanted}". You have:`);
 			for (const harness of harnesses) console.error(`  ${label(harness)}`);
