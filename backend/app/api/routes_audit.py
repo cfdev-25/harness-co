@@ -12,7 +12,7 @@ from app.api.deps import (
     require_admin,
 )
 from app.db import get_pool, transaction
-from app.domain.audit import append_event, verify_records
+from app.domain.audit import append_event, descendant_events, verify_records
 from app.errors import ApiError
 from app.identity import Principal
 
@@ -67,15 +67,7 @@ async def query_audit(
 ) -> list[dict]:
     pool = get_pool(request)
     await require_admin(pool, principal, org_unit_id)
-    rows = await pool.fetch(
-        """select id,org_unit_id,actor_type,actor_id,class,action,payload,created_at
-           from audit_log where org_unit_id=$1 and ($2::bigint is null or id < $2)
-           order by id desc limit $3""",
-        org_unit_id,
-        after,
-        limit,
-    )
-    return [dict(row) for row in rows]
+    return await descendant_events(pool, org_unit_id, after=after, limit=limit)
 
 
 @router.get("/org-units/{org_unit_id}/audit/verify")

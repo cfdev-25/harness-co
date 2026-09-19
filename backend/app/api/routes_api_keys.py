@@ -12,7 +12,7 @@ from app.api.deps import (
 )
 from app.config import get_settings
 from app.db import get_pool, transaction
-from app.domain.api_keys import delivered_value, key_ref, rotate
+from app.domain.api_keys import delivered_value, key_ref, rotate, visible_keys
 from app.domain.audit import append_event
 from app.errors import ApiError
 from app.identity import Principal
@@ -91,13 +91,7 @@ async def list_keys(
     pool = get_pool(request)
     if not await can_read(pool, principal, user_unit["id"], org_unit_id):
         raise ApiError(403, "org_unit_not_visible", "You do not have access to this org unit.")
-    rows = await pool.fetch(
-        """select k.id,k.name,k.ref,k.kind,k.env_var,v.last4,v.version,v.status,v.created_at
-           from api_keys k join api_key_versions v on v.api_key_id=k.id and v.status='active'
-           where k.org_unit_id=$1 order by k.name""",
-        org_unit_id,
-    )
-    return [dict(row) for row in rows]
+    return await visible_keys(pool, org_unit_id)
 
 
 @router.post("/api-keys/{api_key_id}/rotate")

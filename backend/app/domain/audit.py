@@ -82,6 +82,38 @@ async def append_event(
     return dict(row)
 
 
+async def descendant_events(
+    connection: asyncpg.Connection,
+    org_unit_id: UUID,
+    *,
+    after: int | None,
+    limit: int,
+) -> list[dict[str, Any]]:
+    """A unit's audit view, per prd.md §1.10: it rolls up the tree it governs.
+
+    Every other recursive walk in this codebase goes up, from a user to
+    their ancestors. This one goes down, because audit is read by whoever
+    governs a subtree, about the subtree, not by someone asking what applies
+    to them. `id` is a single identity shared across the audit_log
+    partitions, so ordering and keyset pagination on it still hold once rows
+    from more than one unit are interleaved.
+    """
+    rows = await connection.fetch(
+        """with recursive tree as (
+             select id from org_units where id=$1
+             union all select o.id from org_units o join tree t on o.parent_id=t.id
+           ) select a.id,a.org_unit_id,a.actor_type,a.actor_id,a.class,a.action,a.payload,
+                    a.created_at
+             from audit_log a join tree t on t.id=a.org_unit_id
+             where ($2::bigint is null or a.id<$2)
+             order by a.id desc limit $3""",
+        org_unit_id,
+        after,
+        limit,
+    )
+    return [dict(row) for row in rows]
+
+
 def verify_records(records: list[dict[str, Any]]) -> dict[str, Any]:
     previous = ZERO_HASH
     for row in records:
