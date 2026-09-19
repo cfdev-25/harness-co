@@ -6,12 +6,14 @@ import { useRouter } from "next/navigation";
 import { ApiError, list, request } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import {
+  Api,
   ApiKey,
   Asset,
-  AssetScope,
+  AssetScopeRow,
   AuditEvent,
   BoundaryPolicy,
   BoundaryView,
+  ControlVerdict,
   Harness,
   Identity,
   Invite,
@@ -27,6 +29,7 @@ import { AssetManage } from "./asset-manage";
 import { ModelDefaultRow } from "./model-default";
 import { HarnessDialog, HarnessTiles } from "./harness-tiles";
 import { HarnessScreen } from "./harness-screen";
+import { ScopeCell } from "./scope";
 import {
   Alert,
   Badge,
@@ -64,6 +67,13 @@ type TabResult =
   | { key: string; status: "ready"; value: unknown }
   | { key: string; status: "failed"; message: string; code?: number };
 
+/* The six asset kinds share one eager, per-unit fetch (below `AdminApp`),
+   independent of `TabResult`'s per-tab keying. */
+type AssetsResult =
+  | { status: "loading" }
+  | { status: "ready"; assets: Asset[] }
+  | { status: "failed"; message: string; code?: number };
+
 /* Lookups ----------------------------------------------------------------- */
 
 /* Ordered by how much of a conversation each one shapes: standing behaviour,
@@ -78,17 +88,29 @@ const ASSET_TABS: readonly Tab[] = [
 ];
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "harness", label: "Harnesses" },
-  { id: "system_prompt", label: "System prompts" },
-  { id: "memory", label: "Memories" },
-  { id: "skill", label: "Skills" },
-  { id: "prompt", label: "Prompts" },
-  { id: "tool", label: "Tools" },
-  { id: "connection", label: "Connections" },
-  { id: "boundary", label: "Boundary" },
   { id: "keys", label: "Connectors" },
-  { id: "invites", label: "Invites" },
+  { id: "skill", label: "Skills" },
+  { id: "tool", label: "Tools" },
+  { id: "memory", label: "Memories" },
+  { id: "system_prompt", label: "System prompts" },
+  { id: "prompt", label: "Prompts" },
+  { id: "connection", label: "Connections" },
+  { id: "harness", label: "Harnesses" },
+  { id: "boundary", label: "Boundary" },
+  { id: "invites", label: "People" },
   { id: "audit", label: "Audit" },
+];
+
+/* docs/scoping.md §8: the sub-sidebar reads as two kinds of thing rather than
+   one long strip. Preferences (docs/agents.md §14.10) belongs in the second
+   group once it exists — it depends on a concurrent task's boundary keys, so
+   the entry is left out entirely rather than added dead. */
+const TAB_GROUPS: { heading: string; tabs: Tab[] }[] = [
+  {
+    heading: "What this unit has",
+    tabs: ["keys", "skill", "tool", "memory", "system_prompt", "prompt", "connection", "harness"],
+  },
+  { heading: "How it behaves", tabs: ["boundary", "invites", "audit"] },
 ];
 
 /* `archived` is the stored value; "disabled" is what it does. */
@@ -112,9 +134,19 @@ const KEY_KIND_LABEL: Record<string, string> = {
   static_api_key: "System",
 };
 
-const LOAD_LABEL: Record<string, string> = {
-  on_demand: "On demand",
-  always: "Always",
+/* docs/agents.md §11.1: three outcomes, and every control gets exactly one.
+   "pending" is a choke point we own that is not live yet (Phase 3) — distinct
+   from "advisory", which is a choke point we will never own. */
+const VERDICT_TONE: Record<ControlVerdict["status"], Tone> = {
+  enforced: "ok",
+  advisory: "hold",
+  pending: "neutral",
+};
+
+const VERDICT_LABEL: Record<ControlVerdict["status"], string> = {
+  enforced: "Enforced",
+  advisory: "Advisory",
+  pending: "Not enforced yet",
 };
 
 /* The CLI is the product's front door, so the thing you copy has to be the
@@ -133,11 +165,15 @@ const USD = new Intl.NumberFormat("en-US", {
 
 /* Helpers ----------------------------------------------------------------- */
 
+/** A node together with the chain of ancestors that reached it, for
+    breadcrumbs, unit pickers, and telling a descendant from a cousin. */
+export interface FlatNode {
+  node: TreeNode;
+  trail: TreeNode[];
+}
+
 /** Depth-first with each node's ancestors, for breadcrumbs and unit pickers. */
-function flatten(
-  nodes: TreeNode[],
-  trail: TreeNode[] = [],
-): { node: TreeNode; trail: TreeNode[] }[] {
+function flatten(nodes: TreeNode[], trail: TreeNode[] = []): FlatNode[] {
   return nodes.flatMap((node) => [
     { node, trail },
     ...flatten(node.children ?? [], [...trail, node]),
@@ -150,63 +186,12 @@ function matches(query: string, ...fields: (string | null | undefined)[]) {
 }
 
 /** Dot-path as a branch: "acme.eng.ana" → "acme / eng / ana". */
-function branchPath(path?: string) {
+export function branchPath(path?: string) {
   return path?.split(".").join(" / ") ?? "—";
 }
 
 function isOwnedHere(asset: Asset) {
   return (asset.origin ?? "owned") === "owned";
-}
-
-function isInventoryTab(tab: Tab) {
-  return tab === "harness" || ASSET_TABS.includes(tab);
-}
-
-/** One control: a switch whose label is the mode you are in. */
-function ScopeToggle({
-  scope,
-  onToggle,
-}: {
-  scope: AssetScope;
-  onToggle: () => void;
-}) {
-  const available = scope === "available";
-  return (
-    <Button
-      variant="none"
-      size="none"
-      role="switch"
-      aria-checked={available}
-      aria-label={available ? "Available. Switch to owned." : "Owned. Switch to available."}
-      title={available ? "Switch to owned" : "Switch to available"}
-      className="items-center gap-2 rounded-md border border-line bg-surface px-2 py-1.5 hover:border-accent"
-      onClick={onToggle}
-    >
-      <span
-        aria-hidden
-        className={`relative h-4 w-7 rounded-full transition-colors ${
-          available ? "bg-accent" : "bg-line"
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 size-3 rounded-full bg-surface shadow-sm transition-[left] ${
-            available ? "left-3.5" : "left-0.5"
-          }`}
-        />
-      </span>
-      <span className="text-xs font-semibold">{available ? "Available" : "Owned"}</span>
-    </Button>
-  );
-}
-
-/* The asset tabs are one collection split by kind, so they share a request
-   and switching between them costs nothing. */
-function groupOf(tab: Tab) {
-  return ASSET_TABS.includes(tab) ? "assets" : tab;
-}
-
-function tabKeyFor(unitId: string, tab: Tab) {
-  return `${unitId}:${groupOf(tab)}`;
 }
 
 function counter(shown: number, total: number) {
@@ -291,23 +276,37 @@ function TreeItem({
 
 /* Tab panels -------------------------------------------------------------- */
 
+/* One list, no toggle (docs/scoping.md §6). Every row says who owns it; a row
+   this unit owns also says who it reaches, because "not shared yet" is a
+   real, visible state (§4) — everything else offers no scope control at all,
+   the same way `AssetManage` already treats an inherited row as somebody
+   else's to change. */
 function AssetsPanel({
   assets,
   noun,
   query,
-  scope,
+  unit,
+  nodes,
+  scopesByAsset,
+  api,
   onOpen,
+  onScoped,
+  onError,
 }: {
   assets: Asset[];
   noun: string;
   query: string;
-  scope: AssetScope;
+  unit: TreeNode;
+  nodes: FlatNode[];
+  /** Undefined = not loaded yet for this asset. Only meaningful for rows this
+      unit owns — `AdminApp` only ever fetches scopes for those. */
+  scopesByAsset: Record<string, AssetScopeRow[]>;
+  api: Api;
   onOpen: (asset: Asset, pane: Pane) => void;
+  onScoped: (assetId: string, rows: AssetScopeRow[]) => void;
+  onError: (cause: unknown) => void;
 }) {
-  const scoped = assets.filter((asset) =>
-    scope === "owned" ? isOwnedHere(asset) : !isOwnedHere(asset),
-  );
-  const shown = scoped.filter((asset) =>
+  const shown = assets.filter((asset) =>
     matches(
       query,
       asset.name,
@@ -323,10 +322,20 @@ function AssetsPanel({
 
   return (
     <>
-      <Toolbar count={query ? counter(shown.length, scoped.length) : String(scoped.length)} />
+      <Toolbar count={query ? counter(shown.length, assets.length) : String(assets.length)} />
       {ordered.length ? (
         <Table
-          head={["Name", "Ownership", "Path", "Version", "Message", "Updated", "Harnesses", "Status", ""]}
+          head={[
+            "Name",
+            "Owned by",
+            "Shared with",
+            "Version",
+            "Message",
+            "Updated",
+            "Harnesses",
+            "Status",
+            "",
+          ]}
         >
           {ordered.map((asset) => (
             <Tr key={asset.id}>
@@ -341,12 +350,26 @@ function AssetsPanel({
                 </Button>
               </Td>
               <Td>
-                <Badge tone={isOwnedHere(asset) ? "accent" : "neutral"}>
-                  {isOwnedHere(asset) ? "owned" : "available"}
-                </Badge>
+                <span className="flex items-center gap-2">
+                  {isOwnedHere(asset) && <Badge tone="accent">this unit</Badge>}
+                  <Mono title={asset.org_unit_path}>{branchPath(asset.org_unit_path)}</Mono>
+                </span>
               </Td>
               <Td>
-                <Mono title={asset.org_unit_path}>{branchPath(asset.org_unit_path)}</Mono>
+                {isOwnedHere(asset) ? (
+                  <ScopeCell
+                    assetId={asset.id}
+                    assetName={asset.name}
+                    ownerUnit={unit}
+                    nodes={nodes}
+                    rows={scopesByAsset[asset.id]}
+                    api={api}
+                    onSaved={(rows) => onScoped(asset.id, rows)}
+                    onError={onError}
+                  />
+                ) : (
+                  <Mono>—</Mono>
+                )}
               </Td>
               <Td>
                 {asset.head_version_id ? (
@@ -391,11 +414,7 @@ function AssetsPanel({
         </Table>
       ) : (
         <EmptyState>
-          {scoped.length
-            ? `No ${noun} match “${query}”.`
-            : scope === "owned"
-              ? `No ${noun} are owned by this unit.`
-              : `No ${noun} are available from above or below.`}
+          {assets.length ? `No ${noun} match “${query}”.` : `No ${noun} reach this unit yet.`}
         </EmptyState>
       )}
     </>
@@ -406,11 +425,17 @@ export function ControlRow({
   label,
   hint,
   setHere,
+  verdict,
   children,
 }: {
   label: string;
   hint: string;
   setHere: boolean;
+  /** docs/agents.md §11.1: a control's standing, read from the same
+      `merge_boundaries` output `harness doctor` reads. Omitted entirely for
+      a control whose verdict is still an open decision — see
+      `budget.monthly_usd_cap` below, which intentionally never passes one. */
+  verdict?: ControlVerdict;
   children: ReactNode;
 }) {
   return (
@@ -419,8 +444,12 @@ export function ControlRow({
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[13px] font-semibold">{label}</span>
           <Badge tone={setHere ? "accent" : "neutral"}>{setHere ? "set here" : "inherited"}</Badge>
+          {verdict && (
+            <Badge tone={VERDICT_TONE[verdict.status]}>{VERDICT_LABEL[verdict.status]}</Badge>
+          )}
         </div>
         <p className="mt-1 text-xs leading-relaxed text-muted">{hint}</p>
+        {verdict && <p className="mt-1 text-xs leading-relaxed text-faint">{verdict.note}</p>}
       </div>
       <div className="min-w-0 self-center">{children}</div>
     </div>
@@ -444,6 +473,10 @@ function BoundaryPanel({ boundary }: { boundary?: BoundaryView }) {
   const own = boundary.own ?? {};
   const effective = boundary.effective ?? {};
   const setHere = (key: keyof BoundaryPolicy) => own[key] !== undefined;
+  // The same source `harness doctor` will read once it exists (docs/agents.md
+  // §11.3, §14.9), so the console and the CLI can never print two different
+  // answers for the same field.
+  const verdicts = effective.verdicts ?? {};
 
   return (
     <div className="pt-2">
@@ -451,6 +484,7 @@ function BoundaryPanel({ boundary }: { boundary?: BoundaryView }) {
         label="Network egress"
         hint="Hosts the harness may reach. The chain is intersected, so a parent can never be widened."
         setHere={setHere("egress_allowlist")}
+        verdict={verdicts.egress_allowlist}
       >
         <Allowlist values={effective.egress_allowlist} />
       </ControlRow>
@@ -458,41 +492,32 @@ function BoundaryPanel({ boundary }: { boundary?: BoundaryView }) {
         label="Allowed connections"
         hint="Connection assets a skill may require by name. The chain is intersected here too."
         setHere={setHere("connector_allowlist")}
+        verdict={verdicts.connector_allowlist}
       >
         <Allowlist values={effective.connector_allowlist} />
       </ControlRow>
       <ControlRow
-        label="Deploy approval"
-        hint="Whether a version must be approved before it can be promoted."
-        setHere={setHere("approvals")}
-      >
-        <Switch
-          on={effective.approvals?.deploy === "required"}
-          onLabel="Required"
-          offLabel="Not required"
-        />
-      </ControlRow>
-      <ControlRow
-        label="Asset loading"
-        hint="How assets reach a session. A prescribed policy cannot be changed further down."
-        setHere={setHere("load_policy")}
-      >
-        <span className="inline-flex flex-wrap items-center gap-2">
-          <Badge tone="neutral">
-            {LOAD_LABEL[effective.load_policy?.default ?? ""] ?? "On demand"}
-          </Badge>
-          {effective.load_policy?.prescribed && <Badge tone="accent">prescribed</Badge>}
-        </span>
-      </ControlRow>
-      <ControlRow
         label="Push review"
-        hint="Whether a pushed version waits for review before it becomes the head."
+        hint="Whether a pushed version waits for review before it becomes the one sessions use. This is the actual gate on publishing something — nothing resolves a version under review until an admin approves it."
         setHere={setHere("build_policy")}
+        verdict={verdicts["build_policy.push_review"]}
       >
         <Switch
           on={Boolean(effective.build_policy?.push_review)}
           onLabel="Required"
           offLabel="Not required"
+        />
+      </ControlRow>
+      <ControlRow
+        label="Ask before deploying"
+        hint="Asks the agent to pause and confirm before it calls a tool on this unit's deploy list. The agent decides whether to honour that — this is a nudge, not a gate. Push review, above, is the actual control on what gets published."
+        setHere={setHere("approvals")}
+        verdict={verdicts["approvals.deploy"]}
+      >
+        <Switch
+          on={effective.approvals?.deploy === "required"}
+          onLabel="Asks"
+          offLabel="Does not ask"
         />
       </ControlRow>
       <ControlRow
@@ -510,6 +535,7 @@ function BoundaryPanel({ boundary }: { boundary?: BoundaryView }) {
         label="Request rate"
         hint="The lowest rate anywhere in the chain wins."
         setHere={setHere("budget")}
+        verdict={verdicts["budget.requests_per_minute"]}
       >
         {effective.budget?.requests_per_minute == null ? (
           <Mono>no rate limit set in this chain</Mono>
@@ -815,9 +841,18 @@ export function AdminApp() {
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [selected, setSelected] = useState<TreeNode>();
   const [tab, setTab] = useState<Tab>("harness");
-  const [assetScope, setAssetScope] = useState<AssetScope>("owned");
+  const assetTab = ASSET_TABS.includes(tab);
   const [search, setSearch] = useState("");
   const [result, setResult] = useState<TabResult>();
+  /* The six asset tabs share one eager fetch, independent of which of them
+     is open — the sub-sidebar's unshared-count marker needs every kind's
+     data whether or not that kind's tab has ever been opened for this unit
+     (docs/scoping.md §8). */
+  const [assetsResult, setAssetsResult] = useState<AssetsResult>({ status: "loading" });
+  /* Keyed by asset id. Populated only for rows this unit owns — an inherited
+     row offers no scope control, so nothing here is ever fetched for one
+     (docs/scoping.md §6). */
+  const [scopesByAsset, setScopesByAsset] = useState<Record<string, AssetScopeRow[]>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{
     message: string;
@@ -837,6 +872,7 @@ export function AdminApp() {
   const [showDocs, setShowDocs] = useState(false);
   const [cliToken, setCliToken] = useState("");
   const loadSequence = useRef(0);
+  const assetsSequence = useRef(0);
   const leaving = useRef(false);
 
   const fail = useCallback((cause: unknown) => {
@@ -907,16 +943,14 @@ export function AdminApp() {
     return () => data.subscription.unsubscribe();
   }, [loadWorkspace, router]);
 
-  /* Keyed on the group, not the tab, so the five asset tabs read one reply
-     and switching between them does not go back to the server. */
-  const group = groupOf(tab);
+  /* The remaining tabs each own one endpoint, so the key is just the tab —
+     the six asset kinds no longer pass through here at all (below). */
   const loadTab = useCallback(() => {
-    if (!selected) return;
+    if (!selected || assetTab) return;
     const sequence = ++loadSequence.current;
-    const key = `${selected.id}:${group}`;
+    const key = `${selected.id}:${tab}`;
     const unit = encodeURIComponent(selected.id);
     const paths: Record<string, string> = {
-      assets: `/v1/org-units/${unit}/assets`,
       harness: `/v1/org-units/${unit}/harnesses`,
       boundary: `/v1/org-units/${unit}/boundary`,
       keys: `/v1/org-units/${unit}/api-keys`,
@@ -925,7 +959,7 @@ export function AdminApp() {
     };
     /* The key makes a late reply for a tab you have left harmless, and the
        sequence stops it from overwriting the reply you are now waiting on. */
-    api<unknown>(paths[group])
+    api<unknown>(paths[tab])
       .then((value) => {
         if (sequence === loadSequence.current) setResult({ key, status: "ready", value });
       })
@@ -938,13 +972,62 @@ export function AdminApp() {
           code: cause instanceof ApiError ? cause.status : undefined,
         });
       });
-  }, [api, group, selected]);
+  }, [api, tab, assetTab, selected]);
 
   useEffect(() => {
     if (!selected) return;
     const frame = window.requestAnimationFrame(() => loadTab());
     return () => window.cancelAnimationFrame(frame);
   }, [loadTab, selected]);
+
+  /* Eager, per unit rather than per tab: the sub-sidebar's unshared-count
+     marker (docs/scoping.md §8) needs every asset kind's data before any of
+     the six asset tabs has necessarily been opened for this unit. */
+  const loadAssets = useCallback(() => {
+    if (!selected) return;
+    const sequence = ++assetsSequence.current;
+    setAssetsResult({ status: "loading" });
+    api<unknown>(`/v1/org-units/${encodeURIComponent(selected.id)}/assets`)
+      .then((value) => {
+        if (sequence !== assetsSequence.current) return;
+        const assets = list<Asset>(value);
+        setAssetsResult({ status: "ready", assets });
+        /* Only owned rows ever get a scope control (docs/scoping.md §6), so
+           this is the entire set of assets that endpoint will ever be asked
+           about for this unit. `allSettled`, not `all`: one asset this
+           caller cannot read scopes for must not blank out every other
+           badge. */
+        const owned = assets.filter((asset) => isOwnedHere(asset) && asset.status === "active");
+        Promise.allSettled(
+          owned.map(async (asset) => {
+            const rows = await api<AssetScopeRow[]>(
+              `/v1/assets/${encodeURIComponent(asset.id)}/scopes`,
+            );
+            return [asset.id, rows] as const;
+          }),
+        ).then((settled) => {
+          if (sequence !== assetsSequence.current) return;
+          const fulfilled = settled.flatMap((entry) =>
+            entry.status === "fulfilled" ? [entry.value] : [],
+          );
+          setScopesByAsset(Object.fromEntries(fulfilled));
+        });
+      })
+      .catch((cause: unknown) => {
+        if (sequence !== assetsSequence.current) return;
+        setAssetsResult({
+          status: "failed",
+          message: cause instanceof Error ? cause.message : String(cause),
+          code: cause instanceof ApiError ? cause.status : undefined,
+        });
+      });
+  }, [api, selected]);
+
+  useEffect(() => {
+    if (!selected) return;
+    const frame = window.requestAnimationFrame(() => loadAssets());
+    return () => window.cancelAnimationFrame(frame);
+  }, [loadAssets, selected]);
 
   async function createKey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1035,17 +1118,72 @@ export function AdminApp() {
   if (!authReady || !signedIn || needsOrg) return <main className="min-h-screen bg-canvas" />;
 
   const nodes = flatten(tree);
+  /* HERE (docs/scoping.md §7): the chain from the top of what this session
+     can see down to the selected unit, so drilling into a descendant does
+     not strand the admin with no way back up. */
+  const hereTrail = selected
+    ? [...(nodes.find((entry) => entry.node.id === selected.id)?.trail ?? []), selected]
+    : [];
+  /* SCOPED TO: every descendant at any depth, for the counter beside the
+     heading — the tree itself renders through `TreeItem`'s own recursion. */
+  const scopedToNodes = selected
+    ? nodes.filter(({ trail }) => trail.some((ancestor) => ancestor.id === selected.id))
+    : [];
+
+  function selectUnit(node: TreeNode) {
+    setSelected(node);
+    setViewingId(undefined);
+    setOpenHarness(undefined);
+    setSearch("");
+  }
+
   /* Derived rather than stored: a result for another tab reads as "loading"
      instead of leaking into the panel for one frame. */
-  const tabKey = selected ? tabKeyFor(selected.id, tab) : "";
+  const tabKey = selected ? `${selected.id}:${tab}` : "";
   const state: TabResult = result?.key === tabKey ? result : { key: tabKey, status: "loading" };
-  const assetTab = ASSET_TABS.includes(tab);
-  const assets =
-    assetTab && state.status === "ready"
-      ? list<Asset>(state.value).filter((asset) => asset.kind === tab)
-      : [];
+  /* The six asset tabs read `assetsResult` (eager, per unit); every other
+     tab reads `state` (lazy, per tab) as before. One pair of variables so
+     the render below does not have to branch on `assetTab` at every use. */
+  const panelStatus = assetTab ? assetsResult.status : state.status;
+  const panelMessage = assetTab
+    ? assetsResult.status === "failed"
+      ? assetsResult.message
+      : ""
+    : state.status === "failed"
+      ? state.message
+      : "";
+  const panelCode = assetTab
+    ? assetsResult.status === "failed"
+      ? assetsResult.code
+      : undefined
+    : state.status === "failed"
+      ? state.code
+      : undefined;
+  const reload = assetTab ? loadAssets : loadTab;
+  /* `state.status === "ready"` here, not `panelStatus`, so the discriminated
+     union narrows: an asset tab never reads this (it reads `assets` below),
+     and every other tab's `panelStatus` is `state.status` by construction. */
+  const stateValue = state.status === "ready" ? state.value : undefined;
+  const allAssets = assetsResult.status === "ready" ? assetsResult.assets : [];
+  const assets = assetTab ? allAssets.filter((asset) => asset.kind === tab) : [];
   const viewing = assets.find((asset) => asset.id === viewingId);
   const tabLabel = TABS.find(({ id }) => id === tab)?.label ?? "";
+  /* The sub-sidebar marker (docs/scoping.md §8): how many of this unit's own
+     assets, of each kind, nobody below can use yet. Only meaningful once
+     `scopesByAsset` has an entry for a given owned asset, so a kind whose
+     scopes are still loading undercounts rather than flashing a wrong
+     number. */
+  const unsharedByKind = ASSET_TABS.reduce<Partial<Record<Tab, number>>>((counts, kind) => {
+    const count = allAssets.filter(
+      (asset) =>
+        asset.kind === kind &&
+        isOwnedHere(asset) &&
+        asset.status === "active" &&
+        scopesByAsset[asset.id]?.length === 0,
+    ).length;
+    if (count > 0) counts[kind] = count;
+    return counts;
+  }, {});
 
   function openTab(next: Tab) {
     setTab(next);
@@ -1060,7 +1198,7 @@ export function AdminApp() {
   }
 
   return (
-    <div className="grid min-h-screen grid-cols-[264px_1fr] grid-rows-[52px_1fr] max-md:grid-cols-1 max-md:grid-rows-[52px_auto_1fr]">
+    <div className="grid min-h-screen grid-cols-[220px_216px_1fr] grid-rows-[52px_1fr] max-md:grid-cols-1 max-md:grid-rows-[52px_auto_auto_1fr]">
       <header className="z-20 col-span-full flex items-center gap-4 border-b border-line bg-canvas px-4 text-fg max-md:col-span-1 max-md:row-start-1">
         <Link href="/" aria-label="Harness">
           <BrandMark small />
@@ -1074,96 +1212,151 @@ export function AdminApp() {
         </div>
       </header>
 
-      <aside className="border-r border-line bg-sunken px-3 py-5 max-md:row-start-2 max-md:border-r-0 max-md:border-b max-md:py-3">
-        <div className="mb-2 flex items-baseline justify-between gap-2 px-2">
-          <h2 className="text-[11px] font-bold tracking-[0.1em] text-muted uppercase">
-            Organization
-          </h2>
-          <span className="font-mono text-[10px] text-faint">
-            {nodes.length} {nodes.length === 1 ? "unit" : "units"}
-          </span>
-        </div>
-        {tree.length ? (
-          <nav aria-label="Organization units">
-            <ul className="m-0 list-none p-0 max-md:max-h-48 max-md:overflow-y-auto">
-              {tree.map((node) => (
-                <TreeItem
-                  key={node.id}
-                  node={node}
-                  selectedId={selected?.id}
-                  onSelect={(node) => {
-                    setSelected(node);
-                    setViewingId(undefined);
-                    setOpenHarness(undefined);
-                    setAssetScope("owned");
-                    setSearch("");
-                  }}
-                />
+      {/* Here, then below (docs/scoping.md §7): not org-versus-teams, which
+          breaks the moment an org contains an org — HERE is whichever unit is
+          selected, at any depth, and SCOPED TO is its descendants. Selecting
+          one re-roots both regions on it, so an org admin and a team admin
+          see the same two-region shape. */}
+      <aside className="overflow-y-auto border-r border-line bg-sunken px-3 py-5 max-md:row-start-2 max-md:max-h-64 max-md:border-r-0 max-md:border-b max-md:py-3">
+        <h2 className="mb-1 px-2 text-[11px] font-bold tracking-[0.1em] text-muted uppercase">
+          Here
+        </h2>
+        {hereTrail.length ? (
+          <nav aria-label="This unit" className="mb-5">
+            <ul className="m-0 list-none p-0">
+              {hereTrail.map((node, index) => (
+                <li key={node.id} style={{ paddingLeft: `${index * 10}px` }}>
+                  <Button
+                    variant="bare"
+                    size="none"
+                    className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left ${
+                      node.id === selected?.id
+                        ? "bg-surface ring-1 ring-line ring-inset"
+                        : "hover:bg-canvas"
+                    }`}
+                    onClick={() => selectUnit(node)}
+                  >
+                    <span
+                      className={`truncate text-[13px] ${
+                        node.id === selected?.id ? "font-bold" : "font-medium"
+                      }`}
+                    >
+                      {node.name}
+                    </span>
+                    {node.role && (
+                      <span className="shrink-0 font-mono text-[9px] tracking-[0.06em] text-faint uppercase">
+                        {node.role}
+                      </span>
+                    )}
+                  </Button>
+                  {/* The top of what this session can see is the boundary of
+                      what it administers — always true of the tree's own
+                      root, not a claim about this particular person. */}
+                  {index === 0 && (
+                    <p className="mt-0.5 px-2 font-mono text-[10px] text-faint">admin scope</p>
+                  )}
+                </li>
               ))}
             </ul>
           </nav>
         ) : (
           !loading && <EmptyState>No org units are visible to you.</EmptyState>
         )}
+
+        {selected && (
+          <>
+            <div className="mb-2 flex items-baseline justify-between gap-2 px-2">
+              <h2 className="text-[11px] font-bold tracking-[0.1em] text-muted uppercase">
+                Scoped to
+              </h2>
+              <span className="font-mono text-[10px] text-faint">{scopedToNodes.length}</span>
+            </div>
+            {selected.children?.length ? (
+              <nav aria-label="Units this unit can share with">
+                <ul className="m-0 list-none p-0">
+                  {selected.children.map((node) => (
+                    <TreeItem
+                      key={node.id}
+                      node={node}
+                      selectedId={selected.id}
+                      onSelect={selectUnit}
+                    />
+                  ))}
+                </ul>
+              </nav>
+            ) : (
+              <p className="px-2 font-mono text-[11px] text-faint">
+                Nothing beneath this unit yet.
+              </p>
+            )}
+          </>
+        )}
       </aside>
 
-      <main className="grid min-w-0 grid-rows-[auto_1fr] bg-canvas max-md:row-start-3">
-        {/* The tab strip is the page header. Which unit you are in, and what
-            the page means, are both a button away rather than on the page. */}
-        <div className="sticky top-0 z-10 min-w-0 border-b border-line bg-canvas px-[clamp(20px,3.5vw,44px)]">
-          <div className="flex min-w-0 items-center gap-4">
-            <div className="flex min-w-0 flex-1 items-stretch gap-6 overflow-x-auto" role="tablist">
-              {TABS.map(({ id, label }) => (
-                <span key={id} className="flex shrink-0 items-stretch gap-6">
-                  {/* Asset kinds on one side, the unit's own settings on the
-                      other. */}
-                  {(id === "boundary" || id === "system_prompt") && (
-                    <span aria-hidden className="my-3 w-px bg-line" />
-                  )}
-                  <Button
-                    variant="bare"
-                    size="none"
-                    role="tab"
-                    aria-selected={tab === id}
-                    className={`-mb-px rounded-none border-b-2 px-0.5 py-3 text-[13px] font-semibold ${
-                      tab === id
-                        ? "border-accent text-fg"
-                        : "border-transparent text-muted hover:text-fg"
-                    }`}
-                    onClick={() => openTab(id)}
-                  >
-                    {label}
-                  </Button>
-                </span>
-              ))}
-            </div>
-            <span className="flex shrink-0 items-center gap-2 py-2">
-              {selected && isInventoryTab(tab) && !viewing && !openHarness && (
-                <ScopeToggle
-                  scope={assetScope}
-                  onToggle={() =>
-                    setAssetScope((current) => (current === "owned" ? "available" : "owned"))
-                  }
-                />
-              )}
-              {selected && !viewing && !openHarness && tab !== "boundary" && (
-                <HeaderSearch
-                  key={tab}
-                  value={search}
-                  onValueChange={setSearch}
-                  placeholder={`search ${tabLabel.toLowerCase()}…`}
-                />
-              )}
-              <Button
-                size="icon"
-                onClick={() => setShowDocs(true)}
-                aria-label={`What ${tabLabel} means`}
-                title={`What ${tabLabel} means`}
-              >
-                ?
-              </Button>
-            </span>
+      {/* The sub-sidebar (docs/scoping.md §8): a vertical column grouped into
+          what this unit has and how it behaves, with room for the marker a
+          horizontal strip of eleven tabs never had space for. */}
+      <nav
+        aria-label="Sections"
+        className="overflow-y-auto border-r border-line bg-sunken px-3 py-5 max-md:row-start-3 max-md:border-r-0 max-md:border-b"
+      >
+        {TAB_GROUPS.map((section, index) => (
+          <div key={section.heading} className={index > 0 ? "mt-6" : undefined}>
+            <h2 className="mb-1 px-2 text-[11px] font-bold tracking-[0.1em] text-muted uppercase">
+              {section.heading}
+            </h2>
+            <ul className="m-0 list-none p-0">
+              {section.tabs.map((id) => {
+                const label = TABS.find((entry) => entry.id === id)?.label ?? id;
+                const marker = unsharedByKind[id];
+                return (
+                  <li key={id}>
+                    <Button
+                      variant="bare"
+                      size="none"
+                      role="tab"
+                      aria-selected={tab === id}
+                      className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-[13px] font-semibold ${
+                        tab === id
+                          ? "bg-surface text-fg ring-1 ring-line ring-inset"
+                          : "text-muted hover:bg-canvas hover:text-fg"
+                      }`}
+                      onClick={() => openTab(id)}
+                    >
+                      <span className="truncate">{label}</span>
+                      {marker !== undefined && <Badge tone="warn">{marker}</Badge>}
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
+        ))}
+      </nav>
+
+      <main className="grid min-w-0 grid-rows-[auto_1fr] bg-canvas max-md:row-start-4">
+        <div className="sticky top-0 z-10 flex min-w-0 items-center gap-4 border-b border-line bg-canvas px-[clamp(20px,3.5vw,44px)] py-3.5">
+          <h1 className="min-w-0 flex-1 truncate text-[15px] font-bold tracking-[-0.02em]">
+            {tabLabel}
+          </h1>
+          <span className="flex shrink-0 items-center gap-2">
+            {selected && !viewing && !openHarness && tab !== "boundary" && (
+              <HeaderSearch
+                key={tab}
+                value={search}
+                onValueChange={setSearch}
+                placeholder={`search ${tabLabel.toLowerCase()}…`}
+              />
+            )}
+            <Button
+              size="icon"
+              onClick={() => setShowDocs(true)}
+              aria-label={`What ${tabLabel} means`}
+              title={`What ${tabLabel} means`}
+            >
+              ?
+            </Button>
+          </span>
         </div>
 
         <div className="min-w-0 px-[clamp(20px,3.5vw,44px)] pb-16">
@@ -1191,19 +1384,19 @@ export function AdminApp() {
             </div>
           )}
 
-          {selected && state.status === "loading" && <EmptyState>Loading…</EmptyState>}
+          {selected && panelStatus === "loading" && <EmptyState>Loading…</EmptyState>}
 
-          {selected && state.status === "failed" && (
+          {selected && panelStatus === "failed" && (
             <div className="pt-5">
-              {state.code === 403 ? (
+              {panelCode === 403 ? (
                 <Notice tone="hold">
                   <strong className="font-semibold text-fg">Administrator access required</strong>
-                  <p className="mt-0.5">{state.message}</p>
+                  <p className="mt-0.5">{panelMessage}</p>
                 </Notice>
               ) : (
                 <Alert>
-                  <span>{state.message}</span>
-                  <Button variant="bare" size="none" className="underline" onClick={loadTab}>
+                  <span>{panelMessage}</span>
+                  <Button variant="bare" size="none" className="underline" onClick={reload}>
                     Retry
                   </Button>
                 </Alert>
@@ -1211,7 +1404,7 @@ export function AdminApp() {
             </div>
           )}
 
-          {selected && state.status === "ready" && viewing && (
+          {selected && panelStatus === "ready" && viewing && (
             <>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-5">
                 <Button size="sm" onClick={() => setViewingId(undefined)}>
@@ -1252,7 +1445,7 @@ export function AdminApp() {
                   key={`${viewing.id}:document`}
                   asset={viewing}
                   api={api}
-                  onChanged={loadTab}
+                  onChanged={loadAssets}
                   onError={fail}
                 />
               ) : (
@@ -1262,14 +1455,14 @@ export function AdminApp() {
                   unit={selected}
                   api={api}
                   units={nodes}
-                  onChanged={loadTab}
+                  onChanged={loadAssets}
                   onError={fail}
                 />
               )}
             </>
           )}
 
-          {selected && state.status === "ready" && !viewing && (
+          {selected && panelStatus === "ready" && !viewing && (
             <div key={tab}>
               {tab === "harness" &&
                 (openHarness ? (
@@ -1291,10 +1484,9 @@ export function AdminApp() {
                   </>
                 ) : (
                   <HarnessTiles
-                    harnesses={list<Harness>(state.value)}
+                    harnesses={list<Harness>(stateValue)}
                     unit={selected}
                     query={search}
-                    scope={assetScope}
                     onOpen={setOpenHarness}
                     onCreate={() => setNewHarness(true)}
                   />
@@ -1313,16 +1505,23 @@ export function AdminApp() {
                   assets={assets}
                   noun={tabLabel.toLowerCase()}
                   query={search}
-                  scope={assetScope}
+                  unit={selected}
+                  nodes={nodes}
+                  scopesByAsset={scopesByAsset}
+                  api={api}
                   onOpen={openAsset}
+                  onScoped={(assetId, rows) =>
+                    setScopesByAsset((current) => ({ ...current, [assetId]: rows }))
+                  }
+                  onError={fail}
                 />
               )}
               {tab === "boundary" && (
-                <BoundaryPanel boundary={state.value as BoundaryView | undefined} />
+                <BoundaryPanel boundary={stateValue as BoundaryView | undefined} />
               )}
               {tab === "keys" && (
                 <KeysPanel
-                  keys={list<ApiKey>(state.value)}
+                  keys={list<ApiKey>(stateValue)}
                   query={search}
                   onCreate={() => setShowCreateKey(true)}
                   onRotate={setRotateKey}
@@ -1331,14 +1530,14 @@ export function AdminApp() {
               {tab === "invites" && (
                 <InvitesPanel
                   unit={selected}
-                  invites={list<Invite>(state.value)}
+                  invites={list<Invite>(stateValue)}
                   query={search}
                   onInvite={createInvite}
                   onRevoke={(invite) => void revokeInvite(invite)}
                 />
               )}
               {tab === "audit" && (
-                <AuditPanel events={list<AuditEvent>(state.value)} query={search} />
+                <AuditPanel events={list<AuditEvent>(stateValue)} query={search} />
               )}
             </div>
           )}

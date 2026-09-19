@@ -9,9 +9,6 @@ export type JsonRecord = Record<string, unknown>;
 export type AssetTab = "system_prompt" | "memory" | "skill" | "prompt" | "tool" | "connection";
 export type Tab = AssetTab | "harness" | "boundary" | "keys" | "invites" | "audit";
 export type Pane = "document" | "manage";
-/** The two asset-list views: this unit's copies, or everyone else's that
-    reach it — inherited from above or rolled up from below. */
-export type AssetScope = "owned" | "available";
 
 export interface TreeNode {
   id: string;
@@ -162,23 +159,45 @@ export interface Invite {
   created_at?: string;
 }
 
+/** A control's standing per docs/agents.md §11.1 — the same word `harness
+    doctor` prints, read from the same source (`merge_boundaries`) so the two
+    can never disagree. Absent from `verdicts` means the field's verdict is
+    still an open decision (`budget.monthly_usd_cap` today) rather than
+    something to guess at in the console. */
+export interface ControlVerdict {
+  status: "enforced" | "advisory" | "pending";
+  note: string;
+}
+
 /* The boundary document, as merged by app/domain/org_tree.py. `null` and `[]`
    are different answers for an allowlist and are rendered differently. */
 export interface BoundaryPolicy {
   egress_allowlist?: string[] | null;
   connector_allowlist?: string[] | null;
   approvals?: { deploy?: string } | null;
-  load_policy?: { default?: string; prescribed?: boolean } | null;
   build_policy?: { push_review?: boolean } | null;
   budget?: {
     monthly_usd_cap?: number | null;
     requests_per_minute?: number | null;
   } | null;
+  /** Keyed by the same dotted field path the row renders, e.g.
+      "build_policy.push_review". Only present on `effective`. */
+  verdicts?: Record<string, ControlVerdict>;
 }
 
 export interface BoundaryView {
   own: BoundaryPolicy;
   effective: BoundaryPolicy;
+}
+
+/** One unit an owned asset reaches, from `/v1/assets/{id}/scopes`. A row
+    naming the asset's own owning unit means "everyone here" — the owner's
+    whole subtree, including units created later (docs/scoping.md §3, §4.1) —
+    not just that one unit. */
+export interface AssetScopeRow {
+  org_unit_id: string;
+  org_unit_path: string;
+  key_ref: string | null;
 }
 
 /** The caller's fetch wrapper: it signs requests and signs out on a 401. */

@@ -17,14 +17,12 @@ def test_boundary_merge_uses_every_strictest_rule():
             "egress_allowlist": ["a.example", "b.example"],
             "connector_allowlist": ["slack", "drive"],
             "approvals": {"deploy": "required"},
-            "load_policy": {"default": "always", "prescribed": True},
             "budget": {"monthly_usd_cap": 1000, "requests_per_minute": 100},
         },
         {
             "egress_allowlist": ["b.example"],
             "connector_allowlist": ["drive"],
             "build_policy": {"push_review": True},
-            "load_policy": {"default": "on_demand", "prescribed": False},
             "budget": {"monthly_usd_cap": 500},
         },
     ]
@@ -34,7 +32,30 @@ def test_boundary_merge_uses_every_strictest_rule():
     assert merged["approvals"]["deploy"] == "required"
     assert merged["build_policy"]["push_review"] is True
     assert merged["budget"] == {"monthly_usd_cap": 500, "requests_per_minute": 100}
-    assert merged["load_policy"]["default"] == "always"
+    assert "load_policy" not in merged
+
+
+def test_merge_boundaries_carries_a_verdict_for_every_surviving_control():
+    """docs/agents.md §11.3: the console and `harness doctor` must agree field
+    for field, which only holds if both read this key instead of each keeping
+    their own list.
+    """
+    merged = merge_boundaries([])
+    assert merged["verdicts"]["build_policy.push_review"]["status"] == "enforced"
+    assert merged["verdicts"]["approvals.deploy"]["status"] == "advisory"
+    # An open product decision (§11.3's own "?"), not one this pass makes.
+    assert "budget.monthly_usd_cap" not in merged["verdicts"]
+    # Removed outright, so it does not get a verdict either.
+    assert "load_policy.default" not in merged["verdicts"]
+
+
+def test_merge_boundaries_ignores_a_stray_load_policy_key():
+    """0026 strips `load_policy` from the database, but `merge_boundaries`
+    reads raw dicts rather than a pydantic model, so it must not choke on one
+    that slipped through — belt and suspenders for a row the migration missed.
+    """
+    merged = merge_boundaries([{"load_policy": {"default": "always", "prescribed": True}}])
+    assert "load_policy" not in merged
 
 
 def test_no_policy_anywhere_is_unconstrained_not_denied():
@@ -67,10 +88,6 @@ def test_a_child_may_define_what_an_unconstrained_parent_left_open():
         ({"connector_allowlist": ["new"]}, "connector_allowlist"),
         ({"approvals": {"deploy": "off"}}, "approvals.deploy"),
         ({"build_policy": {"push_review": False}}, "build_policy.push_review"),
-        (
-            {"load_policy": {"default": "on_demand", "prescribed": True}},
-            "load_policy.default",
-        ),
         ({"budget": {"monthly_usd_cap": 101}}, "budget.monthly_usd_cap"),
     ],
 )
@@ -80,7 +97,6 @@ def test_boundary_cannot_loosen(child, field):
         "connector_allowlist": ["old"],
         "approvals": {"deploy": "required"},
         "build_policy": {"push_review": True},
-        "load_policy": {"default": "always", "prescribed": True},
         "budget": {"monthly_usd_cap": 100},
     }
     with pytest.raises(ApiError) as caught:

@@ -27,7 +27,8 @@ export interface Help {
    one tab, not all of them. */
 const ASSET_MECHANICS = [
   "Every save is a version. You can read any of them, compare an old one against what is live, and put it back. The live version is the one in use — if your team requires review, a new version waits until someone approves it.",
-  "Scope follows the org chart. What the organisation publishes reaches every team; what a team publishes reaches its people; and anyone may keep their own copy of a name, which wins for them alone. Owned is what this unit published. Available is everything else that reaches it — inherited from above, or rolled up from a team or person below. The path is which branch the copy lives on. Manage shows whether someone's copy has fallen behind the one it came from.",
+  "Nothing reaches a team just because it sits inside an organisation. What a unit owns is always its own; what it can also use is only what an owner above it has deliberately shared with it. Owned by shows who published a row. Shared with, on a row this unit published, shows how many units it has been shared with — or Not shared yet, which means exactly that: nobody below can use it until you say who.",
+  "Anyone may also keep their own copy of a name, which wins for them alone. The path shown is which branch that copy lives on, and Manage shows whether it has fallen behind the one it came from.",
   "Disable switches something off without deleting it. Nothing resolves it any more, the history stays untouched, and enabling puts it straight back.",
 ];
 
@@ -108,8 +109,8 @@ export const HELP: Record<Tab, Help> = {
     example:
       "An overdue invoices tool runs the query and hands back the list. “Which invoices are overdue, and who owns them?” becomes one question, instead of a request to the data team and a two-day wait.",
     mechanics: [
-      "Publishing a tool adds it to what a session is allowed to run. A request to run anything not on that list is refused.",
-      "Whoever writes the tool decides what it does; the platform decides who may run it. Read one before you publish it to a team, the same as you would any other code.",
+      "Publishing a tool is what makes a harness able to include it. Which harness a session is in, and the limits set above it, decide whether that particular session can reach it.",
+      "Whoever writes the tool decides what it does; sharing decides who may see it at all. Read one before you publish it to a team, the same as you would any other code.",
       ...ASSET_MECHANICS,
     ],
   },
@@ -148,6 +149,7 @@ export const HELP: Record<Tab, Help> = {
       "Every unit's limits are merged down the chain. Lists are narrowed to what both allow, and the lowest budget anywhere above you is the one that applies.",
       "“Set here” marks a limit this unit writes itself. Everything else arrived from a unit above it.",
       "A list that nothing in the chain constrains allows everything. An empty list allows nothing. That difference is deliberate, not a blank.",
+      "Enforced means the platform itself refuses whatever the limit forbids. Advisory means it is passed to the assistant as an ask, which the assistant decides whether to honour — set both apart on purpose, so a limit never looks stronger than it is.",
       "Changing limits is not done here yet — this page shows you where they land.",
     ],
   },

@@ -9,14 +9,17 @@ from app.errors import ApiError
 
 
 class Approvals(BaseModel):
+    """`deploy` is agent-side and advisory (docs/agents.md §11.3): it is read
+    only by `pi/packages/harness/src/index.ts`, which asks a session to
+    confirm before it calls a tool named in `deploy_tools` — a field
+    `Boundary` does not even carry yet (14.1). Nothing at the control plane,
+    the proxy or the sandbox refuses a deploy because of this key. The actual
+    control-plane gate already has its own name and its own row:
+    `build_policy.push_review`.
+    """
+
     model_config = ConfigDict(extra="forbid")
     deploy: Literal["required", "off"] | None = None
-
-
-class LoadPolicy(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    default: Literal["on_demand", "always"] = "on_demand"
-    prescribed: bool = False
 
 
 class BuildPolicy(BaseModel):
@@ -53,7 +56,6 @@ class Boundary(BaseModel):
     egress_allowlist: list[str] | None = None
     connector_allowlist: list[str] | None = None
     approvals: Approvals | None = None
-    load_policy: LoadPolicy | None = None
     build_policy: BuildPolicy | None = None
     budget: Budget | None = None
     # Which capabilities a session may use at all, and which of those need a
@@ -99,6 +101,57 @@ def email_label(email: str) -> str:
     return re.sub(r"-+", "-", cleaned).strip("-")
 
 
+# The audit from docs/agents.md §11.3, turned into data instead of a second,
+# hand-maintained list. A control ships only if a choke point we own refuses
+# it (§11.1); everything below is a verdict on a control still in the
+# console, not a claim about what a particular org configured, so this is a
+# constant, not something computed per policy chain.
+#
+# `budget.monthly_usd_cap` is deliberately absent. Its verdict is an open
+# product decision (§11.3's own "?"), not a decision this pass makes, so it
+# carries no entry here and the console renders it exactly as before.
+CONTROL_VERDICTS: dict[str, dict[str, str]] = {
+    "egress_allowlist": {
+        "status": "pending",
+        "note": (
+            "The control plane checks a skill's declared hosts against this list "
+            "when it is pushed. Nothing yet stops a session reaching an unlisted "
+            "host at run time — that lands with the proxy (Phase 3)."
+        ),
+    },
+    "connector_allowlist": {
+        "status": "pending",
+        "note": (
+            "The control plane checks a skill's declared connections against this "
+            "list when it is pushed. Nothing yet stops a session from using an "
+            "unlisted one at run time — that lands with the proxy (Phase 3)."
+        ),
+    },
+    "build_policy.push_review": {
+        "status": "enforced",
+        "note": (
+            "A version pushed under review is filtered out of resolution until an "
+            "admin approves it — no session can run it in the meantime."
+        ),
+    },
+    "approvals.deploy": {
+        "status": "advisory",
+        "note": (
+            "Asks the agent to confirm before it calls a tool named in that unit's "
+            "deploy list. The agent decides whether to honour the ask; nothing "
+            "here can refuse the call."
+        ),
+    },
+    "budget.requests_per_minute": {
+        "status": "pending",
+        "note": (
+            "Counted at the proxy once requests run through it (Phase 3). "
+            "Nothing counts them yet."
+        ),
+    },
+}
+
+
 def merge_boundaries(policies: list[dict[str, Any]]) -> dict[str, Any]:
     defined_egress = [set(p["egress_allowlist"]) for p in policies if "egress_allowlist" in p]
     defined_connectors = [
@@ -128,15 +181,6 @@ def merge_boundaries(policies: list[dict[str, Any]]) -> dict[str, Any]:
         ]
         caps[field] = min(values) if values else None
 
-    prescribed = next(
-        (
-            p["load_policy"]
-            for p in reversed(policies)
-            if p.get("load_policy", {}).get("prescribed") is True
-        ),
-        None,
-    )
-    own_load = next((p["load_policy"] for p in reversed(policies) if "load_policy" in p), None)
     # `deploy_tools` names capabilities that need a confirmation, not
     # capabilities that are permitted at all — a level adding one is asking
     # for *more* caution, so the chain unions rather than intersects. There
@@ -152,7 +196,7 @@ def merge_boundaries(policies: list[dict[str, Any]]) -> dict[str, Any]:
         have let a child loosen `source`/`user_credentials` past its parent's
         effective value, so by the time a full chain reaches here the nearest
         setter's value is already at least as strict as every ancestor's —
-        the same reasoning `load_policy`'s "own_load" already relies on.
+        the same reasoning every nearest-wins boundary field relies on.
         """
         return next(
             (p[key][subkey] for p in reversed(policies) if p.get(key, {}).get(subkey) is not None),
@@ -171,7 +215,6 @@ def merge_boundaries(policies: list[dict[str, Any]]) -> dict[str, Any]:
                 else "off"
             )
         },
-        "load_policy": prescribed or own_load or {"default": "on_demand"},
         "build_policy": {
             "push_review": any(
                 p.get("build_policy", {}).get("push_review", False) for p in policies
@@ -182,6 +225,10 @@ def merge_boundaries(policies: list[dict[str, Any]]) -> dict[str, Any]:
             "source": nearest("model_policy", "source"),
             "user_credentials": nearest("model_policy", "user_credentials"),
         },
+        # Global to this deployment, not this chain — see CONTROL_VERDICTS.
+        # The console renders every badge from this key so it can never drift
+        # from what `harness doctor` would print for the same field.
+        "verdicts": CONTROL_VERDICTS,
     }
 
 
@@ -249,19 +296,6 @@ def validate_tightening(child: dict[str, Any], parent: dict[str, Any]) -> None:
             "boundary_loosens",
             "Push review cannot be turned off because the parent requires it.",
             {"field": "build_policy.push_review"},
-        )
-    parent_load = parent.get("load_policy", {})
-    child_load = child.get("load_policy")
-    if (
-        parent_load.get("prescribed")
-        and child_load is not None
-        and child_load.get("default") != parent_load.get("default")
-    ):
-        raise ApiError(
-            422,
-            "boundary_loosens",
-            "Load policy cannot change because the parent prescribes it.",
-            {"field": "load_policy.default"},
         )
     for field in ("monthly_usd_cap", "requests_per_minute"):
         parent_cap = parent.get("budget", {}).get(field)
