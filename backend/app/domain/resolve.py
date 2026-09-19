@@ -38,6 +38,18 @@ async def resolved_assets(
                  and not (av.provenance ? 'pending_review')
                order by av.seq desc limit 1
              ) v on true
+             -- Candidacy, not ranking: I own it, or an ancestor has scoped it
+             -- to some unit in my chain. This has to be a WHERE on the same
+             -- select as the window function, so it runs before row_number()
+             -- partitions the survivors — a scoped-out ancestor asset must
+             -- never enter the window, or it shadows the nearest legitimate
+             -- copy and the window throws that copy away too
+             -- (docs/scoping.md §3.1).
+             where c.id=$1
+                or exists (
+                     select 1 from asset_scopes s
+                     where s.asset_id=a.id and s.org_unit_id in (select id from chain)
+                   )
            ) select * from candidates where choice<=2 order by kind,name,choice""",
         org_unit_id,
     )
