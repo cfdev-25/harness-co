@@ -202,7 +202,14 @@ export async function doctor(args: string[]): Promise<number> {
 		console.log(lines.join("\n"));
 	}
 	if (show("boundary")) {
-		console.log(dim("\n  Nothing above is enforced yet: the sandbox and egress proxy are not built."));
+		console.log(
+			dim(
+				"\n  Egress, connectors, and budgets are not enforced yet: the proxy is not built. " +
+					"`allowed_tools` naming a team tool is enforced by denying its read on macOS " +
+					"(src/enforcers/filesystem.ts, agents.md §7.1.1); naming a built-in is still advisory " +
+					"only (§7.1.2).",
+			),
+		);
 	}
 	console.log("");
 	return 0;

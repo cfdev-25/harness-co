@@ -249,3 +249,79 @@ describe("harness membership", () => {
 		await expect(readFile(join(session.root, "harness.json"), "utf8")).rejects.toThrow();
 	});
 });
+
+// agents.md §7.1.2: the server stores capabilities, never an agent's tool
+// name. `policy.json` is Pi-specific rendering, so it still ends up with
+// Pi's own names — that translation is what these tests pin down.
+describe("capability vocabulary rendering", () => {
+	const model = { provider: "p", model_id: "m", base_url: "http://x", key_ref: "r", env_var: "E" };
+
+	it("a boundary that says process.exec renders to Pi's bash, and nothing else it didn't grant", async () => {
+		process.env.HARNESS_HOME = await mkdtemp(join(tmpdir(), "cap-bash-"));
+		const manifest = {
+			user: { auth_user_id: "u", org_unit_path: "acme" },
+			assets: [],
+			boundary: { allowed_tools: ["process.exec"] },
+			model,
+		} as unknown as Manifest;
+		const session = await render(manifest, "cap-bash");
+		const policy = JSON.parse(await readFile(join(session.root, "policy.json"), "utf8"));
+		expect(policy.allowed_tools).toContain("bash");
+		expect(policy.allowed_tools).not.toContain("read");
+		expect(policy.allowed_tools).not.toContain("edit");
+	});
+
+	it("a tool asset's capability is unchanged apart from the prefix", async () => {
+		process.env.HARNESS_HOME = await mkdtemp(join(tmpdir(), "cap-tool-"));
+		const manifest = {
+			user: { auth_user_id: "u", org_unit_path: "acme" },
+			assets: [{ kind: "tool", name: "slack_read", files: [] }],
+			boundary: { allowed_tools: ["process.exec", "tool.slack_read"] },
+			model,
+		} as unknown as Manifest;
+		const session = await render(manifest, "cap-tool");
+		const policy = JSON.parse(await readFile(join(session.root, "policy.json"), "utf8"));
+		expect(policy.allowed_tools).toContain("slack_read");
+	});
+
+	it("a tool asset present but not capability-granted is excluded even though the harness carries it", async () => {
+		process.env.HARNESS_HOME = await mkdtemp(join(tmpdir(), "cap-tool-excluded-"));
+		const manifest = {
+			user: { auth_user_id: "u", org_unit_path: "acme" },
+			assets: [{ kind: "tool", name: "deploy", files: [] }],
+			boundary: { allowed_tools: ["process.exec"] },
+			model,
+		} as unknown as Manifest;
+		const session = await render(manifest, "cap-tool-excluded");
+		const policy = JSON.parse(await readFile(join(session.root, "policy.json"), "utf8"));
+		expect(policy.allowed_tools).not.toContain("deploy");
+	});
+
+	it("renders deploy_tools' capabilities back to Pi/team-tool names the same way", async () => {
+		process.env.HARNESS_HOME = await mkdtemp(join(tmpdir(), "cap-deploy-"));
+		const manifest = {
+			user: { auth_user_id: "u", org_unit_path: "acme" },
+			assets: [{ kind: "tool", name: "deploy", files: [] }],
+			boundary: { deploy_tools: ["tool.deploy"] },
+			model,
+		} as unknown as Manifest;
+		const session = await render(manifest, "cap-deploy");
+		const policy = JSON.parse(await readFile(join(session.root, "policy.json"), "utf8"));
+		expect(policy.deploy_tools).toEqual(["deploy"]);
+	});
+
+	it("an unconstrained boundary still renders every Pi built-in, unchanged from before this vocabulary existed", async () => {
+		process.env.HARNESS_HOME = await mkdtemp(join(tmpdir(), "cap-unconstrained-"));
+		const manifest = {
+			user: { auth_user_id: "u", org_unit_path: "acme" },
+			assets: [],
+			boundary: {},
+			model,
+		} as unknown as Manifest;
+		const session = await render(manifest, "cap-unconstrained");
+		const policy = JSON.parse(await readFile(join(session.root, "policy.json"), "utf8"));
+		for (const name of ["read", "bash", "edit", "write", "grep", "find", "ls"]) {
+			expect(policy.allowed_tools).toContain(name);
+		}
+	});
+});

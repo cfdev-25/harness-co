@@ -4,8 +4,67 @@ import { fileURLToPath } from "node:url";
 import { safeName } from "../core.js";
 import { renderIcon } from "../pixels.js";
 import { colorMode } from "../style.js";
-import { assetContents, assetsByKind, layoutSections, writeAssetFiles } from "./layout.js";
+import {
+	assetContents,
+	assetsByKind,
+	grantedCapabilities,
+	layoutSections,
+	toolIsGranted,
+	writeAssetFiles,
+} from "./layout.js";
 import type { Adapter, RenderContext } from "./types.js";
+
+/**
+ * Renders the capability vocabulary (agents.md §7.1.2) into Pi's own tool
+ * names for `policy.json` — the file Pi's harness extension actually reads
+ * (pi/packages/harness/src/index.ts's `applyAllowlist`/`tool_call` handler
+ * compares against `event.toolName`, which is a Pi name, never a
+ * capability). This is `Adapter.toolNames`'s job, best-effort and advisory:
+ * the boundary itself is enforced elsewhere (deny-read, §7.1.1), and Pi's own
+ * allowlist is only a courtesy that keeps its UI agreeing with the boundary.
+ * One capability can render to several Pi tool names, which is why this is a
+ * map to arrays rather than the 1:1 `Record<string,string>` an earlier draft
+ * of agents.md §4 assumed.
+ */
+const CAPABILITY_TO_PI_TOOLS: Record<string, string[]> = {
+	"filesystem.read": ["read", "grep", "find", "ls"],
+	"filesystem.write": ["edit", "write"],
+	"process.exec": ["bash"],
+	// No Pi built-in implies outbound network access today; kept here so the
+	// map stays the rendering side of the whole fixed vocabulary, not just
+	// the part Pi happens to have a button for yet.
+	"network.fetch": [],
+};
+
+/** Pi's own tool names, unconstrained — i.e. every built-in a fresh Pi
+    session ships with. This is the same seven names §7.1.2 calls out as
+    Pi's private vocabulary; it survives only as the *default* rendering when
+    nothing in the boundary restricts tools at all, matching how every
+    session behaved before `allowed_tools` existed. */
+const UNCONSTRAINED_PI_TOOLS = Object.values(CAPABILITY_TO_PI_TOOLS).flat();
+
+/** Which Pi tool names `policy.json` should advertise as allowed, given what
+    the boundary granted. `null` (nothing in the boundary restricts tools)
+    renders to every built-in, byte-identical to the hardcoded list this
+    replaces. */
+function renderPiBuiltins(granted: Set<string> | null): string[] {
+	if (granted === null) return UNCONSTRAINED_PI_TOOLS;
+	return Object.entries(CAPABILITY_TO_PI_TOOLS).flatMap(([capability, names]) =>
+		granted.has(capability) ? names : [],
+	);
+}
+
+/** `deploy_tools` names capabilities that need a confirmation, not ones that
+    are merely permitted, so it renders on its own rather than through
+    `renderPiBuiltins` — a capability appearing here says nothing about
+    whether `allowed_tools` also grants it. `tool.<name>` unwraps to the team
+    tool's own name; `connector.<name>` has no Pi tool name to become, since
+    Pi has no per-connector dispatch tool, so it renders to nothing. */
+function renderPiNames(capability: string): string[] {
+	if (capability.startsWith("tool.")) return [capability.slice("tool.".length)];
+	if (capability.startsWith("connector.")) return [];
+	return CAPABILITY_TO_PI_TOOLS[capability] ?? [];
+}
 
 async function render(ctx: RenderContext): Promise<void> {
 	const { manifest, id, sessionDir: root, agentDir: agent } = ctx;
@@ -61,17 +120,30 @@ async function render(ctx: RenderContext): Promise<void> {
 		await writeFile(join(agent, "prompts", `${safeName(saved.name)}.md`), assetContents(saved), { mode: 0o600 });
 	}
 
-	const builtins = ["read", "bash", "edit", "write", "grep", "find", "ls"];
+	// `manifest.boundary.allowed_tools`/`deploy_tools` are capabilities now
+	// (agents.md §7.1.2) — the server holds no agent's tool-name vocabulary.
+	// This is the rendering layer `Adapter.toolNames` describes: it turns
+	// those capabilities into Pi's own names for `policy.json`, which is all
+	// Pi's harness extension actually reads. Best-effort and advisory; the
+	// boundary itself does not depend on it (real enforcement is deny-read,
+	// wired in index.ts's `run` via `deniedToolDirs`).
+	const granted = grantedCapabilities(manifest);
 	const allowedTools = Array.from(
-		new Set([...builtins, ...(manifest.boundary.allowed_tools ?? []), ...byKind("tool").map((tool) => tool.name)]),
+		new Set([
+			...renderPiBuiltins(granted),
+			...byKind("tool")
+				.filter((tool) => toolIsGranted(manifest, tool.name))
+				.map((tool) => tool.name),
+		]),
 	);
+	const deployTools = Array.from(new Set((manifest.boundary.deploy_tools ?? []).flatMap(renderPiNames)));
 	await writeFile(
 		join(root, "policy.json"),
 		`${JSON.stringify(
 			{
 				...manifest.boundary,
 				allowed_tools: allowedTools,
-				deploy_tools: manifest.boundary.deploy_tools ?? [],
+				deploy_tools: deployTools,
 				session_id: id,
 			},
 			null,

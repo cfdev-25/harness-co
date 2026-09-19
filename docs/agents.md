@@ -405,11 +405,26 @@ team tools between Pi and Claude Code is already free.
 #### 7.1.1 Team tools are gated by the read geometry
 
 A tool asset lives at a path the supervisor materialised:
-`~/.harness/assets/tool/<name>/run`. **A binary that cannot be read cannot be
-executed.** So a tool the selected harness does not contain, or that the
-boundary does not permit, goes into `plan.filesystem.denyRead` and stops
-existing for that session — on Linux by never being bound into the namespace,
-on macOS by a `deny file-read*` rule.
+`~/.harness/assets/tool/<name>/run`. A tool the selected harness does not
+contain, or that the boundary does not permit, is denied at that path and
+stops existing for that session — on Linux by never being bound into the
+namespace, on macOS by a Seatbelt rule.
+
+> **Correction — the earlier mechanism here was wrong.** This section used to
+> claim "a binary that cannot be read cannot be executed", and deny only
+> `file-read*`. That is false for a compiled binary, and a tool's `run` may be
+> any executable. Measured on Darwin 24.3.0, reproduced independently:
+>
+> | Profile | `cat` a script | exec a script | exec a **compiled binary** |
+> | --- | --- | --- | --- |
+> | `deny file-read*` alone | blocked | blocked | **runs** |
+> | `+ deny process-exec` | blocked | blocked | blocked |
+>
+> Reading and executing are separate Seatbelt operations. The deny set names
+> **both**, and the probe asserts a compiled binary specifically — a script is
+> not a sufficient test case, because it fails for the wrong reason and would
+> have passed a profile that leaves the hole open. Recorded in
+> [`sandbox-notes.md`](sandbox-notes.md) under Spike 5.
 
 This is real enforcement at a choke point we own, it is per-harness, and it is
 completely agent-agnostic: it does not care what the agent calls its shell, or
@@ -424,10 +439,9 @@ Today this is not done. Hydration materialises the whole resolved set
 resolves is on disk and reachable through `bash` whatever harness is selected.
 Closing that is 13.1.
 
-> **Probe before claiming it.** On macOS the generated profile contains
-> `allow process*` (`macos-sandbox-utils.js:227`), so execution is not denied
-> directly — the claim rests on exec requiring read, which the Probe phase must
-> demonstrate rather than assume. Spike 5.
+> **Probed, and the assumption failed.** See the correction above. The value
+> of a spike is precisely this: the mechanism that reads as obvious was wrong,
+> and only running it found out.
 
 #### 7.1.2 Built-ins: the name is the agent's, the effect is ours
 

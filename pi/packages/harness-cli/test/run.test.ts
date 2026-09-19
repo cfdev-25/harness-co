@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -177,6 +177,39 @@ describe("-- passthrough", () => {
 		expect(await run(["pi", "--", "--resume", "--flag"])).toBe(0);
 		expect(spawnCalls[0].argv).toEqual(["--resume", "--flag"]);
 		expect(spawnCalls[0].command).toBe("pi-entry");
+	});
+});
+
+// agents.md §7.1.1, wired through the one place a child is actually created —
+// which is why this belongs in `run`'s own suite rather than the enforcer's:
+// it proves the wiring, not just the mechanism (test/enforcers/filesystem.test.ts
+// covers the mechanism itself in isolation).
+describe("team-tool deny-read enforcement", () => {
+	it("wraps the launch with sandbox-exec when a hydrated tool has nothing in the manifest to grant it", async () => {
+		// The mocked `/v1/resolve` above always returns `assets: []`, so any
+		// tool directory already on disk is one the manifest no longer
+		// mentions at all — exactly the fail-closed case agents.md §7.1.1
+		// calls out, and it needs no boundary field to trigger.
+		await mkdir(join(process.env.HARNESS_HOME as string, "assets", "tool", "deploy"), { recursive: true });
+		expect(await run(["pi"])).toBe(0);
+		expect(spawnCalls[0].command).toBe("/usr/bin/sandbox-exec");
+		expect(spawnCalls[0].argv[0]).toBe("-p");
+		expect(spawnCalls[0].argv[1]).toContain("tool/deploy");
+		expect(spawnCalls[0].argv.slice(2)).toEqual(["pi-entry"]);
+	});
+
+	it("does not wrap the launch when nothing is hydrated to deny", async () => {
+		expect(await run(["pi"])).toBe(0);
+		expect(spawnCalls[0].command).toBe("pi-entry");
+	});
+
+	it("applies identically to --claude, since it wraps after launch() rather than inside any one adapter", async () => {
+		testAdapters.claude = fakeAdapter("claude");
+		await mkdir(join(process.env.HARNESS_HOME as string, "assets", "tool", "deploy"), { recursive: true });
+		expect(await run(["claude"])).toBe(0);
+		expect(spawnCalls[0].command).toBe("/usr/bin/sandbox-exec");
+		expect(spawnCalls[0].argv[1]).toContain("tool/deploy");
+		expect(spawnCalls[0].argv.slice(2)).toEqual(["claude-entry"]);
 	});
 });
 

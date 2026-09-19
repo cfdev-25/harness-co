@@ -4,12 +4,14 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
+import { deniedToolDirs } from "./adapters/layout.js";
 import { adapters } from "./adapters/registry.js";
 import type { Adapter } from "./adapters/types.js";
 import { api } from "./api.js";
 import { adopt, identify, record, reset, status } from "./assets.js";
-import { type Manifest, readCredentials, sessionDir, writeCredentials } from "./core.js";
+import { assetsRoot, type Manifest, readCredentials, sessionDir, writeCredentials } from "./core.js";
 import { doctor } from "./doctor.js";
+import { denyReadArgv } from "./enforcers/filesystem.js";
 import { childEnvironment } from "./env.js";
 import { findHarness, readSelection, resolveForSession, switchHarness } from "./harness.js";
 import { help, manual, VERSION } from "./help.js";
@@ -202,14 +204,22 @@ export async function run(args: string[]): Promise<number> {
 		},
 	});
 	await createSpool(root);
+	// agents.md §7.1.1: every `tool/<name>` the selected harness excludes, or
+	// that `tool.<name>` does not permit, must stop existing for this session
+	// — computed from what is actually on disk, not just what the manifest
+	// says, so a stale directory hydration left behind is denied too.
+	const denyRead = await deniedToolDirs(manifest, assetsRoot());
 	let code = 1;
 	let watcher: { stop(): Promise<void> } | undefined;
 	try {
 		code = await new Promise<number>((resolveExit, reject) => {
 			// argv[0] is the executable the adapter chose. Not every agent is a
 			// node bundle — Claude Code ships a native binary — so the command
-			// is the adapter's to name, never this function's to assume.
-			const [command, ...rest] = [...launched.argv, ...passthrough];
+			// is the adapter's to name, never this function's to assume. The
+			// deny-read wrap happens after both the adapter's argv and the
+			// user's passthrough are assembled, so it applies regardless of
+			// which agent or which extra flags are in play.
+			const [command, ...rest] = denyReadArgv([...launched.argv, ...passthrough], denyRead);
 			const child = spawn(command, rest, {
 				stdio: "inherit",
 				env,

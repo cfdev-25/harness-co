@@ -1,6 +1,7 @@
 import pytest
 
 from app.domain.org_tree import (
+    Boundary,
     email_label,
     merge_boundaries,
     slugify,
@@ -93,6 +94,51 @@ def test_setting_one_budget_field_keeps_the_other_inherited():
         {"budget": {"requests_per_minute": 10}},
         {"budget": {"monthly_usd_cap": 100, "requests_per_minute": 20}},
     )
+
+
+def test_boundary_model_writes_capabilities_not_tool_names():
+    """An admin typing a Pi name into the console still ends up with the
+    server holding a capability, per agents.md §7.1.2 — a boundary that said
+    `bash` says `process.exec` from the moment it is stored."""
+    boundary = Boundary(allowed_tools=["bash", "slack_read"], deploy_tools=["deploy"])
+    assert boundary.allowed_tools == ["process.exec", "tool.slack_read"]
+    assert boundary.deploy_tools == ["tool.deploy"]
+
+
+def test_allowed_tools_narrows_by_intersection_like_other_allowlists():
+    merged = merge_boundaries(
+        [
+            {"allowed_tools": ["process.exec", "filesystem.read", "tool.deploy"]},
+            {"allowed_tools": ["process.exec", "tool.deploy"]},
+        ]
+    )
+    assert merged["allowed_tools"] == ["process.exec", "tool.deploy"]
+
+
+def test_deploy_tools_grows_by_union_not_intersection():
+    """Naming a tool here asks for *more* caution, so a lower level adding one
+    tightens rather than loosens — the opposite direction from an allowlist."""
+    merged = merge_boundaries(
+        [
+            {"deploy_tools": ["tool.deploy"]},
+            {"deploy_tools": ["tool.migrate"]},
+        ]
+    )
+    assert merged["deploy_tools"] == ["tool.deploy", "tool.migrate"]
+
+
+def test_a_child_cannot_grant_back_an_excluded_capability():
+    parent = {"allowed_tools": ["process.exec"]}
+    with pytest.raises(ApiError) as caught:
+        validate_tightening({"allowed_tools": ["process.exec", "filesystem.read"]}, parent)
+    assert caught.value.detail["field"] == "allowed_tools"
+
+
+def test_a_child_cannot_drop_a_required_deploy_confirmation():
+    parent = {"deploy_tools": ["tool.deploy"]}
+    with pytest.raises(ApiError) as caught:
+        validate_tightening({"deploy_tools": []}, parent)
+    assert caught.value.detail["field"] == "deploy_tools"
 
 
 def test_names_and_role_order_are_plain_and_predictable():

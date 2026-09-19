@@ -2,8 +2,9 @@ import re
 from typing import Any, Literal
 
 import asyncpg
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.domain.capabilities import to_capability
 from app.errors import ApiError
 
 
@@ -37,6 +38,19 @@ class Boundary(BaseModel):
     load_policy: LoadPolicy | None = None
     build_policy: BuildPolicy | None = None
     budget: Budget | None = None
+    # Which capabilities a session may use at all, and which of those need a
+    # per-call confirmation before running (agents.md §7.1.2). Values are
+    # capabilities, not tool names, translated on the way in so the API never
+    # stores an agent's private vocabulary even if an admin still types one.
+    allowed_tools: list[str] | None = None
+    deploy_tools: list[str] | None = None
+
+    @field_validator("allowed_tools", "deploy_tools")
+    @classmethod
+    def _as_capabilities(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        return [to_capability(item) for item in value]
 
 
 def slugify(value: str) -> str:
@@ -62,6 +76,9 @@ def merge_boundaries(policies: list[dict[str, Any]]) -> dict[str, Any]:
     defined_egress = [set(p["egress_allowlist"]) for p in policies if "egress_allowlist" in p]
     defined_connectors = [
         set(p["connector_allowlist"]) for p in policies if "connector_allowlist" in p
+    ]
+    defined_allowed_tools = [
+        set(p["allowed_tools"]) for p in policies if "allowed_tools" in p
     ]
 
     def intersection(values: list[set[str]]) -> list[str] | None:
@@ -93,9 +110,18 @@ def merge_boundaries(policies: list[dict[str, Any]]) -> dict[str, Any]:
         None,
     )
     own_load = next((p["load_policy"] for p in reversed(policies) if "load_policy" in p), None)
+    # `deploy_tools` names capabilities that need a confirmation, not
+    # capabilities that are permitted at all — a level adding one is asking
+    # for *more* caution, so the chain unions rather than intersects. There
+    # is no absent-vs-empty distinction to preserve here the way there is for
+    # an allowlist: nobody requiring a confirmation and an empty list both
+    # mean the same thing, "confirm nothing extra".
+    deploy_tools = sorted({tool for p in policies for tool in p.get("deploy_tools", [])})
     return {
         "egress_allowlist": intersection(defined_egress),
         "connector_allowlist": intersection(defined_connectors),
+        "allowed_tools": intersection(defined_allowed_tools),
+        "deploy_tools": deploy_tools,
         "approvals": {
             "deploy": (
                 "required"
@@ -115,8 +141,13 @@ def merge_boundaries(policies: list[dict[str, Any]]) -> dict[str, Any]:
 
 def validate_tightening(child: dict[str, Any], parent: dict[str, Any]) -> None:
     labels = {
-        "egress_allowlist": "Egress",
-        "connector_allowlist": "Connector",
+        "egress_allowlist": "Egress allowlist",
+        "connector_allowlist": "Connector allowlist",
+        # A capability is granted top-down like any other allowlist: a child
+        # cannot grant back a capability an ancestor's `allowed_tools`
+        # excluded, whether that capability names a built-in effect or a
+        # team tool (agents.md §7.1.1/§7.1.2 make no distinction here).
+        "allowed_tools": "Allowed tools",
     }
     for field in labels:
         if field in child:
@@ -131,12 +162,27 @@ def validate_tightening(child: dict[str, Any], parent: dict[str, Any]) -> None:
                 raise ApiError(
                     422,
                     "boundary_loosens",
-                    (
-                        f"{labels[field]} allowlist cannot include '{item}' "
-                        "because the org does not allow it."
-                    ),
+                    f"{labels[field]} cannot include '{item}' because the org does not allow it.",
                     {"field": field},
                 )
+    parent_deploy = set(parent.get("deploy_tools", []))
+    child_deploy = child.get("deploy_tools")
+    if child_deploy is not None:
+        # Unlike an allowlist, removing a name here is the loosening
+        # direction: `deploy_tools` marks what needs confirmation, so a
+        # child dropping one is asking for *less* caution than the parent
+        # requires.
+        dropped = parent_deploy - set(child_deploy)
+        if dropped:
+            raise ApiError(
+                422,
+                "boundary_loosens",
+                (
+                    f"Deploy confirmation for '{sorted(dropped)[0]}' cannot be removed "
+                    "because the parent requires it."
+                ),
+                {"field": "deploy_tools"},
+            )
     if (
         parent.get("approvals", {}).get("deploy") == "required"
         and child.get("approvals", {}).get("deploy") == "off"
