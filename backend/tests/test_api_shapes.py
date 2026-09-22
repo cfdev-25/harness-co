@@ -24,6 +24,7 @@ def test_health_and_uniform_authentication_error():
 def test_openapi_contains_full_backend_surface():
     paths = create_app(pool=object()).openapi()["paths"]
     expected = {
+        "/v1/access-requests",
         "/v1/personal-access-tokens",
         "/v1/me",
         "/v1/tree",

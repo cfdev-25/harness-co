@@ -1,147 +1,208 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useReducedMotion } from "./scroll-story";
 
-type Tone = "cmd" | "dim" | "ok" | "accent" | "you" | "agent";
+type Tone = "cmd" | "dim" | "text" | "accent";
+
+type Line = {
+  text: string;
+  tone: Tone;
+  /** "leader": dots then a tick, for boot. "glyph": a spinner ahead of the text, for work. */
+  task?: "leader" | "glyph";
+  state?: "running" | "done";
+  detail?: string;
+  /** A tick at the end of the line, for output that has landed. */
+  tick?: boolean;
+};
 
 type Step =
-  | { kind: "prompt" }
   | { kind: "type"; text: string }
-  | { kind: "line"; text: string; tone?: Tone }
+  | { kind: "line"; text?: string; tone?: Tone; tick?: boolean }
+  | { kind: "task"; label: string; detail?: string; ms: number }
+  | { kind: "work"; label: string; ms: number }
+  | { kind: "choose"; text: string; options: readonly string[]; pick: string; ms: number }
   | { kind: "wait"; ms: number };
 
-const SCRIPT: Step[] = [
-  { kind: "prompt" },
-  { kind: "type", text: "harness run pi --marketing" },
-  { kind: "wait", ms: 420 },
-  { kind: "line", text: "resolving marketing", tone: "dim" },
-  { kind: "line", text: "  skill/campaign-brief", tone: "dim" },
-  { kind: "line", text: "  skill/brand-voice", tone: "dim" },
-  { kind: "line", text: "  memory/audience", tone: "dim" },
-  { kind: "line", text: "  tool/cms", tone: "dim" },
-  { kind: "line", text: "loaded 4 assets · boundary as the org set it", tone: "ok" },
-  { kind: "wait", ms: 500 },
-  { kind: "line", text: "" },
-  { kind: "line", text: "pi · marketing", tone: "accent" },
-  { kind: "wait", ms: 280 },
-  { kind: "prompt" },
-  { kind: "type", text: "Draft a launch email for the spring collection" },
-  { kind: "wait", ms: 360 },
-  { kind: "line", text: "Wrote launch-email.md — subject, three variants, brand voice applied.", tone: "agent" },
-  { kind: "wait", ms: 420 },
-  { kind: "prompt" },
-  { kind: "type", text: "keep the follow-up as a skill so next time starts there" },
-  { kind: "wait", ms: 360 },
-  { kind: "line", text: "added skill/follow-up-sequence to marketing", tone: "ok" },
-  { kind: "line", text: "wrote memory/spring-audience", tone: "ok" },
-  { kind: "wait", ms: 280 },
-  { kind: "prompt" },
-  { kind: "type", text: "exit" },
-  { kind: "wait", ms: 380 },
-  { kind: "line", text: "" },
-  { kind: "line", text: "session ended", tone: "dim" },
-  { kind: "line", text: "detected 2 harness modifications", tone: "accent" },
-  { kind: "line", text: "  + skill/follow-up-sequence", tone: "dim" },
-  { kind: "line", text: "  + memory/spring-audience", tone: "dim" },
-  { kind: "line", text: "push them to your profile? [Y/n]", tone: "accent" },
-  { kind: "prompt" },
-  { kind: "type", text: "Y" },
-  { kind: "wait", ms: 320 },
-  { kind: "line", text: "pushed 2 assets · marketing", tone: "ok" },
-  { kind: "wait", ms: 2800 },
-];
+/** Pi's working indicator. */
+const SPIN = ["▖", "▘", "▝", "▗"] as const;
 
-type Line = { text: string; tone?: Tone };
+const SCRIPT: Step[] = [
+  { kind: "type", text: "harness run pi --marketing" },
+  { kind: "wait", ms: 500 },
+  { kind: "task", label: "Securing environment", ms: 700 },
+  { kind: "task", label: "Loading skills", detail: "3", ms: 620 },
+  { kind: "task", label: "Loading tools", detail: "2", ms: 560 },
+  { kind: "task", label: "Loading memories", detail: "1", ms: 560 },
+  { kind: "task", label: "Issuing session key", ms: 780 },
+  { kind: "line" },
+  { kind: "line", text: "  Pi marketing started", tone: "accent" },
+  { kind: "line" },
+  { kind: "wait", ms: 800 },
+
+  { kind: "type", text: "Rebuild the Q2 launch deck in dark mode" },
+  { kind: "wait", ms: 700 },
+  { kind: "work", label: "Editing tool · marketing-deck", ms: 1700 },
+  { kind: "work", label: "Creating deliverable", ms: 1900 },
+  { kind: "line", text: "  Wrote ~/marketing/q2-launch-deck.pdf", tone: "text", tick: true },
+  { kind: "line" },
+  { kind: "wait", ms: 1400 },
+
+  { kind: "type", text: "exit" },
+  { kind: "wait", ms: 500 },
+  { kind: "task", label: "Closing session", ms: 620 },
+  { kind: "task", label: "Revoking session key", ms: 700 },
+  { kind: "task", label: "Checking changes", detail: "1", ms: 760 },
+  { kind: "line" },
+  {
+    kind: "choose",
+    text: "  Keep the change to marketing-deck?",
+    options: ["Yes", "No"],
+    pick: "Yes",
+    ms: 1500,
+  },
+  { kind: "wait", ms: 700 },
+  { kind: "line", text: "  Progress saved", tone: "dim", tick: true },
+  { kind: "wait", ms: 5200 },
+];
 
 const TONE: Record<Tone, string> = {
   cmd: "text-ink-text",
   dim: "text-ink-muted",
-  ok: "text-ok",
+  text: "text-ink-text",
   accent: "text-accent",
-  you: "text-ink-text",
-  agent: "text-ink-text",
 };
 
-function playable() {
-  return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+/** What the person typed, underlined so it reads as input rather than output. */
+const TYPED = "underline decoration-ink-line decoration-1 underline-offset-[5px]";
+
+/** Dot leader, so every tick lands in the same column. */
+const COLUMN = 30;
+function leader(label: string) {
+  return ` ${".".repeat(Math.max(3, COLUMN - label.length))} `;
 }
 
-function finalLines(): { lines: Line[]; input: string | null } {
+/** The whole session, already played — what reduced motion shows. */
+function finalFrame(): Line[] {
   const lines: Line[] = [];
-  let input: string | null = null;
   for (const step of SCRIPT) {
-    if (step.kind === "prompt") input = "";
-    else if (step.kind === "type") {
-      lines.push({ text: step.text, tone: "cmd" });
-      input = null;
-    } else if (step.kind === "line") lines.push({ text: step.text, tone: step.tone });
+    if (step.kind === "type") lines.push({ text: step.text, tone: "cmd" });
+    else if (step.kind === "line")
+      lines.push({ text: step.text ?? "", tone: step.tone ?? "text", tick: step.tick });
+    else if (step.kind === "task")
+      lines.push({ text: `  ${step.label}`, tone: "dim", task: "leader", state: "done", detail: step.detail });
+    else if (step.kind === "work")
+      lines.push({ text: step.label, tone: "dim", task: "glyph", state: "done" });
+    else if (step.kind === "choose") {
+      lines.push({ text: step.text, tone: "accent" });
+      lines.push({ text: step.pick, tone: "dim", task: "glyph", state: "done" });
+    }
   }
-  return { lines, input };
+  return lines;
 }
+
+const FINAL = finalFrame();
 
 export function HeroTerminal() {
-  const [lines, setLines] = useState<Line[]>([]);
+  const reduce = useReducedMotion();
+  const [played, setLines] = useState<Line[]>([]);
+  const lines = reduce ? FINAL : played;
   const [input, setInput] = useState<string | null>(null);
   const [cursor, setCursor] = useState(true);
+  const [spin, setSpin] = useState(0);
   const scroller = useRef<HTMLPreElement>(null);
 
   useEffect(() => {
-    if (!playable()) {
-      const next = finalLines();
-      setLines(next.lines);
-      setInput(next.input);
-      return;
-    }
+    if (reduce) return;
 
     let alive = true;
     let timer: number | undefined;
-    setLines([]);
-    setInput(null);
-
     const later = (ms: number) =>
       new Promise<void>((resolve) => {
         timer = window.setTimeout(resolve, ms);
       });
 
+    async function typeInto(text: string, into: (typed: string) => void) {
+      let typed = "";
+      for (const char of text) {
+        if (!alive) return;
+        typed += char;
+        into(typed);
+        await later(char === " " ? 62 : 42);
+      }
+    }
+
     async function run() {
       while (alive) {
         setLines([]);
         setInput(null);
+
         for (const step of SCRIPT) {
           if (!alive) return;
+
           if (step.kind === "wait") {
             await later(step.ms);
-          } else if (step.kind === "prompt") {
-            setInput("");
-            await later(160);
+          } else if (step.kind === "line") {
+            setLines((current) => [
+              ...current,
+              { text: step.text ?? "", tone: step.tone ?? "text", tick: step.tick },
+            ]);
+            await later(step.text ? 260 : 140);
           } else if (step.kind === "type") {
-            let typed = "";
-            for (const char of step.text) {
-              if (!alive) return;
-              typed += char;
-              setInput(typed);
-              await later(28 + (char === " " ? 20 : 0));
-            }
-            const committed = typed;
-            setLines((current) => [...current, { text: committed, tone: "cmd" }]);
+            setInput("");
+            await later(260);
+            await typeInto(step.text, setInput);
+            const typed = step.text;
+            setLines((current) => [...current, { text: typed, tone: "cmd" }]);
             setInput(null);
-            await later(120);
+            await later(180);
+          } else if (step.kind === "task" || step.kind === "work") {
+            const shape = step.kind === "task" ? "leader" : "glyph";
+            setLines((current) => [
+              ...current,
+              step.kind === "task"
+                ? { text: `  ${step.label}`, tone: "dim", task: shape, state: "running" }
+                : { text: step.label, tone: "dim", task: shape, state: "running" },
+            ]);
+            await later(step.ms);
+            setLines((current) =>
+              current.map((line, index) =>
+                index === current.length - 1
+                  ? { ...line, state: "done", detail: step.kind === "task" ? step.detail : undefined }
+                  : line,
+              ),
+            );
+            await later(step.kind === "task" ? 160 : 320);
           } else {
-            setLines((current) => [...current, { text: step.text, tone: step.tone }]);
-            await later(step.text ? 200 : 80);
+            setLines((current) => [
+              ...current,
+              { text: step.text, tone: "accent" },
+              ...step.options.map((option, index) => ({
+                text: `    ${index === 0 ? "\u25b8" : " "} ${option}`,
+                tone: (index === 0 ? "text" : "dim") as Tone,
+              })),
+            ]);
+            await later(step.ms);
+            // the choice lands: the menu collapses to the option taken
+            setLines((current) => [
+              ...current.slice(0, current.length - step.options.length),
+              { text: step.pick, tone: "dim", task: "glyph", state: "done" },
+            ]);
           }
         }
       }
     }
 
     void run();
-    const blink = window.setInterval(() => setCursor((on) => !on), 530);
+    const blink = window.setInterval(() => setCursor((on) => !on), 560);
+    const spinner = window.setInterval(() => setSpin((frame) => frame + 1), 130);
     return () => {
       alive = false;
       if (timer !== undefined) window.clearTimeout(timer);
       window.clearInterval(blink);
+      window.clearInterval(spinner);
     };
-  }, []);
+  }, [reduce]);
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
@@ -150,36 +211,51 @@ export function HeroTerminal() {
   return (
     <div className="relative">
       <div className="absolute -inset-8 rounded-full bg-accent/10 blur-3xl" aria-hidden />
-      <div className="relative overflow-hidden rounded-2xl border border-ink-line bg-ink text-ink-text shadow-[0_24px_64px_rgba(43,33,28,0.18)]">
-        <div className="flex items-center gap-2 border-b border-ink-line px-4 py-2.5">
-          <span className="size-2 rounded-full bg-ink-line" aria-hidden />
-          <span className="size-2 rounded-full bg-ink-line" aria-hidden />
-          <span className="size-2 rounded-full bg-ink-line" aria-hidden />
-          <span className="ml-2 font-mono text-[10px] tracking-[0.12em] text-ink-muted uppercase">
-            harness
-          </span>
+      <div className="relative overflow-hidden rounded-xl border border-ink-line bg-ink text-ink-text shadow-[0_30px_70px_-40px_rgb(0_0_0/0.6)]">
+        <div className="flex items-center gap-2 border-b border-ink-line px-4 py-3">
+          <span className="size-3 rounded-full bg-warn/80" aria-hidden />
+          <span className="size-3 rounded-full bg-hold/80" aria-hidden />
+          <span className="size-3 rounded-full bg-ok/80" aria-hidden />
+          <span className="ml-2 font-mono text-[11px] text-ink-muted">harness</span>
         </div>
         <pre
           ref={scroller}
-          aria-label="Harness CLI session"
-          className="h-[22rem] overflow-hidden px-4 py-3 font-mono text-[12px] leading-relaxed whitespace-pre-wrap"
+          aria-label="A Harness session, from launch to save"
+          className="h-[22rem] overflow-hidden px-4 py-4 font-mono text-[10px] leading-[1.75] whitespace-pre-wrap sm:px-5 sm:text-[11px] md:h-[31rem] md:text-[12px]"
         >
           {lines.map((line, index) => (
-            <span key={`${index}-${line.text}`} className={`block ${line.tone ? TONE[line.tone] : ""}`}>
+            <span key={`${index}-${line.text}`} className={`block ${TONE[line.tone]}`}>
+              {line.task === "glyph" && (
+                <span className={line.state === "done" ? "text-accent" : "text-ink-muted"}>
+                  {`  ${line.state === "done" ? "✓" : SPIN[spin % SPIN.length]} `}
+                </span>
+              )}
               {line.tone === "cmd" ? (
                 <>
-                  <span className="text-ink-muted">{"% "}</span>
-                  {line.text}
+                  <span className="text-accent">{"% "}</span>
+                  <span className={TYPED}>{line.text}</span>
                 </>
               ) : (
                 line.text || "\u00a0"
+              )}
+              {line.tick && <span className="text-accent">{"  \u2713"}</span>}
+              {line.task === "leader" && (
+                <>
+                  <span className="text-ink-line">{leader(line.text)}</span>
+                  {line.state === "done" ? (
+                    <span className="text-accent">✓</span>
+                  ) : (
+                    <span className="text-ink-muted">{SPIN[spin % SPIN.length]}</span>
+                  )}
+                  {line.detail && <span className="text-ink-muted">{`  ${line.detail}`}</span>}
+                </>
               )}
             </span>
           ))}
           {input !== null && (
             <span className="block">
-              <span className="text-ink-muted">{"% "}</span>
-              {input}
+              <span className="text-accent">{"% "}</span>
+              <span className={TYPED}>{input}</span>
               <span className={cursor ? "text-accent" : "text-transparent"}>▍</span>
             </span>
           )}

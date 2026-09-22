@@ -43,6 +43,14 @@ export function AuthShell({
   );
 }
 
+/**
+ * Accounts are created by invitation: an admin invites the address, GoTrue
+ * mails the link, and the person sets a password. Self-serve sign-up is off
+ * unless the deployment opts in, and turning it on here does nothing until
+ * sign-ups are also enabled in the auth provider.
+ */
+const SELF_SERVE = process.env.NEXT_PUBLIC_ALLOW_SIGNUP === "true";
+
 export function Login() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
@@ -68,7 +76,9 @@ export function Login() {
       title={mode === "signin" ? "Sign in" : "Create account"}
       description={
         mode === "signin"
-          ? "Manage harnesses for yourself or your organization."
+          ? SELF_SERVE
+            ? "Manage harnesses for yourself or your organization."
+            : "Harness Manager is invite-only. Ask an admin on your team to invite this address."
           : "Your workspace is created when you accept an invite or start an organization."
       }
     >
@@ -97,13 +107,15 @@ export function Login() {
           {busy ? "Working…" : mode === "signin" ? "Sign in" : "Sign up"}
         </Button>
       </form>
-      <Button
-        full
-        className="mt-3"
-        onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-      >
-        {mode === "signin" ? "Need an account?" : "Have an account?"}
-      </Button>
+      {SELF_SERVE && (
+        <Button
+          full
+          className="mt-3"
+          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+        >
+          {mode === "signin" ? "Need an account?" : "Have an account?"}
+        </Button>
+      )}
     </AuthShell>
   );
 }

@@ -171,3 +171,14 @@ html[data-theme="leather"] {
     radial-gradient(circle at 88% 94%, rgba(0, 0, 0, 0.38) 0, transparent 42%);
 }
 
+/* Home page: a swapped word or caption settles in from just below. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

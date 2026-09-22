@@ -40,7 +40,7 @@ export function HeroLead() {
 
   return (
     <>
-      <h1 className="mt-4 font-serif text-[2.6rem] leading-[1.08] tracking-[-0.03em] text-pretty md:text-6xl">
+      <h1 className="font-serif text-[2.6rem] leading-[1.08] tracking-[-0.03em] text-pretty md:text-6xl">
         Secure, manage, and scale harnesses across{" "}
         <span className="relative inline-block align-baseline">
           <em className="invisible italic" aria-hidden>
@@ -54,9 +54,12 @@ export function HeroLead() {
           </em>
         </span>
       </h1>
-      <p className="mt-6 max-w-lg text-[17px] leading-relaxed text-muted">
+      <p className="mt-6 font-serif text-2xl tracking-[-0.02em] text-accent md:text-[1.75rem]">
+        Every agent in harness. Your people at the reins.
+      </p>
+      <p className="mt-4 max-w-lg text-[17px] leading-relaxed text-muted">
         A harness-agnostic management and collaboration solution for preserving, iterating, and proliferating
-        agentic work.
+        agentic work across your organization.
       </p>
     </>
   );
