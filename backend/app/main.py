@@ -7,7 +7,6 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.api import (
-    routes_access_requests,
     routes_api_keys,
     routes_assets,
     routes_audit,
@@ -54,7 +53,6 @@ def create_app(pool: asyncpg.Pool | None = None) -> FastAPI:
         )
 
     for router in (
-        routes_access_requests.router,
         routes_auth.router,
         routes_org_units.router,
         routes_assets.router,

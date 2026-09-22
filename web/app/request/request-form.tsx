@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { supabase } from "@/lib/supabase";
 
 const FIELD =
   "w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-[14px] text-fg outline-none transition placeholder:text-faint focus:border-accent";
@@ -15,32 +16,34 @@ export function RequestForm() {
     const form = new FormData(event.currentTarget);
     setState("sending");
     setError("");
-    try {
-      const response = await fetch("/v1/access-requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: form.get("email"),
-          name: form.get("name"),
-          company: form.get("company"),
-          team_size: form.get("team_size"),
-          note: form.get("note"),
-          company_website: form.get("company_website"),
-        }),
-      });
-      if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        throw new Error(
-          body && typeof body === "object" && "message" in body
-            ? String(body.message)
-            : "Something went wrong. Please try again.",
-        );
-      }
+
+    // A bot that fills the hidden field gets the same answer as everyone else.
+    if (String(form.get("company_website") ?? "")) {
       setState("sent");
-    } catch (cause) {
-      setState("idle");
-      setError(cause instanceof Error ? cause.message : "Something went wrong.");
+      return;
     }
+
+    /* Straight to Postgres through a definer function: the public site needs
+       no API of its own, and `anon` can write a request without being able to
+       read one back. */
+    const { error: cause } = await supabase.rpc("request_access", {
+      p_email: String(form.get("email") ?? ""),
+      p_name: form.get("name") || null,
+      p_company: form.get("company") || null,
+      p_team_size: form.get("team_size") || null,
+      p_note: form.get("note") || null,
+    });
+
+    if (cause) {
+      setState("idle");
+      setError(
+        cause.message.includes("invalid_email")
+          ? "Please enter a valid email address."
+          : "Something went wrong. Please try again.",
+      );
+      return;
+    }
+    setState("sent");
   }
 
   if (state === "sent") {
