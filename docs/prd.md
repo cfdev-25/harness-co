@@ -1,5 +1,9 @@
 # The Harness Company — Product Requirements
 
+> **Superseded by [`prd-v2.md`](prd-v2.md).** That document is normative where
+> the two disagree; its §1 lists exactly which sections here it amends. This
+> file is kept for the sections v2 does not touch.
+
 > **Governing principle.** Every capability removes stress from the foreground by doing more in the background. We ship explainability, not features. If a capability adds a concept the user must learn, it does not ship. The product is the translation layer between the system's power and the human's stress level — everything below serves usability, ease of experience, and enterprise deployability.
 
 ---

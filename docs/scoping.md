@@ -1,5 +1,11 @@
 # Scoping
 
+> **Superseded by [`prd-v2.md`](prd-v2.md) §6.** §0's rule — *nothing is shared
+> by containment* — is reversed: presence on a branch in your chain is reach,
+> and `asset_scopes` is retired. The §2 AWS comparison and the §3 account of
+> why scope keys on `asset_id` are still the best record of why the decision
+> was close. Nothing here is normative any more.
+
 Who can use a thing, decided by whoever owns it.
 
 Today an asset at the org is available to every descendant, automatically and
