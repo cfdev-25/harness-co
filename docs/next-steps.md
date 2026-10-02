@@ -50,11 +50,12 @@ Four things are the person's, not the code's:
    stranger meets one door — but the link is only as good as the mailer.
    Two settings, both the person's:
    - **Authentication → URL Configuration → Redirect URLs** must hold the
-     deployed console's `/signup`. Dev's already is: a verify link asking for
-     `http://localhost:3000/signup?finish=1` was answered `303` to exactly
-     that address, rather than to the site URL, which is what a redirect
-     GoTrue does not allow would have done. Without it the sign-up cannot
-     finish, because the link lands where the page is not.
+     deployed console's `/signup`. Dev's already does: a verify link asking
+     for `http://localhost:3000/signup?finish=1` was answered `303` to
+     exactly that address, while the same link asking for
+     `http://evil.example/x` was answered `303` to the **site URL** instead —
+     so the allow-list is enforced and that path is on it. Without the entry
+     the link lands where the page is not and the sign-up cannot finish.
    - **Authentication → Emails → SMTP Settings**: the built-in mailer is
      rate-limited per hour and per project, and it refused outright during
      this build (`429 over_email_send_rate_limit` — the page shows it in
@@ -67,12 +68,14 @@ Four things are the person's, not the code's:
 4. **Throwaway accounts to discard**: `w7-personal-dana`, `w7-personal-sam`
    (holds a harness *First*), `w7-team-acme`, `w7h-1790964023` (a hand-edited
    fixture with a dud `openai` key in `model-keys`), the two WSD
-   organisations in a second definitions root, and W7-D1a's auth users —
-   `w7d1-probe-…` and `w7d1-…@harnessmanager.dev` (no organisation),
-   `w7d1-pkce-…` and `w7d1-1790972186…@mailinator.com` (no organisation), and
-   `w7d1-resume-1790972358575@mailinator.com` ·
-   `w7d1-resume-1790972420028@mailinator.com`, which each hold a personal
-   organisation made with the code. None is the dev org.
+   organisations in a second definitions root, and W7-D1a's auth users. Six
+   hold **no** organisation and are only addresses the auth provider now
+   knows (`generate_link` creates the user when it is missing):
+   `w7d1-probe-…` and `w7d1-1790971898777@harnessmanager.dev`, and
+   `w7d1-pkce-…`, `w7d1-1790972186…`, `w7d1-link-…`, `w7d1-ratelimit-…` at
+   `@mailinator.com`. Two hold a personal organisation made with the code and
+   are the live proof: `w7d1-resume-1790972358575@mailinator.com` ·
+   `w7d1-resume-1790972420028@mailinator.com`. None is the dev org.
 
 ## After Wave 5 (1 Oct 2026)
 

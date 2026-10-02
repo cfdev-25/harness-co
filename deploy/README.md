@@ -106,6 +106,30 @@ one machine on purpose (a git repository cannot be served from two), so a
 deploy there is ten to twenty seconds of downtime for pushes; sessions
 already open are not affected.
 
+## Moving existing repositories onto the volume
+
+Organisations created before the deploy have their repositories on the
+machine that created them, not on the volume. SSH to Fly machines needs a
+WireGuard tunnel some networks block, and `fly machine exec` truncates long
+commands, so the route that always works is a one-off image: put the
+archive at `deploy/repos.tgz` (gitignored), build
+`deploy/definitions.seed.Dockerfile` for amd64 on top of the image Fly last
+deployed, deploy it by `--image`, then redeploy the plain image:
+
+```sh
+tar czf deploy/repos.tgz -C ~/.harness-dev/definitions .
+fly auth docker
+docker build --platform linux/amd64 -f deploy/definitions.seed.Dockerfile \
+  --build-arg BASE=registry.fly.io/harness-co-definitions:<last deployment tag> \
+  --build-arg MARKER=<org id>.git -t registry.fly.io/harness-co-definitions:seed .
+docker push registry.fly.io/harness-co-definitions:seed
+fly deploy -a harness-co-definitions --config fly.definitions.toml --image registry.fly.io/harness-co-definitions:seed --yes
+fly deploy -a harness-co-definitions --config fly.definitions.toml --image registry.fly.io/harness-co-definitions:<last deployment tag> --yes
+```
+
+The seed extracts only when `<org id>.git` is absent, so a second start is a
+no-op. Done once on 2 Oct 2026 for the development organisation.
+
 ## Backups
 
 Fly snapshots the volume daily and keeps five (`snapshot_retention` in the
