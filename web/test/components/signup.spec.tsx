@@ -3,7 +3,7 @@ import type { Page } from "@playwright/test";
 import { SignUp } from "@/app/signup/signup";
 import { SIGNUP } from "@/app/signup/words";
 import type { AuthCall, AuthStub } from "./supabase.client";
-import { records, refuses } from "./writes";
+import { records, refuses, type Sent } from "./writes";
 
 const CODE = "mcbreezy";
 const CHOICE = "harness.signup";
@@ -18,6 +18,17 @@ async function auth(page: Page, stub: AuthStub) {
 async function calls(page: Page): Promise<AuthCall[]> {
   return page.evaluate(() => window.__authCalls ?? []);
 }
+
+/** The finish step first asks the API whether this person already has a
+    workspace (a member is sent to the console); here nobody does. */
+async function noWorkspace(page: Page): Promise<void> {
+  await page.route("**/v1/console/me**", (route) =>
+    route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ code: "no_workspace", message: "You do not have a workspace yet." }) }),
+  );
+}
+
+/** What the form wrote — the viewer reads around it are the page's own business. */
+const writes = (sent: Sent[]) => sent.filter((one) => one.method !== "GET");
 
 async function remembered(page: Page, key: string): Promise<string | null> {
   return page.evaluate((name) => localStorage.getItem(name), key);
@@ -73,6 +84,7 @@ test("signup_finishes_from_the_link_with_the_password_and_the_code", async ({ mo
     [CHOICE, JSON.stringify({ edition: "personal", orgName: "" })],
   );
   const sent = await records(page);
+  await noWorkspace(page);
   // `finish`: the link's landing. The session is the stub's, as the browser
   // client's would be once it has read the token out of the URL.
   const component = await mount(<SignUp finish />);
@@ -90,7 +102,7 @@ test("signup_finishes_from_the_link_with_the_password_and_the_code", async ({ mo
     name: "updateUser",
     arg: { password: true },
   });
-  await expect.poll(() => sent).toEqual([
+  await expect.poll(() => writes(sent)).toEqual([
     { method: "POST", path: "/v1/orgs", body: { code: CODE, personal: true } },
   ]);
 });
@@ -110,7 +122,7 @@ test("signup_renders_a_wrong_code_in_place_and_sets_the_password_once", async ({
   await page.getByLabel(SIGNUP.code).fill("wrong-code");
   await component.getByRole("button", { name: SIGNUP.finish }).click();
 
-  await expect.poll(() => sent).toEqual([
+  await expect.poll(() => writes(sent)).toEqual([
     { method: "POST", path: "/v1/orgs", body: { code: "wrong-code", org_name: "Acme" } },
   ]);
   // In place: the field that was wrong is still open with the server's own
@@ -124,13 +136,14 @@ test("signup_renders_a_wrong_code_in_place_and_sets_the_password_once", async ({
   // password twice.
   await page.getByLabel(SIGNUP.code).fill(CODE);
   await component.getByRole("button", { name: SIGNUP.finish }).click();
-  await expect.poll(() => sent).toHaveLength(2);
+  await expect.poll(() => writes(sent)).toHaveLength(2);
   expect((await calls(page)).filter((call) => call.name === "updateUser")).toHaveLength(1);
 });
 
 test("signup_asks_the_kind_again_when_nothing_was_remembered", async ({ mount, page }) => {
   await auth(page, { session: true });
   const sent = await records(page);
+  await noWorkspace(page);
   // A session and an empty `localStorage`: another browser, or a sign-in
   // that `AuthApp` sent back here with no organisation to land on.
   const component = await mount(<SignUp finish />);

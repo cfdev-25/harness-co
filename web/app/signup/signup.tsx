@@ -132,6 +132,19 @@ function Choose({ chosen, onPick }: { chosen: Edition | null; onPick: (edition: 
  * without a flash of step 1. The client's own `getSession` is what decides,
  * though — see the effect.
  */
+/** Polls the viewer until the new organisation's index answers (a few seconds at most). */
+async function workspaceReady(token: string | null): Promise<void> {
+  for (let attempt = 0; attempt < 30; attempt++) {
+    try {
+      await request("/v1/console/me?scope=me", token);
+      return;
+    } catch (cause) {
+      if (!(cause instanceof ApiError && cause.status === 404)) throw cause;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
+}
+
 export function SignUp({
   signedIn = false,
   finish = false,
@@ -173,17 +186,30 @@ export function SignUp({
           if (finish) setDead(true);
           return;
         }
-        const held = recall();
-        if (held) {
-          setEdition(held.edition);
-          setOrgName(held.orgName);
-        }
-        setStep(3);
+        // Someone who already has an organisation has nothing to finish: the
+        // console is where they belong, not this form (a member here is the
+        // console bouncing back a second too early, or a bookmark).
+        void getToken()
+          .then((token) => request("/v1/console/me?scope=me", token))
+          .then(() => {
+            if (!live) return;
+            router.refresh();
+            router.replace(AFTER_SIGN_IN);
+          })
+          .catch(() => {
+            if (!live) return;
+            const held = recall();
+            if (held) {
+              setEdition(held.edition);
+              setOrgName(held.orgName);
+            }
+            setStep(3);
+          });
       });
     return () => {
       live = false;
     };
-  }, [finish]);
+  }, [finish, router]);
 
   async function sendLink(event: FormEvent) {
     event.preventDefault();
@@ -228,14 +254,22 @@ export function SignUp({
         }
         setPasswordSet(true);
       }
-      await request("/v1/orgs", await getToken(), {
-        method: "POST",
-        body: JSON.stringify(
-          edition === "personal" ? { code, personal: true } : { code, org_name: orgName },
-        ),
-      });
-      // `refresh()` before the navigation, as `auth.tsx` does: the console is
-      // server-rendered and the organisation is a second old.
+      try {
+        await request("/v1/orgs", await getToken(), {
+          method: "POST",
+          body: JSON.stringify(
+            edition === "personal" ? { code, personal: true } : { code, org_name: orgName },
+          ),
+        });
+      } catch (cause) {
+        // A member who found their way back here is already done.
+        if (!(cause instanceof ApiError && cause.code === "already_member")) throw cause;
+      }
+      // The organisation is written to git first and indexed a moment later;
+      // the console reads the index. Leaving before it answers lands on the
+      // console's "no workspace" branch, which sends the person straight back
+      // here. So: wait for the index, then go.
+      await workspaceReady(await getToken());
       router.refresh();
       router.replace(AFTER_SIGN_IN);
     } catch (cause) {
