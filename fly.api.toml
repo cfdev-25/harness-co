@@ -1,5 +1,5 @@
 # Fly.io app for the API. Deploy from the repository root:
-#   fly deploy --config deploy/fly.api.toml --dockerfile deploy/api.Dockerfile
+#   fly deploy --config fly.api.toml
 # Replace `app` with the name you chose at `fly launch`.
 app = "harness-co-api"
 primary_region = "iad"

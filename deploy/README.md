@@ -1,6 +1,6 @@
 # Deploying the API and the definitions service to Fly.io
 
-Two Fly apps, built from the two Dockerfiles beside this file. The web app
+Two Fly apps, built from the two Dockerfiles beside this file. The two `fly.*.toml` configs sit at the **repository root**, because Fly resolves the Dockerfile path and the build context from the folder the config is in, and both Dockerfiles copy from `backend/` and `engine/`. The web app
 stays on Vercel; Postgres and Auth stay on Supabase (the same project the
 development stack uses — its schema is already migrated).
 
@@ -10,7 +10,7 @@ development stack uses — its schema is already migrated).
 | `harness-co-definitions` | `deploy/definitions.Dockerfile` | `https://harness-co-definitions.fly.dev` | the organisations' git repositories, on the volume `definitions_data` at `/data` |
 
 If either name is taken on Fly, pick another and substitute it everywhere
-below (and in the two `fly.*.toml` files' `app =` lines).
+below (and in the two root `fly.*.toml` files' `app =` lines).
 
 ## One time, in this order (≈ 25 minutes)
 
@@ -59,8 +59,8 @@ hostname, never an internal one.
 **4. Deploy both.**
 
 ```sh
-fly deploy --config deploy/fly.api.toml
-fly deploy --config deploy/fly.definitions.toml
+fly deploy --config fly.api.toml
+fly deploy --config fly.definitions.toml
 ```
 
 Each takes a few minutes the first time (Fly builds the image remotely if
@@ -97,8 +97,8 @@ commands into a terminal, open a harness from the card.
 ## Every later deploy
 
 ```sh
-fly deploy --config deploy/fly.api.toml
-fly deploy --config deploy/fly.definitions.toml
+fly deploy --config fly.api.toml
+fly deploy --config fly.definitions.toml
 ```
 
 Only the app whose code changed needs redeploying. The definitions app runs

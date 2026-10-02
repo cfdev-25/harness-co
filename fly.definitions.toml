@@ -1,5 +1,5 @@
 # Fly.io app for the definitions service. Deploy from the repository root:
-#   fly deploy --config deploy/fly.definitions.toml --dockerfile deploy/definitions.Dockerfile
+#   fly deploy --config fly.definitions.toml
 # Replace `app` with the name you chose at `fly launch`. One machine only: the
 # repositories live on the volume mounted at /data, and a git repository
 # cannot be served from two machines at once.
