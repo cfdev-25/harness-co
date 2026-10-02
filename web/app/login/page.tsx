@@ -8,10 +8,20 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function LoginPage() {
+/**
+ * `?next=` is read here, in a server component, and handed down as a prop:
+ * `useSearchParams` in `AuthApp` would make the whole page need a Suspense
+ * boundary at build time (02 rule 11).
+ */
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string | string[] }>;
+}) {
+  const { next } = await searchParams;
   return (
     <PublicTheme>
-      <AuthApp />
+      <AuthApp next={Array.isArray(next) ? next[0] : next} />
     </PublicTheme>
   );
 }

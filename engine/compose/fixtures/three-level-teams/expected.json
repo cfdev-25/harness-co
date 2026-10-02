@@ -1,0 +1,125 @@
+{
+	"chain": [
+		{
+			"kind": "org",
+			"path": "acme",
+			"ref": "refs/heads/org",
+			"commit": "org"
+		},
+		{
+			"kind": "team",
+			"path": "acme.marketing",
+			"ref": "refs/heads/teams/acme.marketing",
+			"commit": "t1"
+		},
+		{
+			"kind": "team",
+			"path": "acme.marketing.interns",
+			"ref": "refs/heads/teams/acme.marketing.interns",
+			"commit": "t2"
+		},
+		{
+			"kind": "user",
+			"path": "acme.marketing.interns.dana",
+			"ref": "refs/heads/users/dana",
+			"commit": "u"
+		}
+	],
+	"assets": [
+		{
+			"id": "0b7e4d2a-9c31-4f8e-b6a2-51d3c7e9f0a4",
+			"kind": "memory",
+			"name": "never-drop-db",
+			"from": {
+				"kind": "team",
+				"path": "acme.marketing.interns",
+				"ref": "refs/heads/teams/acme.marketing.interns",
+				"commit": "t2"
+			},
+			"tree": "t2:assets/memory/never-drop-db",
+			"sidecar": {
+				"id": "0b7e4d2a-9c31-4f8e-b6a2-51d3c7e9f0a4",
+				"kind": "memory"
+			}
+		},
+		{
+			"id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+			"kind": "skill",
+			"name": "triage",
+			"from": {
+				"kind": "user",
+				"path": "acme.marketing.interns.dana",
+				"ref": "refs/heads/users/dana",
+				"commit": "u"
+			},
+			"tree": "u:assets/skill/triage",
+			"sidecar": {
+				"id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+				"kind": "skill"
+			}
+		},
+		{
+			"id": "6f1c9a2e-3b0d-4c7e-9a51-2f0e8b7d4c11",
+			"kind": "tool",
+			"name": "deploy",
+			"from": {
+				"kind": "team",
+				"path": "acme.marketing.interns",
+				"ref": "refs/heads/teams/acme.marketing.interns",
+				"commit": "t2"
+			},
+			"tree": "t2:assets/tool/deploy",
+			"sidecar": {
+				"id": "6f1c9a2e-3b0d-4c7e-9a51-2f0e8b7d4c11",
+				"kind": "tool"
+			},
+			"shadows": {
+				"from": {
+					"kind": "team",
+					"path": "acme.marketing",
+					"ref": "refs/heads/teams/acme.marketing",
+					"commit": "t1"
+				},
+				"tree": "t1:assets/tool/deploy"
+			}
+		}
+	],
+	"conflicts": [],
+	"policy": {
+		"boundaries": [],
+		"grants": [],
+		"groups": {},
+		"modelProviders": {},
+		"harnessProviders": {},
+		"routing": {
+			"defaultFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			},
+			"approvedFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			}
+		},
+		"kinds": [
+			"skill",
+			"memory",
+			"tool",
+			"prompt",
+			"system_prompt",
+			"connection"
+		],
+		"required": [],
+		"recommended": [],
+		"reach": {
+			"mode": "off",
+			"hosts": [],
+			"setBy": "acme"
+		}
+	},
+	"harnesses": [],
+	"harnessFrom": {},
+	"tree": "<composed>"
+}

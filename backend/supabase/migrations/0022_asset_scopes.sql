@@ -1,5 +1,5 @@
 -- Nothing is shared by containment. A unit sees what it owns, plus what an
--- ancestor has explicitly scoped to it (docs/scoping.md §0). This table is
+-- ancestor has explicitly scoped to it (docs/archive/scoping.md §0). This table is
 -- the "plus": a row means *this asset is available to this unit and
 -- everything beneath it*.
 --
@@ -9,7 +9,7 @@
 -- the opposite question: an owner is scoping *its own copy*. Keyed by name,
 -- the org scoping out `triage` would also scope out a team's own `triage`,
 -- which nobody asked it to do and which the org may not even know exists
--- (docs/scoping.md §3).
+-- (docs/archive/scoping.md §3).
 --
 -- A row grants reach; it says nothing about which copy wins where two units
 -- both have a `triage`. That is resolution's job (resolve.py
@@ -22,7 +22,7 @@
 create table asset_scopes (
   asset_id     uuid not null references assets(id) on delete cascade,
   org_unit_id  uuid not null references org_units(id) on delete cascade,
-  -- Per-recipient credential override (docs/scoping.md §5.3): null means the
+  -- Per-recipient credential override (docs/archive/scoping.md §5.3): null means the
   -- asset's own. Nothing reads this column yet — it is here only so this
   -- backfill does not have to be rewritten the day something does.
   key_ref      text,
@@ -46,8 +46,8 @@ alter table asset_scopes enable row level security;
 -- automatically and unconditionally. Scoping each existing asset to all of
 -- its owner's current descendants makes that the recorded state instead of
 -- an assumption, so deploying this migration changes no live session's
--- manifest (docs/v3.md §5) — it is the honest record of what those assets'
--- reach already was (docs/scoping.md §4.1), not a new grant.
+-- manifest (docs/archive/v3.md §5) — it is the honest record of what those assets'
+-- reach already was (docs/archive/scoping.md §4.1), not a new grant.
 --
 -- granted_by here is the asset's own owning-unit id, standing in for "this
 -- was already true, nobody granted it" — the sentinel is documented here

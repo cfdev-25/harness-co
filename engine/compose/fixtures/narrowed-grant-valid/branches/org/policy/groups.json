@@ -1,0 +1,32 @@
+[
+	{
+		"name": "marketing",
+		"entries": [
+			{
+				"alias": "crm",
+				"secret": {
+					"vault": "aws-prod",
+					"ref": "marketing/crm-api-key"
+				},
+				"upstream": "https://api.crm.example",
+				"attach": {
+					"header": "Authorization",
+					"prefix": "Bearer "
+				}
+			},
+			{
+				"alias": "email",
+				"secret": {
+					"vault": "aws-prod",
+					"ref": "marketing/sendgrid"
+				},
+				"upstream": "https://api.sendgrid.com",
+				"attach": {
+					"header": "Authorization",
+					"prefix": "Bearer "
+				}
+			}
+		],
+		"sources": "vault"
+	}
+]

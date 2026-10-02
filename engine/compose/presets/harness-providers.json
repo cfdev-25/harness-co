@@ -1,0 +1,16 @@
+[
+  {
+    "id": "pi",
+    "name": "Pi",
+    "pin": { "repo": "pi", "commit": "60e7e76bd7ea25cad1dd6f3f1ce0d18814a42759" },
+    "speaks": ["openai-completions", "anthropic-messages"],
+    "modelNative": ["anthropic", "openai-codex", "openrouter", "github-copilot", "kimi-coding", "xai"]
+  },
+  {
+    "id": "claude",
+    "name": "Claude Code",
+    "pin": { "binary": "claude", "minVersion": "0.0.0" },
+    "speaks": ["anthropic-messages"],
+    "modelNative": ["anthropic"]
+  }
+]

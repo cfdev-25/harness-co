@@ -1,0 +1,20 @@
+[
+	{
+		"kind": "org",
+		"path": "acme",
+		"ref": "refs/heads/org",
+		"commit": "org"
+	},
+	{
+		"kind": "team",
+		"path": "acme.marketing",
+		"ref": "refs/heads/teams/acme.marketing",
+		"commit": "t1"
+	},
+	{
+		"kind": "user",
+		"path": "acme.marketing.dana",
+		"ref": "refs/heads/users/dana",
+		"commit": "u"
+	}
+]

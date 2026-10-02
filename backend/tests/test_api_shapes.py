@@ -47,7 +47,6 @@ def test_openapi_contains_full_backend_surface():
         "/v1/resolve",
         "/v1/api-keys",
         "/v1/api-keys/{api_key_id}/rotate",
-        "/v1/api-keys/deliver",
         "/v1/audit/batch",
         "/v1/org-units/{org_unit_id}/audit",
         "/v1/org-units/{org_unit_id}/audit/verify",
@@ -78,7 +77,7 @@ def test_validation_errors_use_public_error_shape():
 
 
 def test_list_keys_inherits_from_ancestors_and_tags_the_owner():
-    """A team must be able to select a connector the org owns (docs/agents.md §12.6)."""
+    """A team must be able to select a connector the org owns (docs/archive/agents.md §12.6)."""
     org_id, team_id = uuid4(), uuid4()
     org_key = {
         "id": uuid4(),
@@ -133,7 +132,7 @@ def test_list_keys_inherits_from_ancestors_and_tags_the_owner():
 
 
 async def test_rotating_an_inherited_connector_still_requires_admin_at_its_owning_unit():
-    """A team may use an org connector but never rotate it (docs/scoping.md §5.5)."""
+    """A team may use an org connector but never rotate it (docs/archive/scoping.md §5.5)."""
     org_id, team_id, auth_user_id = uuid4(), uuid4(), uuid4()
     principal = Principal(auth_user_id)
 

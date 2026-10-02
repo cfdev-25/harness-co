@@ -1,0 +1,164 @@
+=== .claude.json
+{
+  "hasCompletedOnboarding": true,
+  "projects": {
+    "<workspace>": {
+      "hasTrustDialogAccepted": true,
+      "hasCompletedProjectOnboarding": true
+    }
+  }
+}
+
+=== CLAUDE.md
+Harness assets live at `<assetsRoot>/<kind>/<name>/` — `skill/`, `tool/`, `prompt/`, `memory/`, `system_prompt/`, `connection/`, `context/`, `environment/`. A new skill, tool, prompt, context (a template, a reference, brand assets) or environment (what must be installed) goes there, in that kind's shape; it is offered to keep when the session ends. Files in the working directory belong to the project, not to the harness. The `harness-authoring` skill says how to make one, and how to extract a setup from another tool. This harness has its own Python and Node environments, first on PATH: install there, never on the machine, and record what you install in an environment asset.
+
+Reach: off. This session can only connect to the hosts it holds a credential for; anything else is refused by the fence, and the model may not browse on the provider's side either. acme decides this.
+
+This harness delivers: skills quokka · prompts standup · memories release-notes · tools deploy · contexts brand-assets · environments deck-tools.
+
+## release-notes
+
+We ship on Thursdays.
+
+## Tools
+
+- `deploy` — run `<assetsRoot>/tool/deploy/run`
+
+## Context
+
+Read when a task calls for it; nothing here is loaded on its own.
+
+- `brand-assets` — `<assetsRoot>/context/brand-assets/` — Colours, logos and the deck template.
+
+## Environment
+
+What this harness declares its environment holds. Apply what is missing, inside this session; record what you add.
+
+- `deck-tools` — What the deck tool needs. — apply with `pip install -r <assetsRoot>/environment/deck-tools/requirements.txt`
+
+=== audit-hook.cjs
+"use strict";
+const { appendFileSync, readFileSync } = require("node:fs");
+
+const auditPath = process.argv[2];
+const event = JSON.parse(readFileSync(0, "utf8"));
+const ok = event.hook_event_name !== "PostToolUseFailure";
+const input = event.tool_input && typeof event.tool_input === "object" ? event.tool_input : {};
+// Claude's own tool vocabulary (Bash, Write, Edit, Grep, ...) is not Pi's
+// (bash, write, edit, grep, ...), so this does not attempt Pi's plainAction
+// register (pi/packages/harness/src/core.ts) — one identifying input field,
+// whichever the tool happened to send, is enough for an audit line to be
+// legible without inventing a second tool-name mapping.
+const detail = String(
+  input.command ?? input.file_path ?? input.pattern ?? input.path ?? input.url ?? JSON.stringify(input),
+);
+const line = {
+  action: "tool.call",
+  payload: {
+    tool: event.tool_name,
+    plain_sentence: `${event.tool_name}: ${detail}`.slice(0, 240),
+    duration_ms: typeof event.duration_ms === "number" ? event.duration_ms : 0,
+    ok,
+  },
+  occurred_at: new Date().toISOString(),
+};
+appendFileSync(auditPath, `${JSON.stringify(line)}\n`);
+
+=== commands/standup.md -> <assetsRoot>/prompt/standup/standup.md
+=== rendered.json
+{
+  "concerns": {
+    "skill": [
+      "00000000-0000-4000-8000-000000000000"
+    ],
+    "prompt": [
+      "00000001-0000-4000-8000-000000000000"
+    ],
+    "system_prompt": [
+      "00000002-0000-4000-8000-000000000000"
+    ],
+    "memory": [
+      "00000003-0000-4000-8000-000000000000"
+    ],
+    "tool_index": [
+      "00000004-0000-4000-8000-000000000000"
+    ]
+  },
+  "model": {
+    "endpoint": "http://127.0.0.1:45871/connectors/model",
+    "model": "sonnet"
+  },
+  "hooks": [
+    "\"<node>\" \"<agentDir>/audit-hook.cjs\" \"<sessionDir>/audit.jsonl\"",
+    "\"<node>\" \"<agentDir>/audit-hook.cjs\" \"<sessionDir>/audit.jsonl\""
+  ],
+  "denies": [
+    "Edit(<workspace>/.claude/**)",
+    "Edit(<workspace>/.pi/**)",
+    "Read(<root>/denied-tool/**)",
+    "Bash(rm -rf /*)",
+    "WebFetch",
+    "WebSearch"
+  ],
+  "links": {
+    "skills/quokka": "<assetsRoot>/skill/quokka",
+    "commands/standup.md": "<assetsRoot>/prompt/standup/standup.md"
+  },
+  "files": {
+    "skills/quokka": "symlink:<assetsRoot>/skill/quokka",
+    "commands/standup.md": "symlink:<assetsRoot>/prompt/standup/standup.md",
+    "CLAUDE.md": "<sha256>",
+    "system-prompt.md": "<sha256>",
+    "audit-hook.cjs": "<sha256>",
+    ".claude.json": "<sha256>",
+    "settings.json": "<sha256>"
+  }
+}
+
+=== settings.json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"<node>\" \"<agentDir>/audit-hook.cjs\" \"<sessionDir>/audit.jsonl\""
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"<node>\" \"<agentDir>/audit-hook.cjs\" \"<sessionDir>/audit.jsonl\""
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "deny": [
+      "Edit(<workspace>/.claude/**)",
+      "Edit(<workspace>/.pi/**)",
+      "Read(<root>/denied-tool/**)",
+      "Bash(rm -rf /*)",
+      "WebFetch",
+      "WebSearch"
+    ]
+  },
+  "minimumVersion": "2.1.275",
+  "claudeMdExcludes": [
+    "<workspace>/CLAUDE.md"
+  ]
+}
+
+=== skills/quokka -> <assetsRoot>/skill/quokka
+=== system-prompt.md
+## house-style
+
+Write plainly.

@@ -12,7 +12,8 @@ from app.api.deps import (
 )
 from app.config import get_settings
 from app.db import get_pool, transaction
-from app.domain.api_keys import delivered_value, key_ref, rotate, visible_keys
+from app.domain import broker
+from app.domain.api_keys import key_ref, rotate, visible_keys
 from app.domain.audit import append_event
 from app.errors import ApiError
 from app.identity import Principal
@@ -30,11 +31,6 @@ class ApiKeyCreate(BaseModel):
 
 class RotateInput(BaseModel):
     value: str = Field(min_length=1)
-
-
-class DeliverInput(BaseModel):
-    refs: list[str] = Field(max_length=100)
-    session_id: UUID
 
 
 @router.post("/api-keys", status_code=status.HTTP_201_CREATED)
@@ -112,6 +108,8 @@ async def rotate_key(
             body.value,
             master_key=get_settings().harness_master_key,
         )
+        # 04 §5.6: rotation retires the alias on live sessions.
+        await broker.retire_for_key(connection, api_key_id)
         await append_event(
             connection,
             org_unit_id=key["org_unit_id"],
@@ -127,61 +125,3 @@ async def rotate_key(
             "last4": version["last4"],
             "status": version["status"],
         }
-
-
-@router.post("/api-keys/deliver")
-async def deliver_keys(
-    body: DeliverInput,
-    request: Request,
-    principal: Annotated[Principal, Depends(current_principal)],
-    user_unit: Annotated[dict, Depends(current_user_unit)],
-) -> list[dict]:
-    result = []
-    async with transaction(get_pool(request)) as connection:
-        owns_session = await connection.fetchval(
-            "select exists(select 1 from harness_sessions where id=$1 and owner_auth_user_id=$2)",
-            body.session_id,
-            principal.auth_user_id,
-        )
-        if not owns_session:
-            raise ApiError(403, "session_not_owned", "This session does not belong to you.")
-        for ref in body.refs:
-            row = await connection.fetchrow(
-                """with recursive chain as (
-                     select id,parent_id from org_units where id=$1
-                     union all select p.id,p.parent_id
-                     from org_units p join chain c on c.parent_id=p.id
-                   ) select k.*,v.ciphertext from api_keys k
-                   join chain c on c.id=k.org_unit_id
-                   join api_key_versions v on v.api_key_id=k.id and v.status='active'
-                   where k.ref=$2""",
-                user_unit["id"],
-                ref,
-            )
-            if not row:
-                name = ref.rsplit("/", 1)[-1].replace("-", " ")
-                raise ApiError(
-                    403,
-                    "api_key_not_visible",
-                    f"You don't have access to the key '{name}'.",
-                    {"ref": ref},
-                )
-            result.append(
-                {
-                    "ref": ref,
-                    "env_var": row["env_var"],
-                    "value": delivered_value(
-                        row["ciphertext"], master_key=get_settings().harness_master_key
-                    ),
-                }
-            )
-            await append_event(
-                connection,
-                org_unit_id=row["org_unit_id"],
-                actor_type="user",
-                actor_id=principal.auth_user_id,
-                event_class="authoritative",
-                action="api_key.deliver",
-                payload={"api_key_id": str(row["id"]), "session_id": str(body.session_id)},
-            )
-    return result

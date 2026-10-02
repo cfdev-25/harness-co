@@ -1,0 +1,14 @@
+[
+	{
+		"id": "ok",
+		"scope": {
+			"teams": [
+				"acme.marketing"
+			]
+		},
+		"kind": "endpoint",
+		"value": "x.example",
+		"holds": "enforced",
+		"reason": "Fine."
+	}
+]

@@ -1,0 +1,22 @@
+[
+	{
+		"id": "g-marketing",
+		"scope": {
+			"teams": [
+				"acme.marketing"
+			]
+		},
+		"group": "marketing",
+		"by": "dana@acme.co"
+	},
+	{
+		"id": "g-web-mkt",
+		"scope": {
+			"teams": [
+				"acme.marketing"
+			]
+		},
+		"reach": "outside-endpoints",
+		"by": "dana@acme.co"
+	}
+]

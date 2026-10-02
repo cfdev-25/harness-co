@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { supabase } from "@/lib/supabase";
+import { createBrowserClient } from "@supabase/ssr";
 
 const FIELD =
   "w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-[14px] text-fg outline-none transition placeholder:text-faint focus:border-accent";
@@ -26,6 +26,10 @@ export function RequestForm() {
     /* Straight to Postgres through a definer function: the public site needs
        no API of its own, and `anon` can write a request without being able to
        read one back. */
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    );
     const { error: cause } = await supabase.rpc("request_access", {
       p_email: String(form.get("email") ?? ""),
       p_name: form.get("name") || null,

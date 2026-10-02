@@ -1,0 +1,44 @@
+# 09 M0: "a fresh `git clone && npm ci && npm run build && npm test` is green
+# on both runners", and 06's definition of done makes both required — so
+# neither job carries `continue-on-error`.
+name: engine
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  engine:
+    name: engine (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Both runners are required, so a failure on one must not cancel the
+      # other: the reviewer needs both answers, not the first one.
+      fail-fast: false
+      matrix:
+        os: [macos-14, ubuntu-24.04]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # 06's sandbox is `bwrap` invoked directly on Linux (00 D4). Installed
+      # here at M0 so M4's sandbox tests have it the day they are written.
+      - name: Install bubblewrap
+        if: matrix.os == 'ubuntu-24.04'
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap
+
+      # Three installs, because `pi/` and `web/` keep their own lockfiles and
+      # are deliberately not workspaces (docs/build-decisions.md, 2026-09-17);
+      # root `npm run build` and `npm test` enter both.
+      - run: npm ci
+      - run: npm ci
+        working-directory: pi
+      - run: npm ci
+        working-directory: web
+
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test

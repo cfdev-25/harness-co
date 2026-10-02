@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from app.api.deps import current_principal, role_at
 from app.db import get_pool, transaction
+from app.domain import broker, definitions_client
 from app.domain.audit import append_event
 from app.domain.org_tree import accept_pending_invite
 from app.errors import ApiError
@@ -54,6 +55,16 @@ async def me(
         async with transaction(pool) as connection:
             unit = await accept_pending_invite(connection, principal.auth_user_id, principal.email)
             if unit:
+                # Accepting an invite creates a user node, so it creates a user
+                # branch (02 §5.3). Inside the transaction: a refusal rolls the
+                # node back rather than leaving a person nothing can compose
+                # for. Before `append_event`, as in `routes_org_units`: the
+                # branch call reaches back into `api`'s audit chain.
+                await definitions_client.create_branch(
+                    await broker._org_id(connection, unit["id"]),
+                    definitions_client.ref_for_user(principal.auth_user_id),
+                    unit["path"],
+                )
                 await append_event(
                     connection,
                     org_unit_id=unit["id"],

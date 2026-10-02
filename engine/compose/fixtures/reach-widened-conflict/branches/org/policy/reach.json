@@ -1,0 +1,6 @@
+{
+	"mode": "allow",
+	"hosts": [
+		"pypi.org"
+	]
+}

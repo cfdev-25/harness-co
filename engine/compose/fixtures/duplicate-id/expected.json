@@ -1,0 +1,87 @@
+{
+	"chain": [
+		{
+			"kind": "org",
+			"path": "acme",
+			"ref": "refs/heads/org",
+			"commit": "org"
+		},
+		{
+			"kind": "user",
+			"path": "acme.dana",
+			"ref": "refs/heads/users/dana",
+			"commit": "u"
+		}
+	],
+	"assets": [
+		{
+			"id": "6f1c9a2e-3b0d-4c7e-9a51-2f0e8b7d4c11",
+			"kind": "tool",
+			"name": "deploy",
+			"from": {
+				"kind": "org",
+				"path": "acme",
+				"ref": "refs/heads/org",
+				"commit": "org"
+			},
+			"tree": "org:assets/tool/deploy",
+			"sidecar": {
+				"id": "6f1c9a2e-3b0d-4c7e-9a51-2f0e8b7d4c11",
+				"kind": "tool"
+			}
+		}
+	],
+	"conflicts": [
+		{
+			"kind": "duplicate-id-on-one-branch",
+			"id": "6f1c9a2e-3b0d-4c7e-9a51-2f0e8b7d4c11",
+			"from": {
+				"kind": "org",
+				"path": "acme",
+				"ref": "refs/heads/org",
+				"commit": "org"
+			},
+			"paths": [
+				"tool/deploy",
+				"tool/ship"
+			]
+		}
+	],
+	"policy": {
+		"boundaries": [],
+		"grants": [],
+		"groups": {},
+		"modelProviders": {},
+		"harnessProviders": {},
+		"routing": {
+			"defaultFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			},
+			"approvedFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			}
+		},
+		"kinds": [
+			"skill",
+			"memory",
+			"tool",
+			"prompt",
+			"system_prompt",
+			"connection"
+		],
+		"required": [],
+		"recommended": [],
+		"reach": {
+			"mode": "off",
+			"hosts": [],
+			"setBy": "acme"
+		}
+	},
+	"harnesses": [],
+	"harnessFrom": {},
+	"tree": "<composed>"
+}

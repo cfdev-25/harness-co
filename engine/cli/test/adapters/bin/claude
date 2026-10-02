@@ -1,0 +1,8 @@
+#!/bin/sh
+# A stand-in for Claude Code, so `locate` and `probe` can be tested without
+# one installed. HARNESS_FAKE_CLAUDE_VERSION sets what `--version` reports.
+case "$1" in
+  --version) echo "${HARNESS_FAKE_CLAUDE_VERSION:-2.1.275} (Claude Code)" ;;
+  auth) echo '{"loggedIn":false}' ;;
+  *) echo "fake claude: $*" ;;
+esac

@@ -1,0 +1,18 @@
+[
+	{
+		"id": "g-interns-crm",
+		"scope": {
+			"teams": [
+				"acme.marketing.interns"
+			]
+		},
+		"group": "marketing",
+		"narrowedFrom": {
+			"grant": "g-marketing",
+			"aliases": [
+				"crm"
+			]
+		},
+		"by": "rae@acme.co"
+	}
+]

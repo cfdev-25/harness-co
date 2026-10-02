@@ -1,7 +1,7 @@
 -- A harness is the job you sit down to do: a named list of what is in front
 -- of the agent, with a description and a small drawing. It changes what a
 -- session loads, never what resolves, what the boundary permits, or what the
--- work tree holds. See docs/harnesses.md.
+-- work tree holds. See docs/archive/harnesses.md.
 
 create table harnesses (
   id uuid primary key default gen_random_uuid(),

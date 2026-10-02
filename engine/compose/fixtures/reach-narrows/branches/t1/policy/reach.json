@@ -1,0 +1,7 @@
+{
+	"mode": "allow",
+	"hosts": [
+		"pypi.org",
+		"files.pythonhosted.org"
+	]
+}

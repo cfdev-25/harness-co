@@ -1,0 +1,20 @@
+[
+	{
+		"name": "marketing",
+		"entries": [
+			{
+				"alias": "crm",
+				"secret": {
+					"vault": "aws-prod",
+					"ref": "marketing/crm"
+				},
+				"upstream": "https://api.crm.example",
+				"attach": {
+					"header": "Authorization",
+					"prefix": "Bearer "
+				}
+			}
+		],
+		"sources": "vault"
+	}
+]

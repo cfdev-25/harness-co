@@ -1,0 +1,232 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { ApiError, request } from "@/lib/api";
+import { howHref, scopeHref, scopeSegment } from "@/lib/scope";
+import { getToken } from "@/lib/token.client";
+import { type HarnessCard, type PersonalChoices, modelLine } from "@/lib/views/harness";
+import type { Scope } from "@/lib/views/types";
+import { HARNESSES, HARNESSES_WORDS as WORDS } from "@/content/screens/harnesses";
+import { UI } from "@/content/ui";
+import { Button } from "../../ui/button";
+import { CommandBlock } from "../../ui/command-block";
+import { Field } from "../../ui/field";
+import { Modal } from "../../ui/modal";
+import { Notice } from "../../ui/notice";
+import { Select } from "../../ui/select";
+import { Switch } from "../../ui/switch";
+import { Textarea } from "../../ui/textarea";
+
+/**
+ * 04 §4: one button with the choice inside — *start from a copy* is a select
+ * in the form, not a second verb. Creating is never refused (PRD §17.4), so
+ * there is no `PermissionNotCleared` here. The write is `POST /v1/harnesses`
+ * (00 §4.11) followed by `router.refresh()`; nothing is optimistic (D21).
+ *
+ * It lives at `[scope]/` and not in `harnesses/` because W5-D15 gave it a
+ * second caller: the store's *New harness from selection* is this dialog
+ * with the ids already in it. A screen may read a private part of an
+ * ancestor route (02 rule 2); a copy would have drifted the first time
+ * either changed.
+ *
+ * W5-D9: it creates **at the current level** when the viewer administers it;
+ * otherwise the button says where it will land — *New harness in yours* —
+ * and posts `scope: "me"`, because a person's own branch is always theirs.
+ * `HarnessIn.scope` is the segment (`me`, `org`, a dotted team path), never
+ * the `team:` spelling a query string uses.
+ *
+ * W7-D4: on a personal account it asks two more things, and both are written
+ * **on the harness** — *Web access* is `HarnessDef.reach`, *Outside keys* is
+ * one grant scoped to this harness. The caller decides whether to ask them by
+ * passing `personal`, because the groups come from a fetch and a dialog does
+ * not fetch (02 rule 2); an enterprise caller passes none and the form is the
+ * one it has always been.
+ */
+export function NewHarness({
+  scope,
+  cards,
+  empty = false,
+  canEdit,
+  assets,
+  label,
+  explain,
+  personal,
+}: {
+  scope: Scope;
+  cards: HarnessCard[];
+  empty?: boolean;
+  /** Whether the viewer administers this level (`levelOf(...).canEdit`). */
+  canEdit: boolean;
+  /** W5-D15: *New harness from selection* — the store's ticked ids, already
+   *  in the new harness. The same dialog, because a second one would drift
+   *  from this one the first time either changed. */
+  assets?: string[];
+  /** The word on the button when it is not this screen's own verb. */
+  label?: string;
+  explain?: string;
+  /** W7-D4: present for a personal viewer and absent for an enterprise one,
+   *  which is the whole of the difference between the two dialogs. */
+  personal?: PersonalChoices;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<{ message: string; remedy?: string } | null>(null);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [from, setFrom] = useState("");
+  // W7-D4's two questions. Web access starts on, which is what the personal
+  // organisation's own reach is; keys start at *None*, which is what almost
+  // every first harness wants.
+  const [web, setWeb] = useState(true);
+  const [group, setGroup] = useState("");
+  const model = modelLine(personal?.setup);
+  const own = canEdit ? HARNESSES.verbs.newHarness : HARNESSES.verbs.newHarnessMine;
+  const verb = { label: label ?? own.label, explain: explain ?? own.explain };
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await request("/v1/harnesses", await getToken(), {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          description,
+          from: from || undefined,
+          // W5-D15: the store's selection, already in it. Absent otherwise —
+          // an empty list and no list are the same new harness, and the
+          // route fills the organisation's recommended ids either way.
+          ...(assets && assets.length > 0 ? { assets } : {}),
+          // The bare path, `org` or `me` — `HarnessIn.scope` is the segment,
+          // never the `team:` spelling a query string uses (`scopeQuery`).
+          scope: canEdit ? scopeSegment(scope) : "me",
+          // W7-D4. `off` is sent; `on` is **not**, and the difference is not
+          // tidiness. Absent means *inherit*, and reach only ever narrows
+          // (D131): a harness that restates `on` narrows nothing today and
+          // becomes a `reach-widened` conflict — which stops every session on
+          // the chain (`compose.reach_widened`) — the day the organisation
+          // turns its own reach down on Boundaries.
+          ...(personal && !web ? { reach: { mode: "off", hosts: [] } } : {}),
+          ...(personal && group ? { grant: { group } } : {}),
+        }),
+      });
+      setOpen(false);
+      setName("");
+      setDescription("");
+      setWeb(true);
+      setGroup("");
+      router.refresh();
+    } catch (failure) {
+      const api = failure instanceof ApiError ? failure : null;
+      setError({ message: api?.message ?? String(failure), remedy: api?.remedy });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      {empty && (
+        <Button explain={WORDS.importExplain} onClick={() => setOpen(false)} href={howHref("import")}>
+          {WORDS.importLabel}
+        </Button>
+      )}
+      <Button variant="primary" explain={verb.explain} onClick={() => setOpen(true)}>
+        {verb.label}
+      </Button>
+      {open && (
+        <Modal title={verb.label} onClose={() => setOpen(false)}>
+          <form className="grid gap-4" onSubmit={(event) => void submit(event)}>
+            <Field
+              label={WORDS.newName}
+              name="name"
+              value={name}
+              required
+              onChange={(event) => setName(event.target.value)}
+            />
+            <Textarea
+              label={WORDS.newDescription}
+              name="description"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+            />
+            <Select
+              label={WORDS.newFrom}
+              name="from"
+              value={from}
+              onChange={(event) => setFrom(event.target.value)}
+            >
+              <option value="">{WORDS.newFromNone}</option>
+              {cards.map((card) => (
+                <option key={card.id} value={card.id}>
+                  {card.name}
+                </option>
+              ))}
+            </Select>
+            {personal && (
+              <>
+                <Switch
+                  label={WORDS.newWebAccess}
+                  name="web"
+                  checked={web}
+                  hint={web ? WORDS.newWebAccessOn : WORDS.newWebAccessOff}
+                  onChange={(event) => setWeb(event.target.checked)}
+                />
+                <Select
+                  label={WORDS.newKeys}
+                  name="grant"
+                  value={group}
+                  hint={WORDS.newKeysHint}
+                  onChange={(event) => setGroup(event.target.value)}
+                >
+                  <option value="">{WORDS.newKeysNone}</option>
+                  {personal.groups.map((name_) => (
+                    <option key={name_} value={name_}>
+                      {name_}
+                    </option>
+                  ))}
+                </Select>
+                {/* Read-only: the model is set on Providers, and this line is
+                    here so a first harness is not made in the dark. */}
+                <p className="text-base text-muted">
+                  {model.text}
+                  {model.link && (
+                    <>
+                      {" "}
+                      <a className="underline" href={scopeHref(scope, "/providers/model")}>
+                        {WORDS.newModelLink}
+                      </a>
+                    </>
+                  )}
+                </p>
+              </>
+            )}
+            {empty && (
+              <CommandBlock
+                label={WORDS.importExplain}
+                command={WORDS.importCommand}
+                copyLabel={UI.copy.copy}
+                copiedLabel={UI.copy.copied}
+              />
+            )}
+            {error && (
+              <Notice tone="warn">
+                <p>{error.message}</p>
+                {error.remedy && <p className="text-muted">{error.remedy}</p>}
+              </Notice>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button onClick={() => setOpen(false)}>{WORDS.newCancel}</Button>
+              <Button variant="primary" type="submit" busy={busy}>
+                {WORDS.newSubmit}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </>
+  );
+}

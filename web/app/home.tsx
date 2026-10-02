@@ -15,8 +15,8 @@ export function HomePage() {
           <div>
             <HeroLead />
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link href="/request" className={`${CTA} bg-ink text-ink-text hover:bg-ink-raised`}>
-                Request an account
+              <Link href="/signup" className={`${CTA} bg-ink text-ink-text hover:bg-ink-raised`}>
+                Create an account
               </Link>
               <a href="#how" className={`${CTA} text-fg hover:text-accent`}>
                 See how it works →

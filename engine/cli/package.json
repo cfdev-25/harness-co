@@ -1,0 +1,30 @@
+{
+	"name": "@harness/cli",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"bin": {
+		"harness": "./dist/cli.js"
+	},
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist",
+		"probe"
+	],
+	"scripts": {
+		"build": "tsc -p tsconfig.json && shx mkdir -p dist/sandbox && shx cp src/sandbox/forwarder.js dist/sandbox/forwarder.js && shx chmod +x dist/cli.js && node scripts/emit-sheet.mjs",
+		"clean": "shx rm -rf dist",
+		"test": "vitest run",
+		"typecheck": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"@harness/compose": "0.1.0"
+	},
+	"devDependencies": {
+		"@types/node": "22.19.19",
+		"shx": "0.4.0",
+		"typescript": "5.9.3",
+		"vitest": "4.1.9"
+	}
+}

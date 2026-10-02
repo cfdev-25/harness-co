@@ -1,0 +1,95 @@
+{
+	"chain": [
+		{
+			"kind": "org",
+			"path": "acme",
+			"ref": "refs/heads/org",
+			"commit": "org"
+		},
+		{
+			"kind": "team",
+			"path": "acme.marketing",
+			"ref": "refs/heads/teams/acme.marketing",
+			"commit": "t1"
+		},
+		{
+			"kind": "user",
+			"path": "acme.marketing.dana",
+			"ref": "refs/heads/users/dana",
+			"commit": "u"
+		}
+	],
+	"assets": [],
+	"conflicts": [
+		{
+			"kind": "reach-grant-retired",
+			"grant": "g-web-mkt",
+			"from": {
+				"kind": "org",
+				"path": "acme",
+				"ref": "refs/heads/org",
+				"commit": "org"
+			}
+		}
+	],
+	"policy": {
+		"boundaries": [],
+		"grants": [
+			{
+				"id": "g-marketing",
+				"scope": {
+					"teams": [
+						"acme.marketing"
+					]
+				},
+				"group": "marketing",
+				"by": "dana@acme.co"
+			}
+		],
+		"groups": {
+			"marketing": {
+				"name": "marketing",
+				"entries": [
+					{
+						"alias": "crm",
+						"secret": {
+							"vault": "aws-prod",
+							"ref": "marketing/crm"
+						},
+						"upstream": "https://api.crm.example",
+						"attach": {
+							"header": "Authorization",
+							"prefix": "Bearer "
+						}
+					}
+				],
+				"sources": "vault"
+			}
+		},
+		"modelProviders": {},
+		"harnessProviders": {},
+		"routing": {
+			"defaultFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			},
+			"approvedFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			}
+		},
+		"kinds": [],
+		"required": [],
+		"recommended": [],
+		"reach": {
+			"mode": "off",
+			"hosts": [],
+			"setBy": "acme"
+		}
+	},
+	"harnesses": [],
+	"harnessFrom": {},
+	"tree": "<composed>"
+}

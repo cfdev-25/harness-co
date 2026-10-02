@@ -1,0 +1,54 @@
+{
+	"chain": [
+		{
+			"kind": "org",
+			"path": "acme",
+			"ref": "refs/heads/org",
+			"commit": "org"
+		},
+		{
+			"kind": "team",
+			"path": "acme.marketing",
+			"ref": "refs/heads/teams/acme.marketing",
+			"commit": "t1"
+		},
+		{
+			"kind": "user",
+			"path": "acme.marketing.dana",
+			"ref": "refs/heads/users/dana",
+			"commit": "u"
+		}
+	],
+	"assets": [],
+	"conflicts": [],
+	"policy": {
+		"boundaries": [],
+		"grants": [],
+		"groups": {},
+		"modelProviders": {},
+		"harnessProviders": {},
+		"routing": {
+			"defaultFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			},
+			"approvedFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			}
+		},
+		"kinds": [],
+		"required": [],
+		"recommended": [],
+		"reach": {
+			"mode": "off",
+			"hosts": [],
+			"setBy": "acme"
+		}
+	},
+	"harnesses": [],
+	"harnessFrom": {},
+	"tree": "<composed>"
+}

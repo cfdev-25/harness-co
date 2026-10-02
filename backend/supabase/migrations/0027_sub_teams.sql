@@ -1,5 +1,5 @@
 -- A team may hold a team, so a group like `interns` is an ordinary org unit
--- (docs/scoping.md §5.4). `validate_role_order` in app/domain/org_tree.py was
+-- (docs/archive/scoping.md §5.4). `validate_role_order` in app/domain/org_tree.py was
 -- changed for this; the trigger that actually guards the table was not, so a
 -- real insert still failed while the Python gate passed.
 --

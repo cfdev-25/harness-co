@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_PORT="${BACKEND_PORT:-8400}"
 WEB_PORT="${WEB_PORT:-3000}"
+DEFINITIONS_PORT="${DEFINITIONS_PORT:-8402}"
 
 fail() {
 	echo "" >&2
@@ -20,7 +21,8 @@ fail() {
 if [[ ! -f "$ROOT_DIR/backend/.env" ]]; then
 	fail "backend/.env is missing" \
 		"It needs DATABASE_URL, HARNESS_MASTER_KEY, SUPABASE_URL," \
-		"SUPABASE_SERVICE_ROLE_KEY and SUPABASE_JWKS_URL." \
+		"SUPABASE_SERVICE_ROLE_KEY, SUPABASE_JWKS_URL," \
+		"HARNESS_SERVICE_TOKEN and DEFINITIONS_URL (engine 02 §4.1)." \
 		"See docs/supabase-migration-plan.md §7.1 for where each value comes from."
 fi
 
@@ -109,6 +111,7 @@ reclaim_port() {
 }
 
 reclaim_port "$BACKEND_PORT" "backend" BACKEND_PORT
+reclaim_port "$DEFINITIONS_PORT" "definitions" DEFINITIONS_PORT
 reclaim_port "$WEB_PORT" "web" WEB_PORT
 
-echo "Preflight OK — backend :$BACKEND_PORT · web :$WEB_PORT"
+echo "Preflight OK — backend :$BACKEND_PORT · definitions :$DEFINITIONS_PORT · web :$WEB_PORT"

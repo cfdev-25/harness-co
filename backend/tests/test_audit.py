@@ -97,8 +97,7 @@ def test_query_audit_rolls_up_descendants_but_not_a_siblings_events():
             rows = [
                 {**common, **event}
                 for event in events
-                if event["org_unit_id"] in descendants
-                and (after is None or event["id"] < after)
+                if event["org_unit_id"] in descendants and (after is None or event["id"] < after)
             ]
             return sorted(rows, key=lambda row: row["id"], reverse=True)[:limit]
 

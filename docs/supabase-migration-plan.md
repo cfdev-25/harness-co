@@ -8,7 +8,7 @@ replace token-paste web authentication with organization login built on Supabase
 is what grants access, resolved through the existing `org_unit_members` / `org_unit_admins`
 tables keyed by `auth.users.id`.
 
-**Read first:** `docs/prd.md` §1.2 (tree), `docs/plan-improvement.md` F1/F2 (enforcement
+**Read first:** `docs/archive/prd.md` §1.2 (tree), `docs/archive/plan-improvement.md` F1/F2 (enforcement
 matrix, auth direction), `backend/app/identity.py` (a `SupabaseJwtProvider` skeleton already
 exists), `backend/supabase/migrations/0001_org_units.sql` (membership tables already key on
 `auth_user_id uuid`).
@@ -397,6 +397,7 @@ same names.
 | `PROVIDER_BASE_URL` | `backend/.env` | OpenAI-compatible endpoint, e.g. `.../v1` |
 | `PROVIDER_MODEL_ID` | `backend/.env` | model id the seeded workspace resolves to |
 | `PROVIDER_API_KEY` | `backend/.env` | provider key; seeded into `api_keys` encrypted |
+| `HARNESS_SIGNUP_CODE` | `backend/.env`, CI | the sign-up door's one access code (W7-D1). **Unset refuses every sign-up**, so a deployment that forgets it is closed, not open. Dev value is named in chat, not in a file |
 | `NEXT_PUBLIC_SUPABASE_URL` | `web/.env.local` | same project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `web/.env.local` | anon / publishable key |
 
@@ -475,7 +476,7 @@ output in `docs/build-decisions.md`.
 - No PostgREST/`supabase-js` database access from any client; no Realtime, Storage, or Edge
   Functions.
 - No social/OIDC SSO providers (Supabase makes these a config flip later; the connection
-  grant broker of `docs/plan-improvement.md` F2 is a separate module).
+  grant broker of `docs/archive/plan-improvement.md` F2 is a separate module).
 - No CLI device-flow login; no PAT deprecation.
 - No RLS policy modeling — RLS here is a lockout, not an authorization layer; authorization
   stays in `backend/app/api/deps.py`.

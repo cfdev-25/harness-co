@@ -1,0 +1,12 @@
+[
+	{
+		"id": "g-marketing",
+		"scope": {
+			"teams": [
+				"acme.marketing"
+			]
+		},
+		"group": "marketing",
+		"by": "dana@acme.co"
+	}
+]

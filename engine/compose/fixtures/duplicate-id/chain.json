@@ -1,0 +1,14 @@
+[
+	{
+		"kind": "org",
+		"path": "acme",
+		"ref": "refs/heads/org",
+		"commit": "org"
+	},
+	{
+		"kind": "user",
+		"path": "acme.dana",
+		"ref": "refs/heads/users/dana",
+		"commit": "u"
+	}
+]

@@ -1,4 +1,5 @@
 import json
+import secrets
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -9,6 +10,7 @@ from pydantic import BaseModel, Field
 from app.api.deps import current_principal, current_user_unit, require_admin, require_can_grant
 from app.config import get_settings
 from app.db import get_pool, transaction
+from app.domain import broker, definitions_client, seed, writes
 from app.domain.audit import append_event
 from app.domain.org_tree import (
     Boundary,
@@ -37,8 +39,22 @@ class MemberCreate(BaseModel):
 
 
 class OrgCreate(BaseModel):
-    org_name: str = Field(min_length=1, max_length=200)
+    # W7-D1: the sign-up door's one access code, checked here against
+    # `HARNESS_SIGNUP_CODE` because this is the route that creates the
+    # organisation. It is not a password and not per-person.
+    code: str = ""
+    # Team names its organisation. Personal is named after the person, so the
+    # field is absent and the name comes from the signer's address.
+    org_name: str | None = Field(default=None, min_length=1, max_length=200)
     team_name: str = Field(default="General", min_length=1, max_length=200)
+    # D30f: a personal account is an org with zero teams — in the records too.
+    # `team_name` is ignored: no team unit is written, the person's user unit
+    # hangs off the org, and the chain is `org · user` on both sides, exactly
+    # as 02 §5.3 says. Migration 0038 is what lets the records hold that shape;
+    # before it, `org_units_role_order` refused a user outside a team and a
+    # vestigial `General` had to exist, which made `Viewer.edition` read
+    # `enterprise` for every personal account (console D70, fixed here).
+    personal: bool = False
 
 
 class InviteCreate(BaseModel):
@@ -104,12 +120,42 @@ async def tree(
     return roots[0] if len(roots) == 1 else {"children": roots}
 
 
+async def _org_name(connection, body: "OrgCreate", principal: Principal) -> str:
+    """W7-D1: Team is named by the signer, Personal after the person.
+
+    The personal name is the address's local part — what someone calls their
+    own workspace — and `org_units.path` is unique-indexed, so the second
+    `dana@` to sign up takes `email_label`, the one form of an address that
+    cannot collide with another address.
+    """
+    if not body.personal:
+        if not body.org_name:
+            raise ApiError(422, "org_name_required", "An organisation needs a name.")
+        return body.org_name
+    who = (principal.email or str(principal.auth_user_id)).lower()
+    local = slugify(who.split("@", 1)[0])
+    taken = local and await connection.fetchval(
+        "select 1 from org_units where path=$1", local
+    )
+    return local if local and not taken else email_label(who)
+
+
 @router.post("/orgs", status_code=status.HTTP_201_CREATED)
 async def create_org(
     body: OrgCreate,
     request: Request,
     principal: Annotated[Principal, Depends(current_principal)],
 ) -> dict:
+    # W7-D1, first and outside the transaction: the code is the door, so
+    # nothing is created before it matches. An unset variable matches nothing
+    # — a deployment that forgot the code is closed, not open — and the
+    # message says only that it is wrong, so a guesser learns nothing from it.
+    # Bytes, not str: `compare_digest` raises on a non-ASCII string, and a
+    # typed-in code is whatever the keyboard gave — a smart quote or an
+    # accented letter must be a refusal, not a 500.
+    expected = get_settings().signup_code
+    if not expected or not secrets.compare_digest(body.code.encode(), expected.encode()):
+        raise ApiError(403, "signup.code_wrong", "That access code is not right.")
     async with transaction(get_pool(request)) as connection:
         existing = await connection.fetchval(
             "select user_unit_id from org_unit_members where auth_user_id=$1",
@@ -117,28 +163,39 @@ async def create_org(
         )
         if existing:
             raise ApiError(409, "already_member", "You already belong to an organization.")
+        org_name = await _org_name(connection, body, principal)
         org = await connection.fetchrow(
             """insert into org_units(parent_id,role,name,path)
                values(null,'org',$1,$2) returning *""",
-            body.org_name,
-            slugify(body.org_name),
+            org_name,
+            slugify(org_name),
         )
-        team = await connection.fetchrow(
-            """insert into org_units(parent_id,role,name,path,region)
-               values($1,'team',$2,$3,$4) returning *""",
-            org["id"],
-            body.team_name,
-            f"{org['path']}.{slugify(body.team_name)}",
-            org["region"],
-        )
+        # D30f, corrected: a personal account is an organisation with **zero
+        # teams**, in the records as well as in the definition plane. The
+        # records used to hold a `General` team anyway, because
+        # `org_units_role_order` refused a user outside a team — 0038 widened
+        # that clause, so the team can go. It has to: `Viewer.edition` is
+        # derived from the org having no team nodes (console D70), so one
+        # vestigial team made a signed-up personal account render as an
+        # enterprise one, every personal screen with it.
+        parent = org
+        if not body.personal:
+            parent = await connection.fetchrow(
+                """insert into org_units(parent_id,role,name,path,region)
+                   values($1,'team',$2,$3,$4) returning *""",
+                org["id"],
+                body.team_name,
+                f"{org['path']}.{slugify(body.team_name)}",
+                org["region"],
+            )
         user_name = (principal.email or str(principal.auth_user_id)).lower()
         user_unit = await connection.fetchrow(
             """insert into org_units(parent_id,role,name,path,region)
                values($1,'user',$2,$3,$4) returning *""",
-            team["id"],
+            parent["id"],
             user_name,
-            f"{team['path']}.{email_label(user_name)}",
-            team["region"],
+            f"{parent['path']}.{email_label(user_name)}",
+            parent["region"],
         )
         await connection.execute(
             "insert into org_unit_members(auth_user_id,user_unit_id) values($1,$2)",
@@ -151,6 +208,59 @@ async def create_org(
             principal.auth_user_id,
             org["id"],
         )
+        # 02 §5.3, in order: the repo must exist before a branch can be made in
+        # it. Still inside the transaction — a refusal here rolls the records
+        # back, so a node that has no branch never exists (D6, fail closed).
+        #
+        # Before `append_event`, and that ordering is load-bearing. Creating a
+        # branch makes `definitions` call `api` straight back on the org's
+        # chain (`definitions.push`, 02 §12/C34), and `append_event` holds
+        # `audit_log_latest_hashes` for that org `for update` until its
+        # transaction ends. Appending first would mean this request waiting on
+        # `definitions` waiting on a lock this request holds: a self-deadlock
+        # that only the client's timeout breaks. The org's own event is written
+        # once the definition plane has answered.
+        root = await definitions_client.create_org(org["id"], org["path"])
+        if not body.personal:
+            await definitions_client.create_branch(
+                org["id"], definitions_client.ref_for_team(parent["path"]), parent["path"]
+            )
+        # D30f's one sign-up sequence: org, then the person's user ref, and for
+        # a personal account no team ref at all — the chain is `org · user` on
+        # both sides now, so the branch's `node_path` is the stored path and
+        # nothing has to be recomputed around a records-only segment. The path
+        # is read back from the row because the `org_units_role_order` trigger
+        # sets it itself on every insert: what Python passed in is not
+        # necessarily what the records hold.
+        await definitions_client.create_branch(
+            org["id"],
+            definitions_client.ref_for_user(principal.auth_user_id),
+            user_unit["path"],
+        )
+        # D30h, and the last `definitions` call this transaction makes: the seed
+        # commit's own `append_event` is what takes the chain, so nothing may
+        # reach `definitions` after it. `expectedHead` is the root commit
+        # `/internal/orgs` just made — `refs/heads/org` is not in `idx_refs`
+        # until something commits on it, and this is that something.
+        edition = "personal" if body.personal else "enterprise"
+        who = await writes.authority(connection, principal)
+        await writes.commit(
+            connection,
+            org_id=org["id"],
+            ref=writes.ORG_REF,
+            changes=seed.seed_files(edition, node_path=org["path"]),
+            message=f"seeded {org['path']}",
+            reason={"kind": "admin-edit"},
+            author=who.author,
+            actor_id=principal.auth_user_id,
+            audit_unit=org["id"],
+            action="org.seed",
+            payload={
+                "runtimes": len(seed.presets("harness-providers.json")),
+                "providers": len(seed.presets("model-providers.json")),
+            },
+            expected_head=root["commit"],
+        )
         await append_event(
             connection,
             org_unit_id=org["id"],
@@ -158,9 +268,18 @@ async def create_org(
             actor_id=principal.auth_user_id,
             event_class="authoritative",
             action="org.create",
-            payload={"team_id": str(team["id"]), "user_unit_id": str(user_unit["id"])},
+            # `team_id` is null for a personal account, because there is no
+            # team: the event says what was made, not what the shape used to be.
+            payload={
+                "team_id": None if body.personal else str(parent["id"]),
+                "user_unit_id": str(user_unit["id"]),
+            },
         )
-        return {**dict(org), "team_id": team["id"], "user_unit_id": user_unit["id"]}
+        return {
+            **dict(org),
+            "team_id": None if body.personal else parent["id"],
+            "user_unit_id": user_unit["id"],
+        }
 
 
 @router.post("/org-units/{org_unit_id}/invites", status_code=status.HTTP_201_CREATED)
@@ -176,7 +295,10 @@ async def create_invite(
         if not team:
             raise ApiError(404, "org_unit_not_found", "This org unit could not be found.")
         if team["role"] != "team":
-            raise ApiError(422, "invite_target_not_team", "Invites must target a team.")
+            raise ApiError(
+                422, "invite_target_not_team", "Invites must target a team.",
+                remedy="Pick a team: an invitation is to a team, and joining it is the grant.",
+            )
         await require_admin(connection, principal, org_unit_id)
         if body.admin_level and body.admin_unit_id:
             await require_can_grant(connection, principal, body.admin_level, body.admin_unit_id)
@@ -274,6 +396,25 @@ async def create_org_unit(
             raise ApiError(404, "org_unit_not_found", "The parent org unit could not be found.")
         await require_admin(connection, principal, body.parent_id)
         validate_role_order(body.role, parent["role"])
+        # Fail closed before anything is written. 02 §5.3 has one ref shape per
+        # kind of node and neither of these has one: a repository holds exactly
+        # one `refs/heads/org`, and a user's ref is keyed by the login id that
+        # only `POST /org-units/{id}/members` supplies (the exporter's `ref_for`
+        # draws the same line — "a user unit nobody has logged in as has no
+        # branch to be").
+        if body.role == "org":
+            raise ApiError(
+                422,
+                "nested_org_has_no_branch",
+                "An organisation inside an organisation has no branch of its own. "
+                "Create a team instead.",
+            )
+        if body.role == "user":
+            raise ApiError(
+                422,
+                "user_unit_needs_member",
+                "Add a person to the team instead: a user branch is named by their login.",
+            )
         unit = await connection.fetchrow(
             """insert into org_units(parent_id,role,name,path,region)
                values($1,$2,$3,$4,$5) returning *""",
@@ -282,6 +423,14 @@ async def create_org_unit(
             body.name,
             f"{parent['path']}.{slugify(body.name)}",
             parent["region"],
+        )
+        # Before `append_event`, for the reason `create_org` states: the branch
+        # call reaches back into `api`'s audit chain, and a lock this
+        # transaction already held would deadlock the pair.
+        await definitions_client.create_branch(
+            await broker._org_id(connection, unit["id"]),
+            definitions_client.ref_for_team(unit["path"]),
+            unit["path"],
         )
         await append_event(
             connection,
@@ -373,6 +522,11 @@ async def add_member(
             "insert into org_unit_members(auth_user_id,user_unit_id) values($1,$2)",
             body.auth_user_id,
             unit["id"],
+        )
+        await definitions_client.create_branch(
+            await broker._org_id(connection, unit["id"]),
+            definitions_client.ref_for_user(body.auth_user_id),
+            unit["path"],
         )
         await append_event(
             connection,

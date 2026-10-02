@@ -1,0 +1,98 @@
+{
+	"chain": [
+		{
+			"kind": "org",
+			"path": "acme",
+			"ref": "refs/heads/org",
+			"commit": "org"
+		},
+		{
+			"kind": "team",
+			"path": "acme.marketing",
+			"ref": "refs/heads/teams/acme.marketing",
+			"commit": "t1"
+		},
+		{
+			"kind": "user",
+			"path": "acme.marketing.dana",
+			"ref": "refs/heads/users/dana",
+			"commit": "u"
+		}
+	],
+	"assets": [
+		{
+			"id": "0b7e4d2a-9c31-4f8e-b6a2-51d3c7e9f0a4",
+			"kind": "memory",
+			"name": "never-drop-db",
+			"from": {
+				"kind": "org",
+				"path": "acme",
+				"ref": "refs/heads/org",
+				"commit": "org"
+			},
+			"tree": "org:assets/memory/never-drop-db",
+			"sidecar": {
+				"id": "0b7e4d2a-9c31-4f8e-b6a2-51d3c7e9f0a4",
+				"kind": "memory"
+			}
+		},
+		{
+			"id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+			"kind": "tool",
+			"name": "deploy",
+			"from": {
+				"kind": "org",
+				"path": "acme",
+				"ref": "refs/heads/org",
+				"commit": "org"
+			},
+			"tree": "org:assets/tool/deploy",
+			"sidecar": {
+				"id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+				"kind": "tool"
+			}
+		}
+	],
+	"conflicts": [],
+	"policy": {
+		"boundaries": [],
+		"grants": [],
+		"groups": {},
+		"modelProviders": {},
+		"harnessProviders": {},
+		"routing": {
+			"defaultFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			},
+			"approvedFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			}
+		},
+		"kinds": [
+			"skill",
+			"memory",
+			"tool",
+			"prompt",
+			"system_prompt",
+			"connection"
+		],
+		"required": [
+			"0b7e4d2a-9c31-4f8e-b6a2-51d3c7e9f0a4"
+		],
+		"recommended": [
+			"1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d"
+		],
+		"reach": {
+			"mode": "off",
+			"hosts": [],
+			"setBy": "acme"
+		}
+	},
+	"harnesses": [],
+	"harnessFrom": {},
+	"tree": "<composed>"
+}

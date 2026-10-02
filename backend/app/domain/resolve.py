@@ -20,7 +20,7 @@ async def resolved_assets(
     and the client drops the names that are not on it when it lays out a
     session. That ordering is forced — there is one work tree per user, so
     hydration has to see the whole resolved set or switching harnesses would
-    churn it (docs/harnesses.md §3).
+    churn it (docs/archive/harnesses.md §3).
     """
     rows = await connection.fetch(
         """with recursive chain as (
@@ -44,7 +44,7 @@ async def resolved_assets(
              -- partitions the survivors — a scoped-out ancestor asset must
              -- never enter the window, or it shadows the nearest legitimate
              -- copy and the window throws that copy away too
-             -- (docs/scoping.md §3.1).
+             -- (docs/archive/scoping.md §3.1).
              where c.id=$1
                 or exists (
                      select 1 from asset_scopes s
@@ -120,12 +120,12 @@ async def shadowed_copy(
     this `(kind, name)` — i.e. exactly what a brand-new asset of that name at
     `org_unit_id` would shadow the instant it existed.
 
-    Same candidacy predicate as `resolved_assets` (docs/scoping.md §3.1),
+    Same candidacy predicate as `resolved_assets` (docs/archive/scoping.md §3.1),
     restricted to strict ancestors (`depth>0`): an ancestor's asset only
     counts if it is scoped to reach a unit in this chain. An ancestor that
     owns the name but never scoped it down creates no shadow and is not a
     collision — nothing about this unit's resolved set would change, so a
-    push of the same name must not be refused (docs/scoping.md §5.2).
+    push of the same name must not be refused (docs/archive/scoping.md §5.2).
     """
     row = await connection.fetchrow(
         """with recursive chain as (
@@ -168,7 +168,7 @@ async def ancestor_version(
     `override_of` on `POST /assets/{id}/versions`, which exists so a unit can
     confirm "keep mine" against an ancestor's copy *before* that copy is ever
     scoped down to them — that is the whole point of raising the collision at
-    scope-grant time (docs/scoping.md §5.2(c)) rather than only at push time.
+    scope-grant time (docs/archive/scoping.md §5.2(c)) rather than only at push time.
     """
     row = await connection.fetchrow(
         """with recursive chain as (
@@ -192,7 +192,7 @@ async def descendant_owners(
 ) -> list[dict[str, Any]]:
     """Active assets of this `(kind, name)` owned anywhere below `org_unit_id`.
 
-    Purely informational (docs/scoping.md §5.2(b)): pushing a new asset here
+    Purely informational (docs/archive/scoping.md §5.2(b)): pushing a new asset here
     never blocks on this, because until it is scoped down below itself
     nothing any of these units resolve actually changes. It tells whoever is
     publishing the name what they would shadow the moment they did scope it
@@ -225,7 +225,7 @@ async def subtree_owner(
     """An active asset of this `(kind, name)` — other than `excluding` —
     already owned inside `org_unit_id`'s own subtree (itself included), if any.
 
-    Used at scope-grant time (docs/scoping.md §5.2(c)): a scope row means
+    Used at scope-grant time (docs/archive/scoping.md §5.2(c)): a scope row means
     "this unit and everything beneath it" (0022_asset_scopes.sql), so granting
     reach to `org_unit_id` for an asset that some unit in its own subtree
     already owns under the same name would silently create the exact shadow

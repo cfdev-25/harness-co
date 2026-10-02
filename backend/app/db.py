@@ -24,13 +24,30 @@ async def create_pool(settings: Settings) -> asyncpg.Pool:
 
     pool = await asyncpg.create_pool(
         settings.database_url,
-        min_size=1,
+        # A request's two reads run in parallel (the shell's viewer and the
+        # screen), and a cold connection is a TLS handshake plus `configure`'s
+        # two introspection queries; four warm ones cover a person clicking.
+        min_size=4,
         max_size=10,
         init=configure,
-        statement_cache_size=0,
+        reset=released,
+        # Prepared statements are cached, which is what makes a query one
+        # round trip instead of two (parse, then execute). It also means the
+        # DSN must be a session — the direct host or the session pooler; a
+        # transaction pooler loses the statement between the two halves.
+        statement_cache_size=256,
     )
     await ensure_audit_partitions(pool)
     return pool
+
+
+async def released(connection: asyncpg.Connection) -> None:
+    """The pool's reset on release. asyncpg's default sends a query — unlock
+    advisory locks, close cursors, unlisten, reset GUCs — on every release, and
+    with the database a network away that is one round trip paid for nothing:
+    no request sets a session variable, listens, or takes an advisory lock. An
+    open transaction is still rolled back before this runs (asyncpg's own
+    `_reset`), so the one thing that must not leak between requests cannot."""
 
 
 async def ensure_audit_partitions(pool: asyncpg.Pool) -> None:

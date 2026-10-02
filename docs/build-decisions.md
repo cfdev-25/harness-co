@@ -41,7 +41,7 @@ worker pair.
 ## 2026-09-17 — Mock provider removed
 
 The deterministic local provider (`scripts/mock-provider/`) and the spike
-artifacts behind `docs/pi-extension-notes.md` (`scripts/spike-headless/`,
+artifacts behind `docs/archive/pi-extension-notes.md` (`scripts/spike-headless/`,
 `scripts/spike-gating/`) were deleted. `harness-cli` hardcodes
 `api: "openai-completions"` (`pi/packages/harness-cli/src/core.ts`), so the
 replacement must serve `/chat/completions`; rather than pick a provider, the seed
@@ -128,3 +128,58 @@ harness contains and can only narrow — tighten-only with no new mechanism. The
 model comes from `model-default` resolved over the whole set, because it is
 wiring rather than context, which is also why an empty harness can still
 start.
+
+## 2026-09-25 — Engine packages and the root build
+
+`pi/packages/harness-cli` moved to `engine/cli` (`git mv`; history follows).
+`engine/compose` and `engine/definitions` created; root `package.json` has
+`workspaces: ["engine/*"]` and `typecheck`/`build`/`test` scripts. Root
+`package.json` carries `"overrides": { "vitest": { "vite": "8.0.16" } }`:
+without it `npm install` crashes in npm 10.9.8's arborist (`Cannot read
+properties of null (reading 'edgesOut')`) on vite ≥ 8.1's optional peer
+chain; `8.0.16` is what `pi/package-lock.json` already resolves.
+
+**Pi's `build` is not hermetic and rewrites tracked files.** `packages/ai`'s
+`build` runs `generate-models --strict`, a live registry fetch; on 25 Sep it
+deleted `src/providers/kimi-coding.models.ts` and rewrote
+`models.generated.ts` because `kimi-coding` no longer resolves upstream.
+Both were restored from HEAD. The root `build` therefore calls Pi's
+`build:offline`, which needs the gitignored `packages/ai/src/providers/data/`
+cache (680 KB of model metadata JSON). Decision: **un-ignore and commit that
+cache** so a fresh clone builds without the network; regenerate it
+deliberately when Pi is re-pinned. The `pi/.gitignore` line is removed
+below the pin; the upstream drift in `kimi-coding` is not adopted.
+
+**Platform-scoped tests.** `engine/cli/test/run.test.ts`'s two deny-read
+cases assert `/usr/bin/sandbox-exec` and run only on darwin
+(`it.skipIf(process.platform !== "darwin")`); the non-darwin refusal has its
+own test. Scoping a test to the platform whose behaviour it asserts is not a
+flag that disables a safety property (10 rule 3 is about runtime); both CI
+jobs stay required. These tests leave with `enforcers/filesystem.ts` at M4.
+
+## 2026-09-26 — Presets are read from the checkout
+
+The seeded catalogue (engine D30h) lives in `engine/compose/presets/*.json`,
+and `api` reads those files at sign-up rather than holding a copy: the
+exporter, the seed and the CLI are three consumers of one list. The default is
+the monorepo layout, `<repo>/engine/compose/presets`; **a split deploy that
+ships `api` without the checkout sets `HARNESS_PRESETS_DIR`**. A missing
+directory is `503 presets_unconfigured` — fail closed, like
+`definitions_unconfigured`, because an organisation seeded with nothing is one
+nobody can start a session in.
+
+## 2026-09-28 · the Supabase direct host is IPv6-only
+
+`db.<ref>.supabase.co` publishes only an AAAA record. On a network without an
+IPv6 route `api` dies in its lifespan with `socket.gaierror: nodename nor
+servname provided` and the console reports *fetch failed* for every page.
+`backend/.env` now points `DATABASE_URL` at the **session pooler**
+(`postgres.<ref>@aws-0-us-east-1.pooler.supabase.com:5432`, IPv4, same
+password). **Session mode is now required, not incidental:** since 30 Sep the
+pool caches prepared statements (`statement_cache_size=256`, one round trip
+per query instead of two) and skips asyncpg's per-release reset query, both
+of which assume the server connection stays with the client connection. A
+transaction pooler (port 6543) breaks the first with *prepared statement
+does not exist*. The direct URL is kept beside it
+as a comment. `scripts/dev-preflight.sh` does not check reachability; the
+first sign is the lifespan traceback.

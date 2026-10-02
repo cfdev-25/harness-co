@@ -1,0 +1,26 @@
+{
+	"name": "@harness/definitions",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsc -p tsconfig.json && shx cp -r src/hooks dist/hooks && shx chmod +x dist/hooks/pre-receive dist/hooks/post-receive",
+		"clean": "shx rm -rf dist",
+		"test": "vitest run",
+		"typecheck": "tsc -p tsconfig.json --noEmit"
+	},
+	"devDependencies": {
+		"@types/node": "22.19.19",
+		"shx": "0.4.0",
+		"typescript": "5.9.3",
+		"vitest": "4.1.9"
+	},
+	"dependencies": {
+		"@harness/compose": "0.1.0"
+	}
+}

@@ -1,0 +1,185 @@
+{
+	"chain": [
+		{
+			"kind": "org",
+			"path": "acme",
+			"ref": "refs/heads/org",
+			"commit": "org"
+		},
+		{
+			"kind": "team",
+			"path": "acme.marketing",
+			"ref": "refs/heads/teams/acme.marketing",
+			"commit": "t1"
+		},
+		{
+			"kind": "user",
+			"path": "acme.marketing.dana",
+			"ref": "refs/heads/users/dana",
+			"commit": "u"
+		}
+	],
+	"assets": [
+		{
+			"id": "4c5d6e7f-8091-4c9d-aebf-2a3b4c5d6e7f",
+			"kind": "skill",
+			"name": "mine",
+			"from": {
+				"kind": "user",
+				"path": "acme.marketing.dana",
+				"ref": "refs/heads/users/dana",
+				"commit": "u"
+			},
+			"tree": "u:assets/skill/mine",
+			"sidecar": {
+				"id": "4c5d6e7f-8091-4c9d-aebf-2a3b4c5d6e7f",
+				"kind": "skill"
+			}
+		},
+		{
+			"id": "0b7e4d2a-9c31-4f8e-b6a2-51d3c7e9f0a4",
+			"kind": "skill",
+			"name": "triage",
+			"from": {
+				"kind": "org",
+				"path": "acme",
+				"ref": "refs/heads/org",
+				"commit": "org"
+			},
+			"tree": "org:assets/skill/triage",
+			"sidecar": {
+				"id": "0b7e4d2a-9c31-4f8e-b6a2-51d3c7e9f0a4",
+				"kind": "skill"
+			}
+		}
+	],
+	"conflicts": [
+		{
+			"kind": "malformed",
+			"path": "assets/tool/bare",
+			"from": {
+				"kind": "org",
+				"path": "acme",
+				"ref": "refs/heads/org",
+				"commit": "org"
+			},
+			"why": "there is no asset.json, so this is not an asset"
+		},
+		{
+			"kind": "malformed",
+			"path": "assets/tool/broken",
+			"from": {
+				"kind": "org",
+				"path": "acme",
+				"ref": "refs/heads/org",
+				"commit": "org"
+			},
+			"why": "asset.json does not parse: Unexpected token 'o', \"not json at all\n\" is not valid JSON"
+		},
+		{
+			"kind": "malformed",
+			"path": "assets/tool/deploy",
+			"from": {
+				"kind": "org",
+				"path": "acme",
+				"ref": "refs/heads/org",
+				"commit": "org"
+			},
+			"why": "asset.json has unknown key colour"
+		},
+		{
+			"kind": "malformed",
+			"path": "assets/tool/mislabelled",
+			"from": {
+				"kind": "org",
+				"path": "acme",
+				"ref": "refs/heads/org",
+				"commit": "org"
+			},
+			"why": "asset.json says kind skill, but the directory is under tool"
+		},
+		{
+			"kind": "malformed",
+			"path": "assets/tool/upper",
+			"from": {
+				"kind": "org",
+				"path": "acme",
+				"ref": "refs/heads/org",
+				"commit": "org"
+			},
+			"why": "asset.json.id is not a lowercase RFC 4122 uuid"
+		},
+		{
+			"kind": "malformed",
+			"path": "policy/kinds.json",
+			"from": {
+				"kind": "team",
+				"path": "acme.marketing",
+				"ref": "refs/heads/teams/acme.marketing",
+				"commit": "t1"
+			},
+			"why": "only the organisation branch holds policy/kinds.json"
+		},
+		{
+			"kind": "malformed",
+			"path": "policy/grants.json",
+			"from": {
+				"kind": "user",
+				"path": "acme.marketing.dana",
+				"ref": "refs/heads/users/dana",
+				"commit": "u"
+			},
+			"why": "a person's branch holds no policy"
+		}
+	],
+	"policy": {
+		"boundaries": [
+			{
+				"id": "acme.marketing/ok",
+				"scope": {
+					"teams": [
+						"acme.marketing"
+					]
+				},
+				"kind": "endpoint",
+				"value": "x.example",
+				"holds": "enforced",
+				"reason": "Fine."
+			}
+		],
+		"grants": [],
+		"groups": {},
+		"modelProviders": {},
+		"harnessProviders": {},
+		"routing": {
+			"defaultFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			},
+			"approvedFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			}
+		},
+		"kinds": [
+			"skill",
+			"memory",
+			"tool",
+			"prompt",
+			"system_prompt",
+			"connection"
+		],
+		"required": [],
+		"recommended": [],
+		"reach": {
+			"mode": "off",
+			"hosts": [],
+			"setBy": "acme"
+		}
+	},
+	"harnesses": [],
+	"harnessFrom": {},
+	"tree": "<composed>"
+}

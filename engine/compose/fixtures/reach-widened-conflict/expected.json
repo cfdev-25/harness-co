@@ -1,0 +1,68 @@
+{
+	"chain": [
+		{
+			"kind": "org",
+			"path": "acme",
+			"ref": "refs/heads/org",
+			"commit": "org"
+		},
+		{
+			"kind": "team",
+			"path": "acme.marketing",
+			"ref": "refs/heads/teams/acme.marketing",
+			"commit": "t1"
+		},
+		{
+			"kind": "user",
+			"path": "acme.marketing.dana",
+			"ref": "refs/heads/users/dana",
+			"commit": "u"
+		}
+	],
+	"assets": [],
+	"conflicts": [
+		{
+			"kind": "reach-widened",
+			"at": "acme.marketing",
+			"from": {
+				"kind": "team",
+				"path": "acme.marketing",
+				"ref": "refs/heads/teams/acme.marketing",
+				"commit": "t1"
+			},
+			"why": "reach at acme.marketing is `on`, which is wider than the `allow` it inherits from acme"
+		}
+	],
+	"policy": {
+		"boundaries": [],
+		"grants": [],
+		"groups": {},
+		"modelProviders": {},
+		"harnessProviders": {},
+		"routing": {
+			"defaultFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			},
+			"approvedFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			}
+		},
+		"kinds": [],
+		"required": [],
+		"recommended": [],
+		"reach": {
+			"mode": "allow",
+			"hosts": [
+				"pypi.org"
+			],
+			"setBy": "acme"
+		}
+	},
+	"harnesses": [],
+	"harnessFrom": {},
+	"tree": "<composed>"
+}

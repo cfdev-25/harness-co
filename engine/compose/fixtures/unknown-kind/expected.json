@@ -1,0 +1,79 @@
+{
+	"chain": [
+		{
+			"kind": "org",
+			"path": "acme",
+			"ref": "refs/heads/org",
+			"commit": "org"
+		},
+		{
+			"kind": "user",
+			"path": "acme.dana",
+			"ref": "refs/heads/users/dana",
+			"commit": "u"
+		}
+	],
+	"assets": [
+		{
+			"id": "6f1c9a2e-3b0d-4c7e-9a51-2f0e8b7d4c11",
+			"kind": "tool",
+			"name": "deploy",
+			"from": {
+				"kind": "org",
+				"path": "acme",
+				"ref": "refs/heads/org",
+				"commit": "org"
+			},
+			"tree": "org:assets/tool/deploy",
+			"sidecar": {
+				"id": "6f1c9a2e-3b0d-4c7e-9a51-2f0e8b7d4c11",
+				"kind": "tool"
+			}
+		}
+	],
+	"conflicts": [
+		{
+			"kind": "unknown-kind",
+			"assetKind": "widget",
+			"path": "assets/widget/sprocket",
+			"from": {
+				"kind": "org",
+				"path": "acme",
+				"ref": "refs/heads/org",
+				"commit": "org"
+			}
+		}
+	],
+	"policy": {
+		"boundaries": [],
+		"grants": [],
+		"groups": {},
+		"modelProviders": {},
+		"harnessProviders": {},
+		"routing": {
+			"defaultFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			},
+			"approvedFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			}
+		},
+		"kinds": [
+			"tool"
+		],
+		"required": [],
+		"recommended": [],
+		"reach": {
+			"mode": "off",
+			"hosts": [],
+			"setBy": "acme"
+		}
+	},
+	"harnesses": [],
+	"harnessFrom": {},
+	"tree": "<composed>"
+}

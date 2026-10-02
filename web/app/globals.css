@@ -52,6 +52,36 @@
   --font-sans: var(--font-manrope), system-ui, sans-serif;
   --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
   --font-mono: var(--font-dm-mono), ui-monospace, monospace;
+
+  /* Spacing is Tailwind v4's default 4px scale (`--spacing: 0.25rem`) — not
+     redefined. The console restricts itself to steps 1 2 3 4 5 6 8 10 12 16
+     (4px–64px): `p-7`, `gap-9`, `mt-14` and any arbitrary `[…]` value for
+     size, radius, shadow or spacing do not appear under `app/(console)/`
+     (01 §5, D13). */
+
+  /* Type — eight sizes, each with its line height; the console's body is
+     `base` (01 §5). */
+  --text-2xs: 10px; --text-2xs--line-height: 14px;  /* eyebrow, table heading */
+  --text-xs:  11px; --text-xs--line-height:  16px;  /* labels, mono values, hints */
+  --text-sm:  12px; --text-sm--line-height:  18px;  /* dense secondary */
+  --text-base: 13px; --text-base--line-height: 20px;/* body, table cells, buttons */
+  --text-md:  14px; --text-md--line-height:  22px;  /* leads, dialog copy */
+  --text-lg:  17px; --text-lg--line-height:  24px;  /* section titles */
+  --text-xl:  22px; --text-xl--line-height:  28px;  /* page titles */
+  --text-2xl: 26px; --text-2xl--line-height: 32px;  /* the one hero size: sign-in */
+
+  --tracking-label:   0.09em;   /* field labels */
+  --tracking-eyebrow: 0.11em;   /* section labels, table headings */
+
+  --radius-sm: 4px; --radius-md: 6px; --radius-lg: 10px; --radius-full: 9999px;
+
+  /* The one colour addition: accent as *text*. steel: the accent; light:
+     accent-deep (D69, 01 §10). */
+  --color-accent-text: var(--color-accent);
+
+  --shadow-card:    0 1px 0 0 var(--color-hairline);                  /* a card is an edge, not a lift */
+  --shadow-overlay: 0 8px 24px -8px rgb(0 0 0 / 0.45);                 /* menus, palette */
+  --shadow-modal:   0 16px 64px rgb(0 0 0 / 0.55);                     /* dialogs */
 }
 
 html[data-theme="light"] {
@@ -79,58 +109,11 @@ html[data-theme="light"] {
   --color-hold-soft: #f7eacf;
   --color-warn: #8a3b2d;
   --color-warn-soft: #f9e2d9;
-}
 
-html[data-theme="jade"] {
-  --color-sunken: #0a100e;
-  --color-canvas: #0e1412;
-  --color-surface: #161d1b;
-  --color-overlay: #1e2825;
-  --color-ink: #0e1412;
-  --color-ink-raised: #161d1b;
-  --color-ink-line: #2a3532;
-  --color-ink-text: #e6eeea;
-  --color-ink-muted: #8a9a94;
-  --color-fg: #e6eeea;
-  --color-line: #2a3532;
-  --color-hairline: #181f1d;
-  --color-muted: #8a9a94;
-  --color-faint: #6b7873;
-  --color-accent: #45b3a3;
-  --color-accent-deep: #2e8f81;
-  --color-accent-soft: #16332e;
-  --color-ok: #7dbe8a;
-  --color-ok-soft: #163022;
-  --color-hold: #d4b45a;
-  --color-hold-soft: #2e2714;
-  --color-warn: #e08972;
-  --color-warn-soft: #331c18;
-}
-
-html[data-theme="leather"] {
-  --color-sunken: #221a16;
-  --color-canvas: #2b211c;
-  --color-surface: #352922;
-  --color-overlay: #403229;
-  --color-ink: #2b211c;
-  --color-ink-raised: #352922;
-  --color-ink-line: #4d3e35;
-  --color-ink-text: #ece0d4;
-  --color-ink-muted: #b3a094;
-  --color-fg: #ece0d4;
-  --color-line: #4d3e35;
-  --color-hairline: #322720;
-  --color-muted: #b3a094;
-  --color-faint: #8a7a70;
-  --color-accent: #c8875a;
-  --color-accent-deep: #9e5c33;
-  --color-accent-soft: #3d2c22;
-  --color-ok: #7dbe8a;
-  --color-ok-soft: #243328;
-  --color-hold: #d4b45a;
-  --color-hold-soft: #3a3018;
-  --color-warn: #e08972;
-  --color-warn-soft: #3a221c;
+  /* Light theme: accent as text fails contrast at ~2.9:1 (01 §10), so link,
+     nav and tag text use accent-deep instead; accent remains the fill colour
+     with ink text (D69). */
+  --color-accent-text: var(--color-accent-deep);
 }
 
 @layer base {
@@ -180,5 +163,61 @@ html[data-theme="leather"] {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* The sub-header bar is one line at every width (01 §7.5): when the tabs do
+   not fit they scroll, and a scrollbar inside a 44px strip is chrome the bar
+   cannot spare. Tailwind has no `scrollbar-none` of its own. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* `ui/switch.tsx` (W7-D4). The input *is* the track and its `::before` is the
+   knob: a track drawn as a sibling span sits over an `sr-only` input and
+   swallows every click. Here rather than in a className because the states —
+   track, knob, checked, focus — are six declarations and a long className is
+   D25's rule, not a preference. */
+@utility switch-track {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: 2.25rem;
+  height: 1.25rem;
+  appearance: none;
+  cursor: pointer;
+  border: 1px solid var(--color-line);
+  border-radius: 9999px;
+  background: var(--color-surface);
+  transition: background-color 150ms, border-color 150ms;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0.125rem;
+    left: 0.125rem;
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: 9999px;
+    background: var(--color-muted);
+    transition: transform 150ms, background-color 150ms;
+  }
+
+  &:checked {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+  }
+
+  &:checked::before {
+    transform: translateX(1.125rem);
+    background: var(--color-surface);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
   }
 }

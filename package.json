@@ -3,16 +3,29 @@
   "version": "0.0.0",
   "private": true,
   "description": "Development entrypoint for the Harness Company stack (backend, web).",
+  "workspaces": [
+    "engine/*"
+  ],
   "engines": {
     "node": ">=22.19.0"
   },
   "scripts": {
     "predev": "bash scripts/dev-preflight.sh",
-    "dev": "concurrently --kill-others --kill-signal SIGTERM --prefix \"[{name}]\" --names \"api,web\" --prefix-colors \"cyan.bold,magenta.bold\" \"npm:dev:api\" \"npm:dev:web\"",
+    "dev": "concurrently --kill-others --kill-signal SIGTERM --prefix \"[{name}]\" --names \"api,definitions,web\" --prefix-colors \"cyan.bold,yellow.bold,magenta.bold\" \"npm:dev:api\" \"npm:dev:definitions\" \"npm:dev:web\"",
     "dev:api": "cd backend && set -a && . ./.env && set +a && export PYTHONUNBUFFERED=1 && exec .venv/bin/uv run uvicorn app.main:app --reload --host 127.0.0.1 --port ${BACKEND_PORT:-8400} --use-colors",
-    "dev:web": "FORCE_COLOR=1 exec npm --prefix web run dev -- --port ${WEB_PORT:-3000}"
+    "dev:web": "FORCE_COLOR=1 exec npm --prefix web run dev -- --port ${WEB_PORT:-3000}",
+    "typecheck": "npm run typecheck -w engine/compose -w engine/cli -w engine/definitions",
+    "sheet": "npm run build -w engine/cli && npm --prefix web run sheet",
+    "build": "npm run build -w engine/compose -w engine/cli -w engine/definitions && (cd pi && npm run build:offline) && (cd web && npm run build)",
+    "test": "npm run test -w engine/compose -w engine/cli -w engine/definitions && (cd pi && npm test) && (cd web && npm test --if-present)",
+    "dev:definitions": "bash scripts/dev-definitions.sh"
   },
   "devDependencies": {
     "concurrently": "10.0.5"
+  },
+  "overrides": {
+    "vitest": {
+      "vite": "8.0.16"
+    }
   }
 }

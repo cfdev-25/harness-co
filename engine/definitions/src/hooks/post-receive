@@ -1,0 +1,39 @@
+#!/usr/bin/env node
+// 02 D45: the rules live in validate.ts, tested at T1, not in a shell script.
+// This forwards stdin and the environment receive-pack set to the service over
+// DEFINITIONS_SOCK and exits with the answer. post-receive is the same file:
+// the phase is the name git invoked it by.
+//
+// A hook file has no extension, so whether node reads it as CommonJS or as a
+// module depends on the nearest package.json. `import()` inside a function
+// parses either way, which is why it is not a top-level import.
+(async () => {
+	const { connect } = await import("node:net");
+	const chunks = [];
+	for await (const chunk of process.stdin) chunks.push(chunk);
+	const answer = await new Promise((resolve, reject) => {
+		const socket = connect(process.env.DEFINITIONS_SOCK);
+		let reply = "";
+		socket.on("connect", () =>
+			socket.end(
+				JSON.stringify({
+					phase: process.argv[1].split("/").pop(),
+					cwd: process.cwd(),
+					stdin: Buffer.concat(chunks).toString("utf8"),
+					env: process.env,
+				}),
+			),
+		);
+		socket.on("data", (chunk) => {
+			reply += chunk;
+		});
+		socket.on("end", () => resolve(JSON.parse(reply)));
+		socket.on("error", reject);
+	});
+	if (answer.message) process.stderr.write(`${answer.message}\n`);
+	process.exit(answer.code);
+})().catch((error) => {
+	// The service not answering refuses the push: nothing lands unvalidated (I5).
+	process.stderr.write(`${error.message}\n`);
+	process.exit(1);
+});

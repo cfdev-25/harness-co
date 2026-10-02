@@ -1,0 +1,44 @@
+[
+  {
+    "id": "openrouter",
+    "endpoints": {
+      "anthropic-messages": "https://openrouter.ai/api",
+      "openai-completions": "https://openrouter.ai/api/v1"
+    },
+    "models": [
+      "openrouter/auto"
+    ],
+    "attach": {
+      "header": "Authorization",
+      "prefix": "Bearer "
+    }
+  },
+  {
+    "id": "anthropic",
+    "endpoints": {
+      "anthropic-messages": "https://api.anthropic.com"
+    },
+    "models": [
+      "claude-sonnet-5",
+      "claude-opus-5",
+      "claude-haiku-4-5-20251001"
+    ],
+    "attach": {
+      "header": "x-api-key",
+      "prefix": ""
+    }
+  },
+  {
+    "id": "openai",
+    "endpoints": {
+      "openai-completions": "https://api.openai.com/v1"
+    },
+    "models": [
+      "gpt-5"
+    ],
+    "attach": {
+      "header": "Authorization",
+      "prefix": "Bearer "
+    }
+  }
+]

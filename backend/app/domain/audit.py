@@ -7,6 +7,27 @@ from uuid import UUID
 import asyncpg
 
 ZERO_HASH = "0" * 64
+# 04 §6, *Audit partitions*. A no-op once the month has been seen, so the
+# common path costs a set lookup; the pool-start call in db.py stays.
+_PARTITIONED: set[tuple[int, int]] = set()
+
+
+async def ensure_partition_for(connection: asyncpg.Connection, created_at: datetime) -> None:
+    year, month = created_at.year, created_at.month
+    if (year, month) in _PARTITIONED:
+        return
+    for _ in range(2):
+        start = datetime(year, month, 1, tzinfo=UTC)
+        end = datetime(year + 1, 1, 1, tzinfo=UTC) if month == 12 else datetime(
+            year, month + 1, 1, tzinfo=UTC
+        )
+        await connection.execute(
+            f"""create table if not exists audit_log_{year:04d}_{month:02d}
+                partition of audit_log for values from ('{start.isoformat()}')
+                to ('{end.isoformat()}')"""
+        )
+        _PARTITIONED.add((year, month))
+        year, month = end.year, end.month
 
 
 def canonical_event(
@@ -46,6 +67,7 @@ async def append_event(
     created_at: datetime | None = None,
 ) -> dict[str, Any]:
     timestamp = created_at or datetime.now(UTC)
+    await ensure_partition_for(connection, timestamp)
     await connection.execute(
         """insert into audit_log_latest_hashes(org_unit_id,last_hash) values($1,$2)
            on conflict (org_unit_id) do nothing""",

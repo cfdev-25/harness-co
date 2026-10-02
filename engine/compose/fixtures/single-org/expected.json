@@ -1,0 +1,88 @@
+{
+	"chain": [
+		{
+			"kind": "org",
+			"path": "acme",
+			"ref": "refs/heads/org",
+			"commit": "org"
+		},
+		{
+			"kind": "user",
+			"path": "acme.dana",
+			"ref": "refs/heads/users/dana",
+			"commit": "u"
+		}
+	],
+	"assets": [
+		{
+			"id": "0b7e4d2a-9c31-4f8e-b6a2-51d3c7e9f0a4",
+			"kind": "memory",
+			"name": "never-drop-db",
+			"from": {
+				"kind": "org",
+				"path": "acme",
+				"ref": "refs/heads/org",
+				"commit": "org"
+			},
+			"tree": "org:assets/memory/never-drop-db",
+			"sidecar": {
+				"id": "0b7e4d2a-9c31-4f8e-b6a2-51d3c7e9f0a4",
+				"kind": "memory"
+			}
+		},
+		{
+			"id": "6f1c9a2e-3b0d-4c7e-9a51-2f0e8b7d4c11",
+			"kind": "tool",
+			"name": "deploy",
+			"from": {
+				"kind": "org",
+				"path": "acme",
+				"ref": "refs/heads/org",
+				"commit": "org"
+			},
+			"tree": "org:assets/tool/deploy",
+			"sidecar": {
+				"id": "6f1c9a2e-3b0d-4c7e-9a51-2f0e8b7d4c11",
+				"kind": "tool"
+			}
+		}
+	],
+	"conflicts": [],
+	"policy": {
+		"boundaries": [],
+		"grants": [],
+		"groups": {},
+		"modelProviders": {},
+		"harnessProviders": {},
+		"routing": {
+			"defaultFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			},
+			"approvedFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			}
+		},
+		"kinds": [
+			"skill",
+			"memory",
+			"tool",
+			"prompt",
+			"system_prompt",
+			"connection"
+		],
+		"required": [],
+		"recommended": [],
+		"reach": {
+			"mode": "off",
+			"hosts": [],
+			"setBy": "acme"
+		}
+	},
+	"harnesses": [],
+	"harnessFrom": {},
+	"tree": "<composed>"
+}

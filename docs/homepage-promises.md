@@ -213,7 +213,7 @@ carries units, deliberately. The underlying inheritance claim is **shipped**.
 
 | Promise | Status |
 | --- | --- |
-| "Invite only. Ask an admin on your team to invite this address." | **shipped** — the sign-up toggle is behind `NEXT_PUBLIC_ALLOW_SIGNUP`, off by default |
+| "Invite only. Ask an admin on your team to invite this address." | **retired** (W7-D1) — `/signup` is self-serve behind one access code, `NEXT_PUBLIC_ALLOW_SIGNUP` is gone, and the header and hero now say *Create an account*. `/login` is sign-in only; the invite path itself is unchanged |
 | The request form at `/request` | **shipped** — writes via the `request_access` definer function, migration `0029` |
 | "We'll email you an invitation from this address" | **manual** — no automation reads `access_requests`; someone must query the table and invite |
 | Sign in works | **partial in production** — Supabase auth works, but the console's `/v1/*` calls need a deployed backend, and there is none yet |

@@ -15,3 +15,5 @@ Changes to files inherited from upstream Pi must be recorded here.
 - `pi/package-lock.json`: regenerated workspace metadata to register the new
   `@harness/pi-harness` and `@harness/pi-harness-cli` packages. No upstream
   dependency versions or source files were intentionally changed.
+
+- **2026-09-28** `package.json` `build:offline` now also builds `packages/harness` (the extension). It was only in `build`, which the root build never runs (it rewrites tracked files), so `pi/packages/harness/dist` went stale behind its source and every session read `policy.json` from the old path and disabled every tool.

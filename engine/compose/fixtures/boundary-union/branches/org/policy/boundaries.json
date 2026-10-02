@@ -1,0 +1,12 @@
+[
+	{
+		"id": "no-prod-db",
+		"scope": {
+			"teams": "all"
+		},
+		"kind": "endpoint",
+		"value": "db.prod.example",
+		"holds": "enforced",
+		"reason": "Production is not reachable from a session."
+	}
+]

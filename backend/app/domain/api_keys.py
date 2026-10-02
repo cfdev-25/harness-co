@@ -54,7 +54,7 @@ def delivered_value(ciphertext: bytes, *, master_key: str | None = None) -> str:
 async def visible_keys(connection: asyncpg.Connection, org_unit_id: UUID) -> list[dict[str, Any]]:
     """Connectors an org unit can use: its own, plus every ancestor's.
 
-    Administration flows down (docs/scoping.md §5.5), but a connector is not
+    Administration flows down (docs/archive/scoping.md §5.5), but a connector is not
     an asset: two units can each hold a key named `openai` and both stay
     usable, so this is a plain union over the ancestor chain, never
     `resolve.py`'s nearest-ancestor-wins window. Each row keeps `org_unit_id`

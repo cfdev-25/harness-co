@@ -1,0 +1,94 @@
+{
+	"chain": [
+		{
+			"kind": "org",
+			"path": "acme",
+			"ref": "refs/heads/org",
+			"commit": "org"
+		},
+		{
+			"kind": "team",
+			"path": "acme.marketing",
+			"ref": "refs/heads/teams/acme.marketing",
+			"commit": "t1"
+		},
+		{
+			"kind": "user",
+			"path": "acme.marketing.dana",
+			"ref": "refs/heads/users/dana",
+			"commit": "u"
+		}
+	],
+	"assets": [],
+	"conflicts": [],
+	"policy": {
+		"boundaries": [
+			{
+				"id": "acme/no-prod-db",
+				"scope": {
+					"teams": "all"
+				},
+				"kind": "endpoint",
+				"value": "db.prod.example",
+				"holds": "enforced",
+				"reason": "Production is not reachable from a session."
+			},
+			{
+				"id": "acme.marketing/no-competitor-crm",
+				"scope": {
+					"teams": "all"
+				},
+				"kind": "endpoint",
+				"value": "competitor-crm.com",
+				"holds": "enforced",
+				"reason": "Contract clause 4.2."
+			},
+			{
+				"id": "acme.marketing/no-rm",
+				"scope": {
+					"teams": [
+						"acme.marketing"
+					]
+				},
+				"kind": "command",
+				"value": "rm -rf *",
+				"holds": "intercepted",
+				"reason": "Too easy to mean the wrong directory."
+			}
+		],
+		"grants": [],
+		"groups": {},
+		"modelProviders": {},
+		"harnessProviders": {},
+		"routing": {
+			"defaultFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			},
+			"approvedFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			}
+		},
+		"kinds": [
+			"skill",
+			"memory",
+			"tool",
+			"prompt",
+			"system_prompt",
+			"connection"
+		],
+		"required": [],
+		"recommended": [],
+		"reach": {
+			"mode": "off",
+			"hosts": [],
+			"setBy": "acme"
+		}
+	},
+	"harnesses": [],
+	"harnessFrom": {},
+	"tree": "<composed>"
+}

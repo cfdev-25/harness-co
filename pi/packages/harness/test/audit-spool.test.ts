@@ -19,16 +19,18 @@ function fakePi() {
 	return { fire };
 }
 
-const previous = process.env.HARNESS_SESSION_DIR;
+const previous = { session: process.env.HARNESS_SESSION_DIR, agent: process.env.PI_CODING_AGENT_DIR };
 afterEach(() => {
-	process.env.HARNESS_SESSION_DIR = previous;
+	process.env.HARNESS_SESSION_DIR = previous.session;
+	process.env.PI_CODING_AGENT_DIR = previous.agent;
 });
 
 describe("audit spool", () => {
 	it("appends tool calls to audit.jsonl, with no network", async () => {
 		const dir = await mkdtemp(join(tmpdir(), "harness-audit-"));
 		process.env.HARNESS_SESSION_DIR = dir;
-		await writeFile(join(dir, "policy.json"), JSON.stringify({ allowed_tools: ["read"] }));
+		process.env.PI_CODING_AGENT_DIR = dir;
+		await writeFile(join(dir, "policy.json"), JSON.stringify({ allowed: ["read"], confirm: [], denies: [] }));
 
 		const { fire } = fakePi();
 		await fire("session_start");

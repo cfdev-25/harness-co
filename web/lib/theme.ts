@@ -1,4 +1,4 @@
-export const THEME_IDS = ["steel", "light", "jade", "leather"] as const;
+export const THEME_IDS = ["steel", "light"] as const;
 export type ThemeId = (typeof THEME_IDS)[number];
 
 export const DEFAULT_THEME: ThemeId = "steel";
@@ -7,9 +7,20 @@ export const THEME_STORAGE_KEY = "harness-theme";
 export const THEMES: { id: ThemeId; label: string }[] = [
   { id: "steel", label: "Steel" },
   { id: "light", label: "Light" },
-  { id: "jade", label: "Jade" },
-  { id: "leather", label: "Leather" },
 ];
+
+/**
+ * The one definition of a public path (00 D4, 01 §10): the marketing pages
+ * that always render `light`, whoever is signed in and whatever they last
+ * chose. `THEME_BOOT` and `<PublicTheme>` both derive from this list instead
+ * of keeping their own — that divergence was the theme flash on `/request`,
+ * `/privacy` and `/terms`.
+ */
+export const PUBLIC_PATHS = ["/", "/login", "/signup", "/request", "/privacy", "/terms"] as const;
+
+export function isPublicPath(pathname: string) {
+  return PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+}
 
 export function isThemeId(value: string | null): value is ThemeId {
   return THEME_IDS.some((id) => id === value);
@@ -33,8 +44,4 @@ export function applyTheme(theme: ThemeId) {
   }
 }
 
-export function isPublicPath(pathname: string) {
-  return pathname === "/" || pathname === "/login" || pathname.startsWith("/login/");
-}
-
-export const THEME_BOOT = `(function(){try{var p=location.pathname;if(p==="/"||p==="/login"||p.indexOf("/login/")===0){document.documentElement.setAttribute("data-theme","light");return;}var t=localStorage.getItem("${THEME_STORAGE_KEY}");document.documentElement.setAttribute("data-theme",${JSON.stringify(THEME_IDS)}.indexOf(t)>=0?t:"${DEFAULT_THEME}");}catch(e){document.documentElement.setAttribute("data-theme","${DEFAULT_THEME}");}})();`;
+export const THEME_BOOT = `(function(){try{var p=location.pathname;var pub=${JSON.stringify(PUBLIC_PATHS)};for(var i=0;i<pub.length;i++){if(p===pub[i]||p.indexOf(pub[i]+"/")===0){document.documentElement.setAttribute("data-theme","light");return;}}var t=localStorage.getItem("${THEME_STORAGE_KEY}");document.documentElement.setAttribute("data-theme",${JSON.stringify(THEME_IDS)}.indexOf(t)>=0?t:"${DEFAULT_THEME}");}catch(e){document.documentElement.setAttribute("data-theme","${DEFAULT_THEME}");}})();`;

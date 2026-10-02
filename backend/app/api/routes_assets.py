@@ -32,10 +32,10 @@ from app.identity import Principal
 
 router = APIRouter(tags=["assets"])
 
-# docs/scoping.md §5.3, §5.5: a connection is a pointer to a credential the
+# docs/archive/scoping.md §5.3, §5.5: a connection is a pointer to a credential the
 # Every asset kind is content and may be overridden — including `connection`,
 # which is a config file naming a credential, not the credential itself
-# (docs/scoping.md §5.5). The credential stays the owner's: `asset_scopes`
+# (docs/archive/scoping.md §5.5). The credential stays the owner's: `asset_scopes`
 # carries a per-recipient `key_ref`, so who gets which key is decided by
 # whoever owns the asset and never by the recipient.
 #
@@ -164,7 +164,7 @@ async def _require_within_subtree(connection, owning_unit_id: UUID, target_ids: 
     A scope row means "this unit and everything beneath it" (0022_asset_scopes.sql),
     so a target has to be the owning unit itself or somewhere under it — that is
     what lets the owner reach its own descendants. Anything else would let the
-    asset reach sideways through the tree, which docs/scoping.md §0 forbids: a
+    asset reach sideways through the tree, which docs/archive/scoping.md §0 forbids: a
     unit sees what it owns plus what an ancestor scoped to it, never what a
     cousin branch decided to hand it.
     """
@@ -401,7 +401,7 @@ async def set_asset_scopes(
     principal: Annotated[Principal, Depends(current_principal)],
     user_unit: Annotated[dict, Depends(current_user_unit)],
 ) -> list[dict]:
-    """Replace who this asset reaches, per docs/scoping.md §3.
+    """Replace who this asset reaches, per docs/archive/scoping.md §3.
 
     Write access is checked at the asset's *owning* unit, not the caller's
     own: scoping is the owner's act, the same authority `create_version`
@@ -422,7 +422,7 @@ async def set_asset_scopes(
         }
         added = sorted(wanted.keys() - current.keys(), key=str)
         removed = sorted(current.keys() - wanted.keys(), key=str)
-        # docs/scoping.md §5.2(c): granting reach to a unit whose own subtree
+        # docs/archive/scoping.md §5.2(c): granting reach to a unit whose own subtree
         # already owns this (kind, name) would silently create the shadow
         # §5.2 forbids creating without a person choosing it — the org's
         # `crm` reaching a team that already wrote its own. Only *newly*
@@ -530,7 +530,7 @@ async def lineage(
                   v.id version_id,v.seq,v.created_at updated_at,
                   src.asset_id promoted_from_asset_id,src.seq promoted_from_seq,
                   -- The exact version this copy forked from, when it is
-                  -- known — the common ancestor a merge (docs/scoping.md
+                  -- known — the common ancestor a merge (docs/archive/scoping.md
                   -- §5.2) needs, distinct from `promoted_from_seq`, which is
                   -- only a number and cannot be fetched by itself.
                   src.id promoted_from_version_id,
@@ -582,7 +582,7 @@ async def create_asset(
                 "unknown_asset_kind",
                 f"Unknown kind '{body.kind}'. Known kinds: {kinds}.",
             )
-        # docs/scoping.md §5.2(a): a name an ancestor already has, reaching
+        # docs/archive/scoping.md §5.2(a): a name an ancestor already has, reaching
         # here, is a collision the moment it is created — not something that
         # silently becomes a personal override. `override_of` is how the
         # console says a person already chose to override it; anything else
@@ -649,7 +649,7 @@ async def create_asset(
             action="asset.create",
             payload={"asset_id": str(asset["id"]), "version_id": str(version["id"])},
         )
-        # docs/scoping.md §5.2(b): informational only. Until this name is
+        # docs/archive/scoping.md §5.2(b): informational only. Until this name is
         # scoped down that far these units still resolve their own copy
         # unchanged — this just says what would start shadowing if it were.
         shadows_below = await descendant_owners(connection, body.org_unit_id, body.kind, body.name)
@@ -675,7 +675,7 @@ async def create_version(
         )
         # This asset already exists here, so no new name is being created and
         # nothing below is required to gate an ordinary edit — that would
-        # regress every existing shadow, which docs/scoping.md §5.2 explicitly
+        # regress every existing shadow, which docs/archive/scoping.md §5.2 explicitly
         # says this feature must not touch. `override_of` is opt-in: it
         # exists only so a unit can *confirm* "keep mine" for a collision
         # `set_asset_scopes` raised (§5.2(c)), by recording, on a real new
@@ -807,7 +807,7 @@ async def promote(
             source_asset["kind"],
             source_asset["name"],
         )
-        # docs/scoping.md §5.2(b): informational, same as a fresh push — a
+        # docs/archive/scoping.md §5.2(b): informational, same as a fresh push — a
         # promote to a unit that had no asset of this name yet is also this
         # name coming into existence there for the first time.
         shadows_below: list[dict] = []

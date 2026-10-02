@@ -1,0 +1,156 @@
+=== AGENTS.md
+Harness assets live at `<assetsRoot>/<kind>/<name>/` — `skill/`, `tool/`, `prompt/`, `memory/`, `system_prompt/`, `connection/`, `context/`, `environment/`. A new skill, tool, prompt, context (a template, a reference, brand assets) or environment (what must be installed) goes there, in that kind's shape; it is offered to keep when the session ends. Files in the working directory belong to the project, not to the harness. The `harness-authoring` skill says how to make one, and how to extract a setup from another tool. This harness has its own Python and Node environments, first on PATH: install there, never on the machine, and record what you install in an environment asset.
+
+Reach: off. This session can only connect to the hosts it holds a credential for; anything else is refused by the fence, and the model may not browse on the provider's side either. acme decides this.
+
+This harness delivers: skills quokka · prompts standup · memories release-notes · tools deploy · contexts brand-assets · environments deck-tools.
+
+## release-notes
+
+We ship on Thursdays.
+
+## Tools
+
+- `deploy` — run `<assetsRoot>/tool/deploy/run`
+
+## Context
+
+Read when a task calls for it; nothing here is loaded on its own.
+
+- `brand-assets` — `<assetsRoot>/context/brand-assets/` — Colours, logos and the deck template.
+
+## Environment
+
+What this harness declares its environment holds. Apply what is missing, inside this session; record what you add.
+
+- `deck-tools` — What the deck tool needs. — apply with `pip install -r <assetsRoot>/environment/deck-tools/requirements.txt`
+
+=== models.json
+{
+  "providers": {
+    "harness": {
+      "baseUrl": "http://127.0.0.1:45871/connectors/model",
+      "apiKey": "$HARNESS_SESSION_SECRET",
+      "api": "openai-completions",
+      "models": [
+        {
+          "id": "sonnet",
+          "name": "sonnet"
+        }
+      ]
+    }
+  }
+}
+
+=== policy.json
+{
+  "session_id": "session-1",
+  "allowed": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "edit",
+    "write",
+    "bash",
+    "deploy"
+  ],
+  "confirm": [
+    "bash"
+  ],
+  "denies": [
+    "Edit(<workspace>/.claude/**)",
+    "Edit(<workspace>/.pi/**)",
+    "Read(<root>/denied-tool/**)"
+  ],
+  "commands": [
+    {
+      "id": "acme/b-wipe",
+      "pattern": "rm -rf /*",
+      "reason": "A wipe of the system root is never a step in a task.",
+      "match": "(?:^|[|;&\\n])[ \\t]*rm -rf /[^|;&\\n]*[ \\t]*(?:$|[|;&\\n])"
+    },
+    {
+      "id": "acme/b-pipe",
+      "pattern": "curl * | sh",
+      "reason": "A download executed unread runs code nobody has seen.",
+      "match": "^curl [\\s\\S]* \\| sh$"
+    }
+  ],
+  "assetsRoot": "<assetsRoot>",
+  "system_prompt_file": "<agentDir>/system-prompt.md",
+  "landing": {
+    "module": "<cli>/landing.js",
+    "mode": "mono",
+    "frame": {
+      "icon": null,
+      "name": "Pi",
+      "description": "",
+      "delivered": "1 skill · 1 prompt · 1 memory · 1 tool · 1 context · 1 environment",
+      "model": "openrouter · sonnet",
+      "reach": "off",
+      "workspace": "<workspace>"
+    }
+  }
+}
+
+=== prompts/standup.md -> <assetsRoot>/prompt/standup/standup.md
+=== rendered.json
+{
+  "concerns": {
+    "skill": [
+      "00000000-0000-4000-8000-000000000000"
+    ],
+    "prompt": [
+      "00000001-0000-4000-8000-000000000000"
+    ],
+    "system_prompt": [
+      "00000002-0000-4000-8000-000000000000"
+    ],
+    "memory": [
+      "00000003-0000-4000-8000-000000000000"
+    ],
+    "tool_index": [
+      "00000004-0000-4000-8000-000000000000"
+    ]
+  },
+  "model": {
+    "endpoint": "http://127.0.0.1:45871/connectors/model",
+    "model": "sonnet"
+  },
+  "hooks": [],
+  "denies": [
+    "Edit(<workspace>/.claude/**)",
+    "Edit(<workspace>/.pi/**)",
+    "Read(<root>/denied-tool/**)"
+  ],
+  "links": {
+    "prompts/standup.md": "<assetsRoot>/prompt/standup/standup.md"
+  },
+  "files": {
+    "settings.json": "<sha256>",
+    "models.json": "<sha256>",
+    "AGENTS.md": "<sha256>",
+    "system-prompt.md": "<sha256>",
+    "prompts/standup.md": "symlink:<assetsRoot>/prompt/standup/standup.md",
+    "policy.json": "<sha256>"
+  }
+}
+
+=== settings.json
+{
+  "defaultProvider": "harness",
+  "defaultModel": "sonnet",
+  "skills": [
+    "<assetsRoot>/skill/quokka"
+  ],
+  "defaultProjectTrust": "never",
+  "quietStartup": true,
+  "enableInstallTelemetry": false,
+  "enableAnalytics": false
+}
+
+=== system-prompt.md
+## house-style
+
+Write plainly.

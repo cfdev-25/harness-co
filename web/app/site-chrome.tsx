@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { LEGAL } from "./legal";
-import { BrandMark } from "./ui";
+import { BrandMark } from "./(console)/ui/brand-mark";
 
 export const CTA =
   "inline-flex items-center justify-center rounded-full px-5 py-2.5 text-[13px] font-semibold transition";
@@ -25,8 +25,8 @@ export function SiteHeader() {
             How it works
           </Link>
         </nav>
-        <Link href="/request" className={`${CTA} ml-auto bg-ink text-ink-text hover:bg-ink-raised md:ml-2`}>
-          Request an account
+        <Link href="/signup" className={`${CTA} ml-auto bg-ink text-ink-text hover:bg-ink-raised md:ml-2`}>
+          Create an account
         </Link>
       </div>
     </header>
@@ -39,6 +39,7 @@ const COLUMNS = [
     links: [
       { label: "Features", href: "/#features" },
       { label: "How it works", href: "/#how" },
+      { label: "Create an account", href: "/signup" },
       { label: "Request an account", href: "/request" },
       { label: "Sign in", href: "/login" },
     ],

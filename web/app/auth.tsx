@@ -1,11 +1,25 @@
 "use client";
 
-import { FormEvent, ReactNode, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ApiError, request } from "@/lib/api";
-import { supabase } from "@/lib/supabase";
-import { Alert, BrandMark, Button, Eyebrow, Field } from "./ui";
+import { browserClient } from "@/lib/supabase.client";
+import { getToken } from "@/lib/token.client";
+import { BrandMark } from "./(console)/ui/brand-mark";
+import { Alert, Button, Eyebrow, Field } from "./ui";
+
+/** Where a signed-in person lands when nothing else is asked for (02 rule 11). */
+export const AFTER_SIGN_IN = "/console/me/harnesses";
+
+/**
+ * `?next=` is a path on this site and nothing else: a value that does not
+ * start with a single `/` would send the person to another origin.
+ */
+export function safeNext(next?: string | null): string {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return AFTER_SIGN_IN;
+  return next;
+}
 
 export function AuthShell({
   eyebrow,
@@ -44,15 +58,13 @@ export function AuthShell({
 }
 
 /**
- * Accounts are created by invitation: an admin invites the address, GoTrue
- * mails the link, and the person sets a password. Self-serve sign-up is off
- * unless the deployment opts in, and turning it on here does nothing until
- * sign-ups are also enabled in the auth provider.
+ * Sign-in only. Making an account is `/signup` (W7-D1, D101a) — Team or
+ * Personal, your email, then a link that brings you back to set the password
+ * and give the access code. The invite path is the same shape and unchanged:
+ * an admin invites the address, GoTrue mails the link, and the person signs
+ * in here afterwards.
  */
-const SELF_SERVE = process.env.NEXT_PUBLIC_ALLOW_SIGNUP === "true";
-
 export function Login() {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -62,25 +74,17 @@ export function Login() {
     event.preventDefault();
     setBusy(true);
     setError("");
-    const action =
-      mode === "signin"
-        ? supabase.auth.signInWithPassword({ email, password })
-        : supabase.auth.signUp({ email, password });
-    const { error: cause } = await action;
+    // Signing in writes the session cookie; `AuthApp`'s subscription sees it
+    // and decides where the person goes, so there is one redirect, not two.
+    const { error: cause } = await browserClient().auth.signInWithPassword({ email, password });
     setBusy(false);
     if (cause) setError(cause.message);
   }
 
   return (
     <AuthShell
-      title={mode === "signin" ? "Sign in" : "Create account"}
-      description={
-        mode === "signin"
-          ? SELF_SERVE
-            ? "Manage harnesses for yourself or your organization."
-            : "Harness Manager is invite-only. Ask an admin on your team to invite this address."
-          : "Your workspace is created when you accept an invite or start an organization."
-      }
+      title="Sign in"
+      description="Manage harnesses for yourself or your organisation."
     >
       <form className="mt-6 grid gap-4" onSubmit={submit}>
         <Field
@@ -97,106 +101,72 @@ export function Login() {
           label="Password"
           id="password"
           type="password"
-          autoComplete={mode === "signin" ? "current-password" : "new-password"}
+          autoComplete="current-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           required
         />
         {error && <Alert>{error}</Alert>}
         <Button variant="primary" full type="submit" disabled={busy}>
-          {busy ? "Working…" : mode === "signin" ? "Sign in" : "Sign up"}
+          {busy ? "Working…" : "Sign in"}
         </Button>
       </form>
-      {SELF_SERVE && (
-        <Button
-          full
-          className="mt-3"
-          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-        >
-          {mode === "signin" ? "Need an account?" : "Have an account?"}
-        </Button>
-      )}
+      <p className="mt-4 text-[12.5px] text-muted">
+        New here?{" "}
+        <Link href="/signup" className="text-accent underline underline-offset-2">
+          Create an account
+        </Link>
+      </p>
     </AuthShell>
   );
 }
 
-export function Onboarding({ onCreated }: { onCreated: () => void }) {
-  const [error, setError] = useState("");
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    try {
-      await request("/v1/orgs", {
-        method: "POST",
-        body: JSON.stringify({
-          org_name: form.get("org_name"),
-          team_name: form.get("team_name") || "General",
-        }),
-      });
-      onCreated();
-    } catch (cause) {
-      setError((cause as Error).message);
-    }
-  }
-
-  return (
-    <AuthShell
-      eyebrow="First run"
-      title="Create an organization"
-      description="Or ask an admin to invite this email to their team."
-    >
-      <form className="mt-6 grid gap-4" onSubmit={submit}>
-        <Field label="Organization name" id="org_name" name="org_name" required autoFocus />
-        <Field label="First team" id="team_name" name="team_name" defaultValue="General" />
-        {error && <Alert>{error}</Alert>}
-        <Button variant="primary" full type="submit">
-          Create
-        </Button>
-      </form>
-    </AuthShell>
-  );
-}
-
-export function AuthApp() {
+/**
+ * Sign-in, and the one place that decides where a signed-in person goes.
+ * `next` comes from the server component that read the query string, so this
+ * file needs no `useSearchParams` and `/login` needs no Suspense boundary.
+ */
+export function AuthApp({ next }: { next?: string }) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
-  const [needsOrg, setNeedsOrg] = useState(false);
-  const [pending, setPending] = useState(false);
+
+  const enter = useCallback(() => {
+    // `refresh()` first: the console is server-rendered, and without it Next
+    // may answer the navigation from a cache taken before the cookie existed.
+    router.refresh();
+    router.replace(safeNext(next));
+  }, [router, next]);
 
   useEffect(() => {
+    const supabase = browserClient();
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      const next = Boolean(session);
-      setSignedIn(next);
+      const live = Boolean(session);
+      setSignedIn(live);
       setReady(true);
-      if (!next) {
-        setNeedsOrg(false);
-        setPending(false);
-        return;
-      }
-      setPending(true);
-      request("/v1/tree")
-        .then(() => {
-          setNeedsOrg(false);
-          router.replace("/app");
-        })
+      if (!live) return;
+      // An account with no org unit has nowhere to land; `/v1/tree` answers
+      // 404 for exactly that case. Making the first organisation is `/signup`
+      // and nowhere else, because the access code is checked on that write
+      // (W7-D1) — so this is where someone who followed the link on another
+      // machine, or left at the access code, resumes: `/signup` sees the
+      // session and opens its last step.
+      getToken()
+        .then((token) => request("/v1/tree", token))
+        .then(enter)
         .catch((cause) => {
           if (cause instanceof ApiError && cause.status === 404) {
-            setNeedsOrg(true);
+            router.replace("/signup");
             return;
           }
-          router.replace("/app");
-        })
-        .finally(() => setPending(false));
+          enter();
+        });
     });
     return () => data.subscription.unsubscribe();
-  }, [router]);
+  }, [enter, router]);
 
-  if (!ready || (signedIn && pending && !needsOrg)) {
-    return <main className="min-h-screen bg-canvas" />;
-  }
-  if (!signedIn) return <Login />;
-  if (needsOrg) return <Onboarding onCreated={() => router.replace("/app")} />;
-  return <main className="min-h-screen bg-canvas" />;
+  // Signed in and on the way somewhere — the console, or `/signup` to finish
+  // making the organisation — is a blank canvas, never a flash of the form.
+  if (!ready || signedIn) return <main className="min-h-screen bg-canvas" />;
+  return <Login />;
 }

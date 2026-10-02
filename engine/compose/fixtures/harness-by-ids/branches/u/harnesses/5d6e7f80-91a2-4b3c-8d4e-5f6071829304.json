@@ -1,0 +1,16 @@
+{
+	"id": "5d6e7f80-91a2-4b3c-8d4e-5f6071829304",
+	"name": "Just deploy",
+	"description": "One tool.",
+	"icon": {
+		"palette": [
+			"#4a7c9c"
+		],
+		"rows": [
+			"................"
+		]
+	},
+	"assets": [
+		"6f1c9a2e-3b0d-4c7e-9a51-2f0e8b7d4c11"
+	]
+}

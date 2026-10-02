@@ -36,7 +36,7 @@ def test_boundary_merge_uses_every_strictest_rule():
 
 
 def test_merge_boundaries_carries_a_verdict_for_every_surviving_control():
-    """docs/agents.md §11.3: the console and `harness doctor` must agree field
+    """docs/archive/agents.md §11.3: the console and `harness doctor` must agree field
     for field, which only holds if both read this key instead of each keeping
     their own list.
     """
@@ -155,6 +155,8 @@ def test_a_child_cannot_drop_a_required_deploy_confirmation():
     with pytest.raises(ApiError) as caught:
         validate_tightening({"deploy_tools": []}, parent)
     assert caught.value.detail["field"] == "deploy_tools"
+
+
 def test_model_policy_merge_is_unset_when_nobody_set_it():
     merged = merge_boundaries([])
     assert merged["model_policy"] == {"source": None, "user_credentials": None}
@@ -236,7 +238,7 @@ def test_model_policy_may_tighten_toward_the_strictest_value():
 def test_names_and_role_order_are_plain_and_predictable():
     assert slugify(" Finance & Ops! ") == "finance-ops"
     validate_role_order("team", "org")
-    # A team inside a team is now legal (docs/scoping.md 5.4); a team inside a
+    # A team inside a team is now legal (docs/archive/scoping.md 5.4); a team inside a
     # user is not, and that is what keeps the order meaningful.
     with pytest.raises(ApiError):
         validate_role_order("team", "user")
@@ -260,7 +262,11 @@ def test_a_team_may_hold_a_team():
     validate_role_order("team", "org")
 
 
-def test_a_user_still_belongs_only_to_a_team():
+def test_a_user_belongs_to_a_team_or_directly_to_an_org():
+    """prd-v2 §12.1: a personal account is a user directly under its org (migration 0038).
+    Nothing forks from a user, so a user under a user is still refused."""
+    validate_role_order("user", "team")
+    validate_role_order("user", "org")
     with pytest.raises(ApiError) as caught:
-        validate_role_order("user", "org")
+        validate_role_order("user", "user")
     assert caught.value.code == "invalid_role_order"

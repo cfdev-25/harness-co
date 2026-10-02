@@ -1,0 +1,22 @@
+{
+  "defaults": [
+    { "id": "harness-providers", "path": "harness-providers.json", "managed": "recommended",
+      "screen": "providers", "verbs": ["approve", "decline", "pin", "scope"] },
+    { "id": "model-providers", "path": "model-providers.json", "managed": "recommended",
+      "screen": "providers/model", "verbs": ["set-up", "default", "approve", "delete"] },
+    { "id": "kinds", "path": "kinds.json", "managed": "required",
+      "screen": "assets", "verbs": ["read"] },
+    { "id": "reach-suggested", "path": "reach-suggested.json", "managed": "suggested",
+      "screen": "boundaries/reach", "verbs": ["add"] },
+    { "id": "reach-default-personal", "path": "reach-default-personal.json", "managed": "recommended",
+      "screen": "boundaries/reach", "verbs": ["mode", "add", "remove"] },
+    { "id": "reach-default-enterprise", "path": "reach-default-enterprise.json", "managed": "recommended",
+      "screen": "boundaries/reach", "verbs": ["mode", "add", "remove"] },
+    { "id": "command-boundaries", "path": "command-boundaries.json", "managed": "suggested",
+      "screen": "boundaries/commands", "verbs": ["add"] },
+    { "id": "asset:harness-authoring", "path": "assets/skill/harness-authoring", "managed": "required",
+      "screen": "assets", "verbs": ["read", "loads"] },
+    { "id": "asset:harness-brief", "path": "assets/system_prompt/harness", "managed": "recommended",
+      "screen": "assets", "verbs": ["read", "edit", "delete", "loads"] }
+  ]
+}

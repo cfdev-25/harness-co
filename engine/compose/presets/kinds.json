@@ -1,0 +1,10 @@
+[
+	"connection",
+	"context",
+	"environment",
+	"memory",
+	"prompt",
+	"skill",
+	"system_prompt",
+	"tool"
+]

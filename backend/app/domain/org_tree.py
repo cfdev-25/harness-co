@@ -9,7 +9,7 @@ from app.errors import ApiError
 
 
 class Approvals(BaseModel):
-    """`deploy` is agent-side and advisory (docs/agents.md §11.3): it is read
+    """`deploy` is agent-side and advisory (docs/archive/agents.md §11.3): it is read
     only by `pi/packages/harness/src/index.ts`, which asks a session to
     confirm before it calls a tool named in `deploy_tools` — a field
     `Boundary` does not even carry yet (14.1). Nothing at the control plane,
@@ -101,7 +101,7 @@ def email_label(email: str) -> str:
     return re.sub(r"-+", "-", cleaned).strip("-")
 
 
-# The audit from docs/agents.md §11.3, turned into data instead of a second,
+# The audit from docs/archive/agents.md §11.3, turned into data instead of a second,
 # hand-maintained list. A control ships only if a choke point we own refuses
 # it (§11.1); everything below is a verdict on a control still in the
 # console, not a claim about what a particular org configured, so this is a
@@ -370,11 +370,12 @@ async def effective_boundary(connection: asyncpg.Connection, org_unit_id: Any) -
 # already a scope target, already a boundary level, already resolvable. That
 # keeps one parent per node, which is what lets `resolved_assets` stay a single
 # walk. A membership that cuts across teams is a different shape and is not
-# this (docs/scoping.md 5.4).
+# this (docs/archive/scoping.md 5.4).
 ROLE_PARENT = {
     "org": {None, "org"},
     "team": {"org", "team"},
-    "user": {"team"},
+    # prd-v2 §12.1: a personal account is a user directly under its org (migration 0038).
+    "user": {"team", "org"},
 }
 
 

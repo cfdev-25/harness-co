@@ -1,0 +1,32 @@
+[
+	{
+		"value": "rm -rf /*",
+		"holds": "intercepted",
+		"reason": "A wipe of the system root is never a step in a task. If a path under / really has to go, name it."
+	},
+	{
+		"value": "rm -rf ~*",
+		"holds": "intercepted",
+		"reason": "The home directory holds the credentials, the keys and everything not in a repository. A task that needs to clear a directory can name that directory."
+	},
+	{
+		"value": "curl * | sh",
+		"holds": "intercepted",
+		"reason": "A download piped into a shell runs code nobody has read, from a host the fence may not even cover. Download it, read it, then run it."
+	},
+	{
+		"value": "git push --force*",
+		"holds": "intercepted",
+		"reason": "A force push destroys work that is already pushed, including other people's. Push a new commit, or ask whoever owns the branch."
+	},
+	{
+		"value": "git push * --force*",
+		"holds": "intercepted",
+		"reason": "The same force push with the remote and branch named. Push a new commit, or ask whoever owns the branch."
+	},
+	{
+		"value": "unset HISTFILE*",
+		"holds": "intercepted",
+		"reason": "Turning off the shell history hides what a session did from the person who has to review it. Nothing a harness does needs it off."
+	}
+]

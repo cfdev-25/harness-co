@@ -126,7 +126,7 @@ async def test_resolved_assets_reports_the_asset_a_personal_override_shadows():
 
 
 # ---------------------------------------------------------------------------
-# docs/scoping.md §9.1 — the scope predicate and the backfill.
+# docs/archive/scoping.md §9.1 — the scope predicate and the backfill.
 #
 # FakeConnection above cannot exercise any of this: the property under test
 # is SQL clause-evaluation order (WHERE before the window function), and a
@@ -163,7 +163,7 @@ requires_postgres = pytest.mark.skipif(
     reason=(
         f"No live Postgres reachable at {ADMIN_DSN} (override with "
         "TEST_POSTGRES_DSN). The ordering and backfill acceptance tests in "
-        "docs/scoping.md §9.1 need a real query planner, not a mock."
+        "docs/archive/scoping.md §9.1 need a real query planner, not a mock."
     ),
 )
 
@@ -248,7 +248,7 @@ async def _scope(connection, asset_id, org_unit_id, granted_by) -> None:
 
 @requires_postgres
 async def test_ordering_literal_case_org_and_marketing_both_own_triage():
-    """docs/scoping.md §9.1's stated acceptance case, literally.
+    """docs/archive/scoping.md §9.1's stated acceptance case, literally.
 
     Marketing's own copy needs a scope row to reach a user beneath it at
     all (§4: an asset is visible only to its owner until scoped) — scoping
@@ -282,7 +282,7 @@ async def test_ordering_predicate_runs_before_the_window_not_after():
     promote the org's copy sitting at #2 — Ana would resolve nothing.
     Filtering before the window removes marketing's copy from the race
     before ranking happens, so the org's copy is the only candidate left and
-    wins outright (docs/scoping.md §3.1).
+    wins outright (docs/archive/scoping.md §3.1).
     """
     async with scratch_db(_all_migrations()) as connection:
         org = await _unit(connection, None, "org", "acme")
@@ -353,7 +353,7 @@ async def test_an_asset_scoped_to_one_team_does_not_resolve_for_a_sibling_team()
 
 # The exact query resolved_assets ran before this migration existed, captured
 # verbatim as the definition of "pre-migration behaviour" for the backfill
-# test below (docs/v3.md §5: the acceptance check is not "the backfill ran"
+# test below (docs/archive/v3.md §5: the acceptance check is not "the backfill ran"
 # but "every pre-existing manifest is byte-identical after it").
 PRE_SCOPING_QUERY = """with recursive chain as (
              select id,parent_id,0 depth from org_units where id=$1
@@ -407,7 +407,7 @@ def _comparable(manifest: list[dict]) -> list[dict]:
 
 @requires_postgres
 async def test_the_backfill_leaves_every_pre_existing_manifest_byte_identical():
-    """docs/v3.md §5's real acceptance check for the one irreversible step:
+    """docs/archive/v3.md §5's real acceptance check for the one irreversible step:
     not that the backfill ran, but that every unit that existed before it
     resolves exactly what it resolved before — including a shadow, an
     archived asset, and a pending-review version, none of which the
@@ -420,7 +420,7 @@ async def test_the_backfill_leaves_every_pre_existing_manifest_byte_identical():
         ana = await _unit(connection, team_a, "user", "ana")
 
         # The org's own triage, shadowed by team-a's own override — the
-        # silent-shadow shape docs/scoping.md §5.2 describes.
+        # silent-shadow shape docs/archive/scoping.md §5.2 describes.
         await _asset(connection, org, "skill", "triage")
         await _asset(connection, team_a, "skill", "triage")
         # Resolved straight from the org, with no override anywhere.
@@ -486,7 +486,7 @@ async def test_the_backfill_reaches_units_created_after_it_ran():
 
 
 # ---------------------------------------------------------------------------
-# docs/scoping.md §9.2 — the scope endpoints.
+# docs/archive/scoping.md §9.2 — the scope endpoints.
 #
 # These call the route functions directly (not through TestClient/HTTP): the
 # functions FastAPI's decorators register are plain coroutines, and calling
@@ -536,9 +536,7 @@ async def test_scoping_to_a_non_descendant_is_refused_with_422_naming_the_unit()
         with pytest.raises(ApiError) as caught:
             await routes_assets.set_asset_scopes(
                 crm,
-                routes_assets.ScopeReplace(
-                    scopes=[routes_assets.ScopeGrant(org_unit_id=team_b)]
-                ),
+                routes_assets.ScopeReplace(scopes=[routes_assets.ScopeGrant(org_unit_id=team_b)]),
                 _request(connection),
                 principal,
                 user_unit,
@@ -548,9 +546,10 @@ async def test_scoping_to_a_non_descendant_is_refused_with_422_naming_the_unit()
         assert str(team_b) in caught.value.message
 
         # Refused atomically: no row was written for the rejected request.
-        assert await connection.fetchval(
-            "select count(*) from asset_scopes where asset_id=$1", crm
-        ) == 0
+        assert (
+            await connection.fetchval("select count(*) from asset_scopes where asset_id=$1", crm)
+            == 0
+        )
 
 
 @requires_postgres
@@ -605,9 +604,7 @@ async def test_caller_with_no_write_access_to_the_owning_unit_gets_403():
         with pytest.raises(ApiError) as caught:
             await routes_assets.set_asset_scopes(
                 crm,
-                routes_assets.ScopeReplace(
-                    scopes=[routes_assets.ScopeGrant(org_unit_id=team_a)]
-                ),
+                routes_assets.ScopeReplace(scopes=[routes_assets.ScopeGrant(org_unit_id=team_a)]),
                 _request(connection),
                 principal,
                 user_unit,
@@ -753,7 +750,7 @@ async def test_changing_only_a_credential_is_still_audited():
 
 
 # ---------------------------------------------------------------------------
-# docs/scoping.md §5.2 / §9.6 — a name collision is a conflict, raised at the
+# docs/archive/scoping.md §5.2 / §9.6 — a name collision is a conflict, raised at the
 # moment it would be created, never resolved silently.
 # ---------------------------------------------------------------------------
 
@@ -943,7 +940,7 @@ async def test_keep_mine_records_who_chose_the_override():
 async def test_keep_mine_is_allowed_for_a_connection():
     """A connection names a credential; it is not one.
 
-    docs/scoping.md §5.5 puts connections in the asset family, so a team may
+    docs/archive/scoping.md §5.5 puts connections in the asset family, so a team may
     keep its own. The credential stays the owner's by a different route —
     `asset_scopes.key_ref` — which the recipient cannot set.
     """
@@ -1081,14 +1078,17 @@ async def test_scoping_to_a_unit_whose_subtree_already_has_the_name_is_refused()
         assert caught.value.detail["resolutions"] == ["rename", "take_theirs", "keep_mine", "merge"]
 
         # Refused atomically: no scope row was written.
-        assert await connection.fetchval(
-            "select count(*) from asset_scopes where asset_id=$1", org_crm
-        ) == 0
+        assert (
+            await connection.fetchval(
+                "select count(*) from asset_scopes where asset_id=$1", org_crm
+            )
+            == 0
+        )
 
 
 @requires_postgres
 async def test_scoping_reaches_a_grandchild_whose_own_copy_already_exists():
-    """The reach of a scope row is the whole subtree (docs/scoping.md §3), so
+    """The reach of a scope row is the whole subtree (docs/archive/scoping.md §3), so
     the check has to look past the directly-named unit — granting the org
     itself must catch a copy two levels down, not just at the org."""
     async with scratch_db(_all_migrations()) as connection:
@@ -1191,9 +1191,7 @@ async def test_take_theirs_by_archiving_the_local_copy_clears_the_collision():
         marketing = await _unit(connection, org, "team", "marketing")
         marketing_crm = await _asset(connection, marketing, "connection", "crm")
         org_crm = await _asset(connection, org, "connection", "crm")
-        await connection.execute(
-            "update assets set status='archived' where id=$1", marketing_crm
-        )
+        await connection.execute("update assets set status='archived' where id=$1", marketing_crm)
 
         result = await routes_assets.set_asset_scopes(
             org_crm,
