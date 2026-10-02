@@ -249,7 +249,7 @@ export async function joinHarness(
 
 /**
  * D120. The person's own copy of `key` — the one their branch holds — is
- * deleted from their branch; a copy the team or the organisation holds is
+ * deleted from their branch; a copy the team or the organization holds is
  * theirs to keep, and leaving the harness (`leaveHarness`) is what removes it
  * from this person's sessions. `versions` is the delivery this decision is
  * against: the boot tree in the review, `refs/harness/remote` for `remove`.
@@ -268,7 +268,7 @@ export async function removeOwnCopy(
 }
 
 /**
- * W5-D10. `cli.asset_required`: an id on the organisation's `required` list is
+ * W5-D10. `cli.asset_required`: an id on the organization's `required` list is
  * in every session's load set (03 §5.3), so removing it from a harness would
  * be a decision the next boot undoes. Refused before anything is deleted.
  */
@@ -279,7 +279,7 @@ export function refuseIfRequired(versions: Versions, keys: string[]): void {
 	refuse(
 		"cli.asset_required",
 		`${held.join(", ")} ${one ? "is" : "are"} required: every session loads ${one ? "it" : "them"}, so ${one ? "it cannot" : "they cannot"} be removed from a harness.`,
-		"An organisation admin decides what is required, on the organisation's Assets screen.",
+		"An organization admin decides what is required, on the organization's Assets screen.",
 	);
 }
 

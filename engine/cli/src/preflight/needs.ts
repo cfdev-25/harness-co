@@ -16,7 +16,7 @@ export function walkNeeds(composed: Composed, choices: Choices, load: { loaded: 
 	const byId = new Map(composed.assets.map((one) => [one.id, one]));
 	const loadedIds = new Set(load.loaded.map((one) => one.id));
 	const teams = composed.chain.filter((node) => node.kind === "team").map((node) => node.path);
-	const here = teams[teams.length - 1] ?? composed.chain[0]?.path ?? "your organisation";
+	const here = teams[teams.length - 1] ?? composed.chain[0]?.path ?? "your organization";
 	const parent = teams[teams.length - 2];
 	const harnessName = choices.harness?.name ?? "this harness";
 
@@ -99,7 +99,7 @@ export function walkNeeds(composed: Composed, choices: Choices, load: { loaded: 
 		const ranked = compatible(alias).sort((a, b) => rank(b.grant) - rank(a.grant));
 		if (ranked.length === 0) {
 			// The PRD's sentence: a sub-team asks its parent, a top-level team the org.
-			const remedy = parent === undefined ? `Ask an organisation admin to grant a group holding \`${alias}\` to ${here}.` : `Ask a ${parent} admin to narrow one into the sub-team.`;
+			const remedy = parent === undefined ? `Ask an organization admin to grant a group holding \`${alias}\` to ${here}.` : `Ask a ${parent} admin to narrow one into the sub-team.`;
 			return unsatisfied(need, { code: "preflight.no_compatible_group", message: `${here} holds no group with an entry for \`${alias}\`.`, remedy, link: "/console/org/groups" });
 		}
 		// D51: the narrowest grant wins, and an exact tie refuses rather than guesses.
@@ -107,7 +107,7 @@ export function walkNeeds(composed: Composed, choices: Choices, load: { loaded: 
 			return unsatisfied(need, {
 				code: "preflight.ambiguous_group",
 				message: `Two grants of equal scope hold \`${alias}\`: ${ranked[0].grant.id}, ${ranked[1].grant.id}.`,
-				remedy: "Ask an organisation admin to remove one of them, or to narrow one further.",
+				remedy: "Ask an organization admin to remove one of them, or to narrow one further.",
 				link: "/console/org/groups",
 			});
 		}

@@ -19,7 +19,7 @@ against the repositories **as `definitions` serves them**, reached by a real
 | --- | --- |
 | **D6** | **0 mismatches.** 1 user, 5 assets, compared by mapped id, kind, name and the sha256 of every file's bytes |
 | Per-ref authorisation | the fetch advertised exactly that person's chain — `refs/heads/org`, `refs/heads/teams/test-org-1.marketing`, `refs/heads/users/<id>` — and nothing else (02 §6.1) |
-| Export | 1 organisation, 3 branches, 2 recorded rows, 0.88 s |
+| Export | 1 organization, 3 branches, 2 recorded rows, 0.88 s |
 | Reindex | `{ "chains": 1, "ms": 938 }`; `idx_effective` = 5, matching D6's asset count exactly |
 | Audit | `definitions.reindex` reached the org's chain through `api` `POST /v1/internal/audit` (C34) |
 | Findings | six (§5). **§5.1 blocks the migration outright** — every migrated person loses reach, silently. §5.5 blocks personal accounts. The rest are one-line fixes outside the migration's own code |
@@ -117,7 +117,7 @@ refs/heads/users/3f29b349-aaef-43db-9096-c4fe2758e3cb   e9b8986c…
 
 `migration-report.json` recorded two rows, both expected and neither a loss of
 reach: `assignment_unresolved` for the harness's `skill/triage` assignment, and
-`routing_keyed_by_org_path` because the model key is owned by the organisation
+`routing_keyed_by_org_path` because the model key is owned by the organization
 and §11.1 keys routing by a team path (03 §5.2 will not find it — an admin
 re-keys it after cutover).
 
@@ -285,7 +285,7 @@ await createBranch(repo, "refs/heads/org", org_id);
 ```
 
 So `refs/heads/org`'s root commit says `created <uuid>` instead of `created
-<org-path>`. Observed, on an organisation created through the wired `POST
+<org-path>`. Observed, on an organization created through the wired `POST
 /v1/orgs` against the real service (§3.7):
 
 ```
@@ -351,7 +351,7 @@ Found by running the wired sign-up against the real service rather than a fake,
 and fixed in `api`'s ordering. It is recorded here because the shape of it will
 recur for every future writer.
 
-`append_event` holds an organisation's `audit_log_latest_hashes` row `for
+`append_event` holds an organization's `audit_log_latest_hashes` row `for
 update` until its transaction ends — C34's one-writer chain, working as
 designed. `POST /internal/branches` makes `definitions` call `api` straight back
 with `definitions.push` on that same chain (02 §12), synchronously, before it
@@ -596,7 +596,7 @@ as an asset directory on the org branch named in `policy/always-loaded.json`.
 Routing was written onto the one team (`test-org-1.marketing`), which D30i now also accepts under
 the org path; both forms resolve.
 
-**The exporter is retired for this organisation.** One further export was
+**The exporter is retired for this organization.** One further export was
 run the same day (the seeded catalogue, D30h — OpenRouter and OpenAI rows
 beside the migrated `anthropic`), and it was the last: from here the org
 branch is the truth, and a re-export would force every ref back to what

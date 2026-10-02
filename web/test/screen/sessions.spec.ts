@@ -203,7 +203,7 @@ test("revoke_requires_reason_and_names_effect", async ({ page }) => {
 });
 
 test("member_revoke_not_cleared", async ({ page }) => {
-  // The signed-in person is the organisation admin, so the verb is present.
+  // The signed-in person is the organization admin, so the verb is present.
   // The refusal's sentence is `content/screens/sessions.ts`'s and its rule is
   // `mayRevoke`, V1-tested; an ended session offers neither.
   await openSession(page, "revoked");
@@ -212,7 +212,7 @@ test("member_revoke_not_cleared", async ({ page }) => {
 });
 
 test("endpoints_hidden_view_keeps_slots", async ({ page }) => {
-  // P10: when an organisation admin hides logs from a person at `me`, the
+  // P10: when an organization admin hides logs from a person at `me`, the
   // endpoints card is the note and the slots stay. Visibility is on for this
   // fixture, so the card is the tally and the marker is absent.
   await openSession(page, "revoked");

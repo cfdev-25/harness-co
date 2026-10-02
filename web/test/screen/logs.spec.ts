@@ -23,10 +23,10 @@ test("log_row_sentence_plain_words", async ({ page }) => {
 });
 
 test("logs_empty_names_scope", async ({ page }) => {
-  // `provider` has no rows in the scratch organisation, and `permission` has
+  // `provider` has no rows in the scratch organization, and `permission` has
   // none about this person, so both halves of the sentence are exercised.
   await open(page, `/console/${ORG}/logs/provider`);
-  await expect(page.getByText("Nothing recorded yet for the organisation.")).toBeVisible();
+  await expect(page.getByText("Nothing recorded yet for the organization.")).toBeVisible();
   await open(page, "/console/me/logs/permission");
   await expect(page.getByText("Nothing recorded yet for you.")).toBeVisible();
 });
@@ -36,7 +36,7 @@ test("logs_filtered_to_scope", async ({ page }) => {
   const atOrg = await page.getByRole("row").count();
   expect(atOrg).toBeGreaterThan(1);
   await open(page, "/console/me/logs/permission");
-  // A member reads rows about themselves; the organisation's own events
+  // A member reads rows about themselves; the organization's own events
   // (`definitions.reindex`) are not about anybody.
   expect(await page.getByRole("row").count()).toBeLessThan(atOrg);
 });

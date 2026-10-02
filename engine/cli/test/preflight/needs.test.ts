@@ -9,7 +9,7 @@ const walk = (one: ReturnType<typeof composed>, choices: Choices, loaded = one.a
 
 it("no_compatible_group_names_the_admin_action", () => {
 	// 03 §5.4 step 3, the PRD's two sentences: a sub-team asks its parent, a
-	// top-level team asks the organisation.
+	// top-level team asks the organization.
 	const one = composed({ policy: policy({ grants: [] }), assets: [asset("a1", "skill", "triage", { needs: [{ kind: "credential", alias: "crm" }] })] });
 	const sub = alias(walk(one, choicesFor(one)).slots, "crm");
 	expect(sub.state).toBe("unsatisfied");
@@ -21,7 +21,7 @@ it("no_compatible_group_names_the_admin_action", () => {
 	const top = composed({ ...one, chain: one.chain.filter((node) => node.path !== "acme.marketing.interns") });
 	const at = alias(walk(top, choicesFor(top)).slots, "crm");
 	expect(at.blocker?.message).toBe("acme.marketing holds no group with an entry for `crm`.");
-	expect(at.blocker?.remedy).toBe("Ask an organisation admin to grant a group holding `crm` to acme.marketing.");
+	expect(at.blocker?.remedy).toBe("Ask an organization admin to grant a group holding `crm` to acme.marketing.");
 });
 
 it("narrowest_grant_wins", () => {

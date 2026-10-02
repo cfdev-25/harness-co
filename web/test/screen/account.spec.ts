@@ -56,7 +56,7 @@ test("ask_to_be_admin_opens_request", async ({ page }) => {
   await page.getByLabel("Why").fill("I am covering for the team while Rae is away.");
   await page.getByRole("button", { name: "Send the request" }).click();
   // `POST /v1/requests` with a role subject is built (D43), so this succeeds.
-  await expect(page.getByText("Your request is open and waiting on an organisation admin.")).toBeVisible();
+  await expect(page.getByText("Your request is open and waiting on an organization admin.")).toBeVisible();
 });
 
 test("renders_for_every_scope", async ({ page }) => {

@@ -100,7 +100,7 @@ it("rule 5: a sidecar that does not validate is definitions.sidecar_invalid", as
 it("rule 6: a kind absent from kinds.json is definitions.unknown_kind", async () => {
 	const refusal = await onBranch("u-c", { "assets/gadget/thing/asset.json": JSON.stringify({ id: randomUUID(), kind: "gadget" }) });
 	expect(refusal.code).toBe("definitions.unknown_kind");
-	expect(refusal.message).toBe('"gadget" is not a kind this organisation uses. Kinds: tool.');
+	expect(refusal.message).toBe('"gadget" is not a kind this organization uses. Kinds: tool.');
 });
 
 it("rule 7: one id twice on one branch is definitions.duplicate_id", async () => {

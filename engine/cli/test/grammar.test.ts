@@ -71,7 +71,7 @@ describe("selectAdapter (§13)", () => {
 		}
 	});
 
-	it("is not ambiguous when the organisation lists only one", () => {
+	it("is not ambiguous when the organization lists only one", () => {
 		expect(selectAdapter(undefined, ["pi"]).id).toBe("pi");
 	});
 });

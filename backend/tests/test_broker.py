@@ -469,7 +469,7 @@ async def test_model_not_approved_refused():
 @requires_postgres
 async def test_model_credential_missing_refuses_the_session():
     """Step 6's one exception to D64. *Held* and *granted* are different things
-    (W6-D6): the organisation holds a key for `anthropic-key` — so step 5 lets
+    (W6-D6): the organization holds a key for `anthropic-key` — so step 5 lets
     it through — and no grant reaches this person with it, which is step 6's."""
     async with scratch_db(_all_migrations()) as connection:
         policy = _policy(credential="anthropic-key")
@@ -489,7 +489,7 @@ async def test_a_model_provider_with_no_held_key_refuses_the_session():
     refuses before approval is read, with the code the console's Status column
     and the routing write use. Nothing holds `openai-key` here.
 
-    W7-D2 kept this exactly, for the organisation it was written for: the
+    W7-D2 kept this exactly, for the organization it was written for: the
     provider is `openai`, which Pi ships no sign-in for (its OAuth flow is
     `openai-codex`), so there is no own-login to fall back to and a key is
     still the only way this session runs."""
@@ -548,7 +548,7 @@ async def test_a_keyless_provider_the_runtime_signs_in_to_opens_a_native_session
 async def test_a_held_key_is_never_a_native_session():
     """W7-D2 is *no key reaches me*, not *the runtime could sign in*. The
     fixture's `crm` alias is held and granted, so the session is the
-    organisation's model, is metered, and step 6 still requires the grant."""
+    organization's model, is metered, and step 6 still requires the grant."""
     async with scratch_db(_all_migrations()) as connection:
         world = await seed(connection, policy=_policy())
         answer = await _open(connection, world)
@@ -560,7 +560,7 @@ async def test_a_held_key_is_never_a_native_session():
 async def test_model_native_is_the_presets_and_never_a_branch():
     """W7-D2: `modelNative` is a fact about the runtime we ship, read through
     `seed.preset_model_native`. A branch that carries the key — a migrated
-    organisation, or an admin editing the file by hand — cannot grant itself a
+    organization, or an admin editing the file by hand — cannot grant itself a
     sign-in the adapter does not have, and cannot take one away either."""
     assert broker.signs_in({"id": "pi"}, "anthropic") is True
     assert broker.signs_in({"id": "pi"}, "openai") is False
@@ -1249,7 +1249,7 @@ async def test_the_remaining_step_3_to_5_refusals():
             await _open(connection, world, provider_version="1.2.0")
         assert caught.value.code == "broker.provider_below_pin"
         assert caught.value.message == (
-            "Your `pi` is version 1.2.0; your organisation requires 2.0.0."
+            "Your `pi` is version 1.2.0; your organization requires 2.0.0."
         )
 
     async with scratch_db(_all_migrations()) as connection:

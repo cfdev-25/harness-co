@@ -45,7 +45,7 @@ export default async function Page({
     { cache: "no-store" },
   );
 
-  const where = scope.kind === "team" ? scope.path.split(".").slice(-1)[0] : scope.kind === "me" ? "you" : "the organisation";
+  const where = scope.kind === "team" ? scope.path.split(".").slice(-1)[0] : scope.kind === "me" ? "you" : "the organization";
   return (
     <Screen
       bar={

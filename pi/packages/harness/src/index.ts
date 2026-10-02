@@ -172,7 +172,7 @@ export default function harnessExtension(pi: ExtensionAPI) {
 		calls.set(event.toolCallId, { startedAt, sentence, tool: event.toolName });
 
 		// W6-D153, before either gate: a command boundary is not a question. It
-		// is the organisation's refusal, so nobody is asked and the reason it
+		// is the organization's refusal, so nobody is asked and the reason it
 		// carries is what the model and the person both read. `hasUI` does not
 		// come into it — a boundary that only held when somebody was watching
 		// would not be a boundary.

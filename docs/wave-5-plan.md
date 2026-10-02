@@ -254,7 +254,7 @@ computes covering grants and boundaries; add `reach`.
 
 **W5-D8 One selector, and every page says where you are.** The header's
 scope switcher becomes a tree: *You*, then each team with its sub-teams
-indented, then *Organisation*, in that order, current level marked. Every
+indented, then *Organization*, in that order, current level marked. Every
 screen's `PageHeader` shows a chip under the title: `{Level} · you can edit
 here` when `adminHere` (and always at *me*), otherwise `{Level} · read and
 use`. No page carries its own level toggle.
@@ -274,7 +274,7 @@ component tests for the switcher tree and the chip, backend test for
 ### Proof
 
 Sign in as the dev org admin: at *You* the sidebar is four items; at
-*Organisation* it is the full set; the Logs page has the tabs; the old
+*Organization* it is the full set; the Logs page has the tabs; the old
 `/console/me/sessions` lands on `/console/me/logs/sessions`. Screenshots in
 the job tmp directory, looked at.
 

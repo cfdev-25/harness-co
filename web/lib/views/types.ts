@@ -33,7 +33,7 @@ export interface Viewer {
   edition: "personal" | "enterprise";
   staff: boolean;
   teams: Array<{ path: string; name: string; admin: boolean }>;
-  /** W5-D15 adds `store`: an organisation may turn the Assets screen's
+  /** W5-D15 adds `store`: an organization may turn the Assets screen's
    *  *Browse* tab off. Default true, and on for a personal account. */
   visibility: { boundaries: boolean; logs: boolean; store?: boolean };
   waiting: Partial<Record<NavKey, number>>;
@@ -50,7 +50,7 @@ export interface Viewer {
    * W7-D5: the *Getting started* list's live state, derived per read. A fact
    * about the person, not the scope. `model` is W7-D2's: `key` when a security
    * group holds the default provider's key, `sign-in` when no key is held and
-   * a runtime this organisation lists signs in to that provider itself, `null`
+   * a runtime this organization lists signs in to that provider itself, `null`
    * when there is no default or it is neither — which is when the list still
    * has something to ask for. Optional here: a server one deploy behind sends
    * no `setup` and the list reads *nothing done yet*, which is the safe half.

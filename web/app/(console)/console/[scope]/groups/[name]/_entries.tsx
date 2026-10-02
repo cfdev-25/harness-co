@@ -11,7 +11,7 @@ export interface EntryTableProps {
   /** The held list, verbatim: a `PATCH` replaces it whole, so a removal sends
    *  back what is here minus one row (03 §4.5). */
   entries: GroupEntry[];
-  /** The verb is an organisation admin's; the route decides again. */
+  /** The verb is an organization admin's; the route decides again. */
   mayEdit: boolean;
 }
 

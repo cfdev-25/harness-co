@@ -17,12 +17,21 @@ import type { Viewer } from "./types";
  * the words that frame it; the sheet (05 §6) carries `harness …` rows only,
  * and this is `curl`.
  *
- * The raw URL answers once the repository is pushed **and public**; today it
- * is private and `curl` gets a 404. Said in the guide, not here: a screen
- * states what the command is, not what the repository's visibility is.
+ * The URL is **our own**: `npm run prebuild` copies `scripts/install.sh` to
+ * `web/public/install.sh`, so the console serves the script from the origin
+ * the person is already reading. `origin` is that origin, derived on the
+ * server from the request's own `Host` (02 D23's reasoning for the API URL,
+ * the other way round: the browser knows this one and the server can read
+ * it, so no deployment has to set a second variable that can go stale).
+ *
+ * The script itself still `git clone`s from GitHub, so the repository must
+ * be public for a stranger; said in `docs/guide/install.md` and
+ * `deploy/README.md`, not here — a screen states what the command is, not
+ * what the repository's visibility is.
  */
-export const INSTALL_COMMAND =
-  "curl -fsSL https://raw.githubusercontent.com/cfdev-25/harness-co/main/scripts/install.sh | sh";
+export function installCommand(origin: string): string {
+  return `curl -fsSL ${origin.replace(/\/+$/, "")}/install.sh | sh`;
+}
 
 /**
  * `harness setup` — the sheet's own row (engine 08 §11.17). Written out rather
@@ -48,7 +57,7 @@ export const API_ORIGIN_PLACEHOLDER = "<your API URL>";
  * that the second one needs, and the row is the link to it. A command in two
  * places is two commands the day one of them changes.
  */
-export const SETUP_HREF = "/console/how#setup";
+export const SETUP_HREF = "/console/how/setup";
 
 export type SetupCommandKey = "install" | "login" | "register";
 
@@ -71,10 +80,14 @@ export interface SetupCommand {
  * shared command sheet (D40); only the two flags and their values are written
  * here, because no sheet row can carry this deployment's origin.
  */
-export function setupCommands(apiOrigin: string | null, token: string | null): SetupCommand[] {
+export function setupCommands(
+  apiOrigin: string | null,
+  installOrigin: string,
+  token: string | null,
+): SetupCommand[] {
   const origin = (apiOrigin ?? "").replace(/\/+$/, "") || API_ORIGIN_PLACEHOLDER;
   return [
-    { key: "install", command: INSTALL_COMMAND },
+    { key: "install", command: installCommand(installOrigin) },
     {
       key: "login",
       command: `${loginCommand()} --api-url ${origin} --token ${token ?? TOKEN_PLACEHOLDER}`,

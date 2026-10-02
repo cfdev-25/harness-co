@@ -70,7 +70,7 @@ test("appoint_admin_puts", async ({ mount, page }) => {
 
 test("invite_at_org_scope_requires_team_and_sends_it", async ({ mount, page }) => {
   const sent = await records(page);
-  // At `/console/org/people` the scope is the organisation, so `team` is the
+  // At `/console/org/people` the scope is the organization, so `team` is the
   // org path and `POST /v1/invites` refuses `invite_target_not_team`. The
   // field is the page's teams, and it is only there at this scope.
   const verbs = await mount(

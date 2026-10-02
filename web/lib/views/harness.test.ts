@@ -28,7 +28,6 @@ import {
   type HarnessFileRow,
   type HarnessView,
   type HarnessCard,
-  openAgainLine,
   runHref,
   shortPath,
 } from "./harness";
@@ -289,16 +288,17 @@ describe("the launch link and its breadcrumb (W5-D13, W5-D14)", () => {
     expect(shortPath("/Usersomething/x")).toBe("/Usersomething/x");
   });
 
-  it("says where and on which machine, and nothing at all without a workspace", () => {
-    const words = HARNESSES_WORDS;
-    expect(openAgainLine(card(), words)).toBeNull();
-    expect(
-      openAgainLine(card({ lastWorkspace: "/Users/corby/projects/foo", lastHost: "corby-mbp" }), words),
-    ).toBe("Open again in ~/projects/foo on corby-mbp");
-    // The host is the one half the session may not have recorded.
-    expect(openAgainLine(card({ lastWorkspace: "/Users/corby/projects/foo" }), words)).toBe(
-      "Open again in ~/projects/foo",
+  it("resumes into the folder the session recorded, absolute on the wire", () => {
+    // D107 retired `openAgainLine`: the row is a verb and a folder now, not a
+    // sentence with a hostname in it, so what is left to prove is that the
+    // link carries the path the CLI will accept and the card reads the short
+    // one. Absence is still the whole rule for drawing it (`lastWorkspace`).
+    const resumable = card({ lastWorkspace: "/Users/corby/projects/foo", lastHost: "corby-mbp" });
+    expect(runHref("h-1", "pi", resumable.lastWorkspace)).toBe(
+      "harness://run?harness=h-1&provider=pi&workspace=%2FUsers%2Fcorby%2Fprojects%2Ffoo",
     );
+    expect(shortPath(resumable.lastWorkspace!)).toBe("~/projects/foo");
+    expect(card().lastWorkspace).toBeUndefined();
   });
 });
 

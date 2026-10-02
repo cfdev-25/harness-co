@@ -1,5 +1,5 @@
 """The broker (04): a security group becomes a credential for one session, or
-the organisation's rules refuse it.
+the organization's rules refuse it.
 
 Approval and sources are re-derived here from the index, never trusted from
 the request (B3). A value leaves only inside a `MintedCredential` (B1); the
@@ -26,38 +26,38 @@ from app.identity import Principal
 BLOCKERS: dict[str, tuple[int, str, str]] = {
     "broker.rate_limited": (429, "You started more than ten sessions in a minute.",
         "Wait a moment and run again."),
-    "broker.index_stale": (409, "Your organisation's definitions are being re-read after a "
+    "broker.index_stale": (409, "Your organization's definitions are being re-read after a "
         "failed update; sessions cannot start until that finishes.",
         "Run again in a minute; if it persists an operator has been paged."),
     "broker.index_behind": (409,
-        "The server has not finished reading the latest change to your organisation.",
+        "The server has not finished reading the latest change to your organization.",
         "Run again in a few seconds."),
     "broker.harness_not_found": (404, "That harness is not one you can see.",
         "`harness switch` to pick another."),
     "broker.provider_unknown": (403,
-        "`{provider}` is not a harness provider your organisation has listed.",
-        "An organisation admin adds it under Providers."),
+        "`{provider}` is not a harness provider your organization has listed.",
+        "An organization admin adds it under Providers."),
     "broker.provider_not_approved": (403, "`{provider}` is not approved: {reason}.",
-        "An organisation admin can approve it under Providers."),
+        "An organization admin can approve it under Providers."),
     "broker.provider_not_in_scope": (403, "`{provider}` is approved, but not for your team.",
-        "Ask an organisation admin to widen its scope."),
+        "Ask an organization admin to widen its scope."),
     "broker.provider_beta_admins_only": (403,
         "`{provider}` is in beta, so only admins are handed credentials with it.",
         "Run with an approved provider, or ask an admin to approve it."),
     "broker.provider_below_pin": (403,
-        "Your `{provider}` is version {v}; your organisation requires {min}.",
+        "Your `{provider}` is version {v}; your organization requires {min}.",
         "Update it and run again."),
     "broker.model_unknown": (403, "`{model}` is not a model `{provider}` lists.",
         "Choose one from `harness preflight model`."),
     "broker.model_not_approved": (403,
         "`{model_provider}` is not approved for this harness, provider or team.",
-        "An organisation admin sets *approved for* under Model providers."),
+        "An organization admin sets *approved for* under Model providers."),
     # W6-D6: no key is held for this provider, so nothing it is routed to can
     # run. Raised before approval, because approval of a provider that can
     # serve nobody is beside the point.
     "broker.provider_needs_key": (403,
         "`{model_provider}` needs a key: no security group holds a credential for it.",
-        "An organisation admin connects one with *Set up* under Model providers."),
+        "An organization admin connects one with *Set up* under Model providers."),
     "broker.model_credential_missing": (403,
         "Nothing you hold has a credential for `{alias}`, which `{model_provider}` needs.",
         "Ask a team admin to narrow a group with `{alias}` into your team."),
@@ -68,7 +68,7 @@ BLOCKERS: dict[str, tuple[int, str, str]] = {
         "Two grants give `{alias}` different secrets at the same scope.",
         "An admin narrows one of them to a harness, or removes one."),
     "broker.vault_unknown": (422, "`{vault}` is named by a group but is not connected.",
-        "An organisation admin connects it under Key vaults."),
+        "An organization admin connects it under Key vaults."),
     "broker.vault_unavailable": (422, "`{vault}` could not supply `{alias}`, and this group "
         "does not allow a local login instead.",
         "Check the vault's row under Key vaults; the session cannot use your own login for this."),
@@ -110,7 +110,7 @@ def alias_held(groups: dict[str, Any], alias: str | None) -> bool:
     """W6-D6's *held*: the alias appears in a security group entry whose vault
     is one `api` has connected. Read from the composed policy — never a live
     secret fetch, which is why a console page may ask it on every draw. It is
-    not *granted*: a key the organisation holds and has not narrowed to this
+    not *granted*: a key the organization holds and has not narrowed to this
     team is still held, and the grant is the broker's own step 6."""
     if not alias:
         return False
@@ -139,7 +139,7 @@ def signs_in(harness_provider: dict[str, Any] | None, model_provider_id: str) ->
     data beside it, in `engine/compose/presets/harness-providers.json` as
     `modelNative`, never on a branch (`seed.preset_model_native`). Absent is
     `False`: a runtime we shipped no list for signs in to nothing, so every
-    organisation that supplies keys keeps Wave 6's `needs-key` exactly.
+    organization that supplies keys keeps Wave 6's `needs-key` exactly.
     """
     return model_provider_id in seed.preset_model_native(
         (harness_provider or {}).get("id") or ""
@@ -415,7 +415,7 @@ async def _open(
     # W7-D2: unless this runtime signs in to that provider itself. Then the
     # key nobody holds is the person's own login (03 D9/D11's native mode),
     # the session is allowed and marked `native` — not metered — and step 6
-    # does not ask for a grant the organisation never meant to give.
+    # does not ask for a grant the organization never meant to give.
     keyless = needs_key(policy["groups"], model_provider)
     native_session = keyless and signs_in(provider, model_provider_id)
     if keyless and not native_session:
@@ -550,7 +550,7 @@ async def _open(
             "model": list(body.model),
             "commits": dict(body.commits or {}),
             # W7-D2: the session ran on the person's own sign-in, not on a key
-            # the organisation minted. An admin reading the log sees which, and
+            # the organization minted. An admin reading the log sees which, and
             # a native session is not metered (C22).
             "native": native_session,
             "slots": [_provenance(slot) | {"alias": slot["need"]["alias"]} for slot in slots],

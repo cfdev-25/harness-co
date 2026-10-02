@@ -3,15 +3,18 @@ import { CONTROL, LABEL } from "./control";
 
 export interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
+  /** The label is read but not drawn: a field inside a table cell whose
+   *  column heading already names it. It stays in the accessible name. */
+  labelHidden?: boolean;
   hint?: string;
   error?: string;
 }
 
-export function Field({ label, hint, error, id, ...props }: FieldProps) {
+export function Field({ label, labelHidden, hint, error, id, ...props }: FieldProps) {
   const describedBy = error || hint ? `${id ?? props.name}-note` : undefined;
   return (
     <label className="grid gap-1">
-      <span className={LABEL}>{label}</span>
+      <span className={labelHidden ? "sr-only" : LABEL}>{label}</span>
       <input
         id={id}
         className={CONTROL}

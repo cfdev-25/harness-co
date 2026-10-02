@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # `definitions` for local development (engine 02 §4.1, 09 M2).
 #
-# One bare repository per organisation under a root outside the checkout, so a
+# One bare repository per organization under a root outside the checkout, so a
 # `git clean` cannot take the definition plane with it, and so the same root
 # survives a rebuild. Nothing here writes to a hosted database: the service's
 # only Postgres is `api`'s, reached over HTTP.

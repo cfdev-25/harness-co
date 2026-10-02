@@ -20,7 +20,7 @@ describe("locate", () => {
 		withFakeClaude("2.1.200");
 		await expect(claudeAdapter.locate({ binary: "claude", minVersion: "2.1.275" })).rejects.toMatchObject({
 			code: "adapter.below_min_version",
-			message: "Claude Code 2.1.200 is installed; your organisation requires 2.1.275 or later.",
+			message: "Claude Code 2.1.200 is installed; your organization requires 2.1.275 or later.",
 		});
 	});
 
@@ -48,7 +48,7 @@ describe("locate", () => {
 	it("pi_locate_refuses_pin_mismatch", async () => {
 		await expect(pi.locate({ repo: "pi", commit: "a1b2c3d4" })).rejects.toMatchObject({
 			code: "adapter.pin_mismatch",
-			message: `This CLI ships Pi at ${PI_PIN.commit.slice(0, 8)}; your organisation approved a1b2c3d4.`,
+			message: `This CLI ships Pi at ${PI_PIN.commit.slice(0, 8)}; your organization approved a1b2c3d4.`,
 		});
 		await expect(pi.locate({ binary: "pi", minVersion: "0.85.1" })).rejects.toMatchObject({ code: "adapter.pin_shape" });
 	});

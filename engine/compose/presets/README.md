@@ -22,11 +22,11 @@ repo root, beside `check-plan-docs.py`; zero findings is the bar).
 ### `managed` — who owns it after we ship it
 
 - **`required`** — the harness cannot function without it, it ships into every
-  organisation and nobody can remove it. This is the *harness OS*: short on
+  organization and nobody can remove it. This is the *harness OS*: short on
   purpose, and engine 01 §4.4 gives the one sentence of why for each. Today:
   the asset kinds and the `harness-authoring` skill.
-- **`recommended`** — seeded into every new organisation and then **fully the
-  organisation's**: create, read, update and delete all exist on the screen
+- **`recommended`** — seeded into every new organization and then **fully the
+  organization's**: create, read, update and delete all exist on the screen
   the entry names.
 - **`suggested`** — never seeded. Offered on a screen as one-click adds:
   `reach-suggested.json` under Boundaries → Reach, and
@@ -61,7 +61,7 @@ So is `modelNative` (W7-D2): the model providers that runtime signs in to
 all, and it sits here for the same reason `speaks` does — the server has to
 predict a runtime's behaviour without running it (`seed.preset_model_native`,
 `broker.signs_in`). Stripped when the seed writes, like `attach`: it is a fact
-about the runtime we ship, never a policy an organisation edits.
+about the runtime we ship, never a policy an organization edits.
 
 `model-providers.json` holds a `ModelProvider` without `credential`, plus the
 `attach: { header, prefix }` its key is sent with, stripped when the seed
@@ -86,7 +86,7 @@ and `api` refuses `enforced` on the kind. The patterns are written to what
 Claude Code matches each subcommand on its own and a pattern with a pipe in
 it never fires there (engine 07 §8.1, measured). The console row says so
 rather than claiming a refusal nobody saw. Never seeded — a default that
-denies something is a decision, and the organisation makes it.
+denies something is a decision, and the organization makes it.
 
 `reach-default-personal.json` and `reach-default-enterprise.json` are W5-D1c /
 D135 made data, amended by W7-D4 / D155. The seed picks one by edition and
@@ -119,4 +119,4 @@ key that is not identity, so a preset cannot say this of itself.
 The seed needs no edit for a new policy file whose body is a list of names or
 a plain object, and none for a new asset directory.
 
-**`models` in `model-providers.json` (W7-D7).** Each provider ships a short list of models a fresh organisation can name, so a personal account's first session on the person's own sign-in has a model to ask for (`anthropic` first: `claude-sonnet-5`). The list is the organisation's to edit on Providers → Model providers; the seed fills it only where the organisation holds nothing.
+**`models` in `model-providers.json` (W7-D7).** Each provider ships a short list of models a fresh organization can name, so a personal account's first session on the person's own sign-in has a model to ask for (`anthropic` first: `claude-sonnet-5`). The list is the organization's to edit on Providers → Model providers; the seed fills it only where the organization holds nothing.

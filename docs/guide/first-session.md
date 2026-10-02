@@ -4,7 +4,7 @@ For someone who has never installed Pi or anything related, on a **personal
 account**. Eight steps, none of them a wizard: the account page keeps the
 same list with live state, and each step closes itself the moment you do it.
 
-If you are the admin of an organisation other people will join, read
+If you are the admin of an organization other people will join, read
 [`first-hour-admin.md`](first-hour-admin.md) instead. If you are building on
 the repository rather than using it, [`install.md`](install.md) is the
 developer path — the same five commands, by hand, with the stack running.
@@ -15,7 +15,7 @@ Open the site and choose **Personal**. Enter the access code you were given
 (there is no public sign-up yet, and a wrong code says only that it is
 wrong), then your email and a password.
 
-That makes you an organisation of one: you are your own admin, every
+That makes you an organization of one: you are your own admin, every
 runtime is already approved, and nothing is waiting on anybody. You land on
 **Harnesses**, which is empty.
 
@@ -23,21 +23,26 @@ runtime is already approved, and nothing is waiting on anybody. You land on
 
 Screen: **Account**. The page opens with *Getting started* — four rows with
 a tick or one thing to do. The first two are links, both to the same place:
-**How this works**, which opens with *Set up* — the three commands you paste,
-in order, with a copy button each. They are printed there and nowhere else,
-because the second one carries your console's API address and a token, and a
-command in two places is two commands the day one of them changes.
+**How this works** → *Set up*, five numbered cards you work through once per
+machine. They are printed there and nowhere else, because the third one
+carries your console's API address and a token, and a command in two places
+is two commands the day one of them changes.
 
-The first is the install command:
+Card 1 is the one step the page cannot take for you: **open a terminal**. It
+prints the keystroke for the machine it thinks you are on — on macOS ⌘ Space,
+type Terminal, Enter — with a control beside it if the guess is wrong.
+
+Card 2 is the install command, served from the site you are reading:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/cfdev-25/harness-co/main/scripts/install.sh | sh
+curl -fsSL https://theharnessmanager.com/install.sh | sh
 ```
 
-> **Not live yet.** That URL answers only once the repository has been
-> pushed **and made public**; today it is private, so `curl` gets a 404 and
-> `git clone` asks for a password. Until then, clone the repository you have
-> access to and run `scripts/install.sh` from it, or follow
+> **The script needs a public repository.** The console serves
+> `install.sh` itself, so that URL answers as soon as the site is deployed.
+> The script then `git clone`s the repository, which must be **public** for
+> that to work without a password. Until it is, clone the repository you
+> have access to and run `scripts/install.sh` from it, or follow
 > [`install.md`](install.md).
 
 It needs two things on the machine and says exactly how to get either if it
@@ -54,7 +59,7 @@ done it prints the next three things, which are steps 3, 5 and 6 below.
 
 ## 3. Sign in
 
-Screen: **How this works**, *Set up*, step 2. The line is already written for
+Screen: **How this works** → *Set up*, card 3. The line is already written for
 you except for the token: press **Generate a token** and it is pasted into
 the line, which you then copy whole — `harness login` with this console's API
 address and that token on it. It is the only time the token is shown, so copy
@@ -63,7 +68,7 @@ the line before you leave the page; generating another is a button press.
 `harness whoami` says who you are and what you already hold. The *Sign in*
 row on the account page ticks itself.
 
-Step 3 of *Set up* is `harness setup`, which registers the `harness://` link
+Card 4 of *Set up* is `harness setup`, which registers the `harness://` link
 on this machine — step 6 below is what needs it. **Account** keeps a
 *Command-line access* card for tokens you want to name yourself, one per
 machine.
@@ -97,7 +102,7 @@ asks two things beyond the name, description and drawing:
 
 - **Web access** — a switch, on or off. Off means the session reaches the
   model provider and nothing else; on means it reaches the web. It is set
-  for this harness alone and nothing at your organisation changes.
+  for this harness alone and nothing at your organization changes.
 - **Outside keys** — which of your keys this harness may use, with *None*
   first and chosen already. *None* is the right answer for a first harness.
 

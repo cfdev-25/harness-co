@@ -73,7 +73,7 @@ test("boundaries_inherited_is_read_only_and_set_here_is_not", async ({ mount }) 
 });
 
 test("boundaries_at_the_top_of_the_chain_inherit_nothing", async ({ mount }) => {
-  // At the organisation there is nothing above, so the block says so rather
+  // At the organization there is nothing above, so the block says so rather
   // than showing an empty table.
   const atOrg = await mount(
     <BoundaryBlocks rows={[ORG_WIPE]} here={ORG} personal={false} orgLabel={ORG} mayAdd empty="none" />,
@@ -173,8 +173,8 @@ test("the_command_starter_set_is_one_click_each_and_never_offered_twice", async 
         value: "git push --force*",
         holds: "intercepted",
         reason: "It destroys pushed work.",
-        // At the organisation *below me* is every team, and `covers()` compares
-        // a scope against the chain's **team** nodes — the organisation node is
+        // At the organization *below me* is every team, and `covers()` compares
+        // a scope against the chain's **team** nodes — the organization node is
         // not one, so naming it would write a boundary that reaches nobody.
         scope: { teams: "all" },
         at: ORG,

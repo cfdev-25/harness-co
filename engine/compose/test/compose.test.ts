@@ -92,7 +92,7 @@ it("harness_naming_nothing_is_kept", async () => {
 	expect(composed.conflicts).toEqual([]);
 });
 
-it("always_loaded_must_be_an_organisation_asset", async () => {
+it("always_loaded_must_be_an_organization_asset", async () => {
 	const { composed } = await run("always-loaded");
 	// W5-D10: a bare array is the `required` list, and nothing is recommended.
 	expect(composed.policy.required).toEqual(["0b7e4d2a-9c31-4f8e-b6a2-51d3c7e9f0a4"]);
@@ -213,7 +213,7 @@ it("an invalid grant carries the clause that failed, as data", async () => {
 
 it("reach_narrows_down_the_chain", async () => {
 	const { composed } = await run("reach-narrows");
-	// The organisation reaches everything but its deny-list; marketing keeps two
+	// The organization reaches everything but its deny-list; marketing keeps two
 	// hosts and nothing else, and the team is who a person must ask.
 	expect(composed.policy.reach).toEqual({
 		mode: "allow",

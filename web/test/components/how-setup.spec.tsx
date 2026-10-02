@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/experimental-ct-react";
 import { SetUp } from "@/app/(console)/console/how/_setup";
-import { API_ORIGIN_PLACEHOLDER, INSTALL_COMMAND, TOKEN_PLACEHOLDER } from "@/lib/views/account";
+import { API_ORIGIN_PLACEHOLDER, TOKEN_PLACEHOLDER, installCommand } from "@/lib/views/account";
 import { HOW, HOW_SETUP } from "@/content/screens/how";
 
 /**
@@ -11,6 +11,7 @@ import { HOW, HOW_SETUP } from "@/content/screens/how";
  */
 
 const ORIGIN = "https://api.harness.example";
+const CONSOLE = "https://console.harness.example";
 
 /** `routes_auth.create_pat`'s row, raw `token` and all. */
 const CREATED = {
@@ -21,23 +22,38 @@ const CREATED = {
   token: "hpat_0123456789abcdef",
 };
 
-test("setup_is_three_commands_and_a_token_slot", async ({ mount }) => {
-  const component = await mount(<SetUp apiOrigin={ORIGIN} />);
+test("setup_is_five_steps_ending_in_a_screen", async ({ mount }) => {
+  const component = await mount(<SetUp apiOrigin={ORIGIN} installOrigin={CONSOLE} />);
 
-  // One block per command, numbered, in the order they are pasted.
-  await expect(component.locator("[data-setup-step]")).toHaveCount(3);
-  await expect(component.locator("[data-setup-step='install']")).toContainText(INSTALL_COMMAND);
+  // Five numbered cards: the terminal, the three commands, and the one step
+  // that is not a command at all.
+  await expect(component.locator("[data-setup-step]")).toHaveCount(5);
+  for (const step of ["terminal", "install", "login", "register", "then"]) {
+    await expect(component.locator(`[data-setup-step='${step}']`)).toContainText(
+      HOW_SETUP.steps[step as keyof typeof HOW_SETUP.steps].title,
+    );
+  }
+
+  // Four of them carry the step itself; only three are commands, which is
+  // why only three can be copied (04 §16.1 — no fourth command).
+  await expect(component.locator("[data-setup-step='install']")).toContainText(
+    installCommand(CONSOLE),
+  );
+  await expect(component.locator("[data-setup-step='install']")).toContainText(
+    `${CONSOLE}/install.sh`,
+  );
   await expect(component.locator("[data-setup-step='login']")).toContainText(
     `harness login --api-url ${ORIGIN} --token ${TOKEN_PLACEHOLDER}`,
   );
   await expect(component.locator("[data-setup-step='register']")).toContainText("harness setup");
-  await expect(component.locator("[data-setup-step='install']")).toContainText(
-    `1. ${HOW_SETUP.steps.install}`,
-  );
-
-  // Every block is copy-able, and the one line after them names a screen.
   await expect(component.getByRole("button", { name: "Copy" })).toHaveCount(3);
-  await expect(component).toContainText(HOW_SETUP.then);
+
+  // The last card names a screen and links to it.
+  await expect(
+    component.locator("[data-setup-step='then']").getByRole("link", {
+      name: HOW_SETUP.thenLink,
+    }),
+  ).toHaveAttribute("href", "/console/me/harnesses");
 
   // The token's slot is a button until it is pressed, and nothing claims a
   // token has been shown yet.
@@ -49,6 +65,21 @@ test("setup_is_three_commands_and_a_token_slot", async ({ mount }) => {
   await expect(component).not.toContainText(HOW_SETUP.tokenOnce);
 });
 
+test("setup_prints_the_keystroke_for_a_machine_and_takes_a_correction", async ({ mount }) => {
+  // A browser cannot open a terminal, so step 1 is the keystroke — guessed
+  // from the user agent, and changed by the control when the guess is wrong.
+  const component = await mount(<SetUp apiOrigin={ORIGIN} installOrigin={CONSOLE} />);
+  const terminal = component.locator("[data-setup-step='terminal']");
+
+  // Asserted from the control and never from the guess: what machine the
+  // test browser says it is on is the runner's business, and the point of
+  // the card is that a person can say otherwise.
+  for (const os of ["linux", "windows", "mac"] as const) {
+    await terminal.getByRole("radio", { name: HOW_SETUP.os.options[os] }).click();
+    await expect(terminal.locator("[data-os-keys]")).toHaveText(HOW_SETUP.os.keys[os]);
+  }
+});
+
 test("setup_generates_a_token_and_writes_it_into_the_login_line_once", async ({ mount, page }) => {
   const sent: { method: string; body: unknown }[] = [];
   await page.route("**/v1/personal-access-tokens", async (route) => {
@@ -56,7 +87,7 @@ test("setup_generates_a_token_and_writes_it_into_the_login_line_once", async ({ 
     await route.fulfill({ status: 201, json: CREATED });
   });
 
-  const component = await mount(<SetUp apiOrigin={ORIGIN} />);
+  const component = await mount(<SetUp apiOrigin={ORIGIN} installOrigin={CONSOLE} />);
   const login = component.locator("[data-setup-step='login']");
   await expect(login).not.toContainText("hpat_");
 
@@ -84,7 +115,7 @@ test("setup_generates_a_token_and_writes_it_into_the_login_line_once", async ({ 
 test("setup_asks_for_an_origin_rather_than_printing_a_localhost", async ({ mount }) => {
   // A console deployed without `HARNESS_API_ORIGIN` prints a slot, not a host
   // the CLI would dial and reach the wrong machine (02 D23).
-  const component = await mount(<SetUp apiOrigin={null} />);
+  const component = await mount(<SetUp apiOrigin={null} installOrigin={CONSOLE} />);
   await expect(component.locator("[data-setup-step='login']")).toContainText(
     `--api-url ${API_ORIGIN_PLACEHOLDER}`,
   );
@@ -100,7 +131,7 @@ test("setup_shows_the_servers_refusal_beside_the_button", async ({ mount, page }
     });
   });
 
-  const component = await mount(<SetUp apiOrigin={ORIGIN} />);
+  const component = await mount(<SetUp apiOrigin={ORIGIN} installOrigin={CONSOLE} />);
   await component.getByRole("button", { name: HOW.verbs.generateToken.label }).click();
 
   // The server's own words (02 rule 21), and the slot stays a slot.

@@ -69,7 +69,7 @@ test("new_harness_asks_web_access_and_outside_keys_on_a_personal_account", async
   // can change it.
   await expect(page.getByText(WORDS.newModelKey)).toBeVisible();
   // Web access is a switch, and it starts on — which is what the personal
-  // organisation's own reach is, so a harness that keeps it writes nothing.
+  // organization's own reach is, so a harness that keeps it writes nothing.
   const web = page.getByRole("switch");
   await expect(web).toBeChecked();
   await web.uncheck();
@@ -85,7 +85,7 @@ test("new_harness_asks_web_access_and_outside_keys_on_a_personal_account", async
         description: "",
         scope: "me",
         // `off` only: absent means *inherit*, and a harness that restated `on`
-        // would be a `reach-widened` conflict the day the organisation turned
+        // would be a `reach-widened` conflict the day the organization turned
         // its own reach down (D131).
         reach: { mode: "off", hosts: [] },
         grant: { group: "my-keys" },
@@ -133,7 +133,7 @@ test("new_harness_asks_an_enterprise_viewer_neither", async ({ mount, page }) =>
   await page.getByRole("button", { name: HARNESSES.verbs.newHarness.label }).click();
   await page.getByLabel(WORDS.newName).fill("First");
   // W7-D4 is the personal account's dialog. An enterprise viewer's reach is
-  // the organisation's and their keys are a grant an admin makes, so there is
+  // the organization's and their keys are a grant an admin makes, so there is
   // no control here and nothing in the body about either.
   await expect(page.getByRole("switch")).toHaveCount(0);
   await expect(page.getByLabel(WORDS.newKeys)).toHaveCount(0);
@@ -142,5 +142,44 @@ test("new_harness_asks_an_enterprise_viewer_neither", async ({ mount, page }) =>
 
   await expect.poll(() => sent).toEqual([
     { method: "POST", path: "/v1/harnesses", body: { name: "First", description: "", scope: "me" } },
+  ]);
+});
+
+/* D108: the pixel pet is drawn in this dialog, and the proof is at the wire —
+   an icon the component holds and never posts is a drawing the person loses. */
+
+test("new_harness_sends_the_drawing_the_person_made", async ({ mount, page }) => {
+  const sent = await records(page);
+  await mount(<NewHarness scope={{ kind: "me" }} cards={[]} canEdit />);
+
+  await page.getByRole("button", { name: HARNESSES.verbs.newHarness.label }).click();
+  await page.getByLabel(WORDS.newName).fill("Pet");
+  // The same editor the harness page's Edit uses, so the same keyboard path:
+  // `SWATCHES[4]` is the swatch it opens with.
+  await page.locator("[data-cell='0']").focus();
+  await page.keyboard.press("Space");
+  await page.getByRole("button", { name: WORDS.newSubmit }).click();
+
+  await expect.poll(() => sent).toHaveLength(1);
+  const body = sent[0].body as { icon: { palette: string[]; rows: string[] } };
+  expect(body.icon.palette).toEqual(["#e6eaf0"]);
+  expect(body.icon.rows[0][0]).toBe("0");
+  expect(body.icon.rows).toHaveLength(16);
+});
+
+test("new_harness_skipped_or_untouched_sends_no_icon", async ({ mount, page }) => {
+  const sent = await records(page);
+  await mount(<NewHarness scope={{ kind: "me" }} cards={[]} canEdit />);
+
+  await page.getByRole("button", { name: HARNESSES.verbs.newHarness.label }).click();
+  await page.getByLabel(WORDS.newName).fill("Plain");
+  // Skipping says what it gets — the grey square — rather than leaving an
+  // empty grid that would post sixteen rows of dots.
+  await page.getByRole("button", { name: WORDS.newIconSkip }).click();
+  await expect(page.getByText(WORDS.newIconNone)).toBeVisible();
+  await page.getByRole("button", { name: WORDS.newSubmit }).click();
+
+  await expect.poll(() => sent).toEqual([
+    { method: "POST", path: "/v1/harnesses", body: { name: "Plain", description: "", scope: "me" } },
   ]);
 });

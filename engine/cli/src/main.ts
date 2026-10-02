@@ -204,7 +204,7 @@ async function dispatch(command: string, argv: string[]): Promise<number> {
 		case "adopt": {
 			const path = parsed.words[0];
 			if (path === undefined) throw usage("`harness adopt <path>` needs a path.");
-			// The kinds are the organisation's, so this one needs the composition.
+			// The kinds are the organization's, so this one needs the composition.
 			const { composed } = await composition(false);
 			return adopt(path, has("--new-id"), composed.policy.kinds);
 		}
@@ -275,14 +275,14 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
 			return 1;
 		}
 		// A server refusal that names its code but no remedy (a `definitions`
-		// refusal relayed by `api`) is still the organisation's answer, not a
+		// refusal relayed by `api`) is still the organization's answer, not a
 		// fault in harness: print its sentence, never the generic line.
 		if (isRefusal(thrown)) {
 			console.error(bad(thrown.message));
 			return 1;
 		}
 		if (process.env.HARNESS_DEBUG === "1") console.error(thrown);
-		console.error("Something went wrong in harness itself (not your organisation's policy). Run with `HARNESS_DEBUG=1` for the trace.");
+		console.error("Something went wrong in harness itself (not your organization's policy). Run with `HARNESS_DEBUG=1` for the trace.");
 		return 1;
 	}
 }

@@ -25,14 +25,14 @@ Team or Personal, enter the access code, then the account (email and
 password through the existing auth). The code is one value in the API's
 environment, `HARNESS_SIGNUP_CODE` (the dev value is `mcbreezy`, named in
 chat per the no-`.env.example` rule), checked server-side on the one route
-that creates the organisation; a wrong code is `signup.code_wrong` with no
-hint. Personal creates a personal organisation (the existing personal seed);
-Team creates an enterprise organisation with the signer as its admin (the
+that creates the organization; a wrong code is `signup.code_wrong` with no
+hint. Personal creates a personal organization (the existing personal seed);
+Team creates an enterprise organization with the signer as its admin (the
 existing enterprise path). No plans, no payment.
 
 **W7-D2 A model provider with no key is *your sign-in*, not an error, where
 the runtime can sign in.** Wave 6's `needs-key` status and `broker.provider_needs_key`
-refusal stay for organisations that supply keys. They do not apply when the
+refusal stay for organizations that supply keys. They do not apply when the
 session's runtime supports `model_native` (Pi: Anthropic, OpenAI and the
 others it ships sign-ins for) and the person has not been granted the alias:
 that is the engine's native mode (03 D9/D11), the session runs on the
@@ -55,7 +55,7 @@ switch, on or off; then **Outside keys** — a select of the person's
 security groups with *None* first and chosen by default. Everything it
 writes is scoped to the harness: `HarnessDef.reach` (`on` or `off`), and a
 grant of the chosen group scoped to the harness. Nothing is written at the
-organisation. For this to narrow correctly the personal seed's reach
+organization. For this to narrow correctly the personal seed's reach
 default becomes `on` (`reach-default-personal.json`: `{ "mode": "on", "hosts": [] }`);
 the suggested allow-list stays for the Boundaries screen and for
 enterprises. Record the change to W5-D1c with the reason: a per-harness

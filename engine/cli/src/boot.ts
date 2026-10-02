@@ -22,7 +22,7 @@ export async function whoIs(credentials: Credentials, as?: string): Promise<Me> 
 		return await api<Me>(credentials, `/v1/me${as === undefined ? "" : `?as=${encodeURIComponent(as)}`}`);
 	} catch (thrown) {
 		if ((thrown as { status?: number }).status === 403 && as !== undefined) {
-			refuse("cli.as_not_admin", `You are not an admin of a team ${as} is in, so their version is not yours to open.`, "Ask an organisation admin.");
+			refuse("cli.as_not_admin", `You are not an admin of a team ${as} is in, so their version is not yours to open.`, "Ask an organization admin.");
 		}
 		refuse("preflight.api_unreachable", `Could not reach the Harness API at ${credentials.api_url}.`, "Is it running? `harness preflight identity`.");
 	}
@@ -44,15 +44,15 @@ export async function rowCompose(chain: Chain): Promise<Composed> {
 		const named = first as { path?: string; grant?: string; at?: string; id?: string };
 		const where = named.path ?? named.grant ?? named.at ?? named.id ?? first.kind;
 		// 01 §9's table. Two of the kinds have a remedy that is not the Assets
-		// screen, and an organisation upgrading across 01 D132 meets one of them
+		// screen, and an organization upgrading across 01 D132 meets one of them
 		// on every session until an admin removes the grant, so it must say so.
 		const remedy =
 			first.kind === "reach-grant-retired"
-				? "Reach is `policy/reach.json` now, not a grant. An organisation admin removes this grant and sets reach under Boundaries → Reach."
+				? "Reach is `policy/reach.json` now, not a grant. An organization admin removes this grant and sets reach under Boundaries → Reach."
 				: first.kind === "reach-widened"
 					? `Reach only ever narrows on the way down: ${"why" in first ? first.why : "this step gives more than it inherits"}. An admin of the node above sets it there.`
-					: "An organisation admin fixes it on the Assets screen; `harness preflight assets` lists every one.";
-		refuse(`compose.${first.kind.replace(/-/g, "_")}`, `Your organisation's definitions do not compose: ${first.kind} at ${where}.`, remedy);
+					: "An organization admin fixes it on the Assets screen; `harness preflight assets` lists every one.";
+		refuse(`compose.${first.kind.replace(/-/g, "_")}`, `Your organization's definitions do not compose: ${first.kind} at ${where}.`, remedy);
 	}
 	return composed;
 }

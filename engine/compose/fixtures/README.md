@@ -52,7 +52,7 @@ produce the same `expected.json` through `normalise`.
 
 | Case | Asserts |
 | --- | --- |
-| `single-org` | the minimal legal chain: an organisation and a person |
+| `single-org` | the minimal legal chain: an organization and a person |
 | `override-keeps-id` | D3 · org → team → user, the person's copy wins, `shadows` is the team's |
 | `rename-follows-id` | §5 rule 4 · the team renamed the directory and kept the id |
 | `same-path-different-id` | §5 rule 4 · fail closed, neither id loads |
@@ -62,7 +62,7 @@ produce the same `expected.json` through `normalise`.
 | `narrowed-grant-outside-subtree` | clause (c) |
 | `narrowed-grant-alias-not-held` | clause (d) |
 | `boundary-union` | §6 step 7 · ids prefixed by node path, root first |
-| `always-loaded` | §6 step 12 · an id whose winning copy is not the organisation's is dropped |
+| `always-loaded` | §6 step 12 · an id whose winning copy is not the organization's is dropped |
 | `required-and-recommended` | §6 step 12 · W5-D10's two-list `always-loaded.json`; the bare-array case is `always-loaded` |
 | `harness-names-nothing` | C18 · an id that resolves to nothing stays on the definition |
 | `harness-by-ids` | §4.2 · a harness on the org and one on the person, both collected |

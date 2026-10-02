@@ -26,7 +26,7 @@ export interface BoundaryTableProps {
   empty: string;
   orgLabel: string;
   /** A team admin may lift what their own node set and nothing above it, so
-   *  the organisation's block is only actionable for an organisation admin. */
+   *  the organization's block is only actionable for an organization admin. */
   mayRemove: boolean;
 }
 

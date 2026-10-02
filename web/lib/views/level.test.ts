@@ -25,7 +25,7 @@ describe("levelOf — the chip under every title (01 §7.5)", () => {
   it("says you can edit where you administer, and at your own level", () => {
     expect(levelOf({ kind: "me" }, viewer()).sentence).toBe("You · you can edit here");
     expect(levelOf({ kind: "org" }, viewer({ adminHere: true })).sentence).toBe(
-      "Organisation · you can edit here",
+      "Organization · you can edit here",
     );
     expect(levelOf(TEAM, viewer({ adminHere: true })).sentence).toBe(
       "Marketing · you can edit here",
@@ -49,10 +49,10 @@ describe("levelOf — the chip under every title (01 §7.5)", () => {
 });
 
 describe("levelRows — the switcher's tree (01 §4.3)", () => {
-  it("is You, each team with its sub-teams indented, then Organisation", () => {
+  it("is You, each team with its sub-teams indented, then Organization", () => {
     const rows = levelRows(TEAM, viewer());
     expect(rows.map((row) => row.label)).toEqual([
-      "You", "Marketing", "Marketing interns", "Organisation",
+      "You", "Marketing", "Marketing interns", "Organization",
     ]);
     expect(rows.map((row) => row.depth)).toEqual([0, 0, 1, 0]);
     expect(rows.filter((row) => row.current).map((row) => row.label)).toEqual(["Marketing"]);
@@ -67,7 +67,7 @@ describe("levelRows — the switcher's tree (01 §4.3)", () => {
 
   it("marks the current level, and only it", () => {
     const rows = levelRows({ kind: "org" }, viewer());
-    expect(rows.filter((row) => row.current).map((row) => row.label)).toEqual(["Organisation"]);
+    expect(rows.filter((row) => row.current).map((row) => row.label)).toEqual(["Organization"]);
     const sub = levelRows({ kind: "team", path: "acme.marketing.interns" }, viewer());
     expect(sub.filter((row) => row.current).map((row) => row.label)).toEqual(["Marketing interns"]);
   });

@@ -56,14 +56,14 @@ export async function openLink(url: string | undefined, load: () => Promise<Comp
 		const link = parseLink(url);
 		const composed = await load();
 		// The harness by id or name, and the provider both in this CLI's
-		// registry and in the organisation's list. A stale bookmark for a
+		// registry and in the organization's list. A stale bookmark for a
 		// harness the person has left is a sentence, not a session.
 		const harness = await resolveHarness(composed, link.harness);
 		selectAdapter(link.provider);
 		if (composed.policy.harnessProviders[link.provider] === undefined) {
 			refuse(
 				"cli.provider_not_listed",
-				`Your organisation does not list \`${link.provider}\` as a runtime, so this link cannot start a session.`,
+				`Your organization does not list \`${link.provider}\` as a runtime, so this link cannot start a session.`,
 				`Runtimes you have: ${Object.keys(composed.policy.harnessProviders).join(", ") || "none"}.`,
 			);
 		}

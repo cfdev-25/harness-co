@@ -60,7 +60,7 @@ it("step 4: the principal is cached, so a fetch is one lookup not many", async (
 	expect(here.api.principalCalls).toBe(before);
 });
 
-it("step 5: another organisation's repo is 404, not 403", async () => {
+it("step 5: another organization's repo is 404, not 403", async () => {
 	await seedOrg(here.root, "other");
 	const response = await fetch(`${here.url}/other.git/info/refs?service=git-upload-pack`, {
 		headers: { authorization: "Bearer dana" },

@@ -35,7 +35,7 @@ function promptForKey(): Promise<string> {
 export async function keysAdd(credentials: Credentials, composed: Composed, provider: string, model?: string, ask: () => Promise<string> = promptForKey): Promise<number> {
 	const rows = Object.keys(composed.policy.modelProviders);
 	if (!rows.includes(provider)) {
-		refuse("cli.provider_unknown", `"${provider}" is not a model provider your organisation has listed. You have: ${rows.join(", ") || "none"}.`, `harness keys add ${rows[0] ?? "<provider>"}`);
+		refuse("cli.provider_unknown", `"${provider}" is not a model provider your organization has listed. You have: ${rows.join(", ") || "none"}.`, `harness keys add ${rows[0] ?? "<provider>"}`);
 	}
 	const key = (await ask()).trim();
 	if (key === "") refuse("cli.key_required", "No key was given, so nothing was stored.", `harness keys add ${provider}`);
@@ -44,6 +44,6 @@ export async function keysAdd(credentials: Credentials, composed: Composed, prov
 		body: JSON.stringify({ key, model }),
 	});
 	const isDefault = result.default !== false;
-	say(`${provider} · key stored in the bundled vault${isDefault ? " · default for the organisation" : ""} · commit ${result.commit.slice(0, 7)}`);
+	say(`${provider} · key stored in the bundled vault${isDefault ? " · default for the organization" : ""} · commit ${result.commit.slice(0, 7)}`);
 	return 0;
 }

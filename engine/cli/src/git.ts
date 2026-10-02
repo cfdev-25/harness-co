@@ -196,7 +196,7 @@ export async function pushOnePath(
 		if (/non-fast-forward|fetch first/i.test(text)) {
 			refuse("repo.branch_moved", "Your branch moved on another machine, so this push was refused.", "`harness pull`, then push again.");
 		}
-		refuse("repo.push_refused", text.trim().split("\n").pop() ?? "The server refused this push.", "`harness preflight` shows what your organisation allows.");
+		refuse("repo.push_refused", text.trim().split("\n").pop() ?? "The server refused this push.", "`harness preflight` shows what your organization allows.");
 	}
 	await gNet(token, "fetch", origin, `+refs/heads/users/${userId}:refs/remotes/origin/users/${userId}`);
 	// The recorded chain follows the push, so an offline compose between two

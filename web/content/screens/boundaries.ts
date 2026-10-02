@@ -30,7 +30,7 @@ export const BOUNDARIES: ScreenContent<BoundariesColumn, BoundariesVerb, EmptyId
     },
     appliesTo: { heading: "Applies to", unit: "teams", help: "Which teams this boundary reaches." },
     onlyFor: { heading: "Only for", unit: "harnesses", help: "Narrows the boundary to specific harnesses, when set." },
-    setBy: { heading: "Set by", help: "The organisation or team that added this boundary." },
+    setBy: { heading: "Set by", help: "The organization or team that added this boundary." },
     reason: { heading: "Reason", help: "Why this boundary was added." },
     when: { heading: "When", help: "When this boundary was added." },
   },
@@ -52,12 +52,12 @@ export const BOUNDARIES: ScreenContent<BoundariesColumn, BoundariesVerb, EmptyId
 export const BOUNDARIES_TEXT = {
   count: "{n} boundaries",
   countOne: "1 boundary",
-  ledeOrg: "A boundary is a deny, set once at the organisation and inherited by everything below it.",
+  ledeOrg: "A boundary is a deny, set once at the organization and inherited by everything below it.",
   ledeTeam: "Every boundary that reaches {team}, in full. A team may add for itself and below, never lift.",
   ledeMe: "Every boundary that reaches you, in full. A refusal you cannot look up is indistinguishable from a bug.",
   personalTitle: "What I block",
   personalLede: "Everything the assistant may never do, however it is running.",
-  orgBlock: "Set by the organisation",
+  orgBlock: "Set by the organization",
   tightenOnly: "Boundaries only tighten on the way down.",
   tabs: {
     reach: "Reach",
@@ -80,7 +80,7 @@ export const BOUNDARIES_TEXT = {
     "Claude Code matches each subcommand on its own, so a pattern with a pipe or an && in it never fires there. Pi reads the whole line and holds it.",
   suggestedCommands: "Suggested",
   suggestedCommandsLede:
-    "The command lines most organisations never want run. One click each; nothing here is on until you add it.",
+    "The command lines most organizations never want run. One click each; nothing here is on until you add it.",
   addVerb: "Add",
   alreadySet: "already set",
   addTitle: "Add a boundary",
@@ -131,7 +131,7 @@ export const REACH_TEXT = {
   onNone: "on, nothing denied",
   notSet: "not set",
   setBy: "set by {node}",
-  /** *Organisation: allow-list, 3 hosts* — one line per step of the walk. */
+  /** *Organization: allow-list, 3 hosts* — one line per step of the walk. */
   chainLine: "{level}: {what}",
   inherited: "Inherited",
   inheritedNone: "Nothing above this level sets reach, so this level starts it.",

@@ -332,7 +332,7 @@ export function hostOf(endpoint: string): string {
 /* ---- verbs (04 §13) ------------------------------------------------------ */
 
 /**
- * Revoke is a team admin's or an organisation admin's (04 §13). At
+ * Revoke is a team admin's or an organization admin's (04 §13). At
  * `edition: "personal"` the person is the admin, so the verb stays and reads
  * *End session* (07 §3) — it is never a refusal against yourself.
  */

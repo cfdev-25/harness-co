@@ -1,6 +1,6 @@
-"""The catalogue a new organisation starts with (engine D30h, D146, D147).
+"""The catalogue a new organization starts with (engine D30h, D146, D147).
 
-*Not approved is a state, not an absence* (prd-v2 §9.1): an organisation's
+*Not approved is a state, not an absence* (prd-v2 §9.1): an organization's
 provider tables are rows from the moment it exists, so the console's first
 screen is a catalogue with switches rather than an empty table nobody can act
 on. The rows come from `engine/compose/presets/`, which is the only home of a
@@ -10,7 +10,7 @@ none holds a list.
 **The list is `presets/index.json`** (W6-D1). Its `defaults` say, per entry,
 what the default is (`path`), how it is **managed** — `required` (the harness
 cannot run without it and nobody may remove it), `recommended` (seeded and
-then fully the organisation's), `suggested` (never seeded, offered on a
+then fully the organization's), `suggested` (never seeded, offered on a
 screen) — and which console screen manages it. This module walks that list; it
 names no preset file except to say which of the two `reach-default-*` entries
 an edition takes. A default that is not in the manifest is not seeded, and
@@ -23,7 +23,7 @@ bodies as `writes.commit` changes for `POST /v1/orgs`. `seed_assets` is the
 same over D30j's built-in asset directories, whose files are bytes rather than
 bodies — a `SKILL.md` is not JSON.
 
-Filling is **by id, never by overwrite**. A migrated organisation keeps the
+Filling is **by id, never by overwrite**. A migrated organization keeps the
 `anthropic` row its records held, credential and all; the seed only adds the
 ids that are not there yet.
 """
@@ -44,7 +44,7 @@ Edition = Literal["enterprise", "personal"]
 # sets HARNESS_PRESETS_DIR (build-decisions.md 2026-09-26).
 PRESETS = Path(__file__).resolve().parents[3] / "engine" / "compose" / "presets"
 
-NOT_REVIEWED = "Not yet reviewed by an organisation admin."
+NOT_REVIEWED = "Not yet reviewed by an organization admin."
 
 # W5-D1c/D135 as data (W6-D1): the two reach defaults are files, and the
 # edition picks one. The only place this module still names a preset.
@@ -56,7 +56,7 @@ SEEDED = ("required", "recommended")
 def presets(name: str) -> Any:
     """One preset file's body. Fail closed like `definitions_unconfigured`: a
     deployment that cannot find its catalogue seeds nothing, rather than an
-    organisation nobody can start a session in."""
+    organization nobody can start a session in."""
     path = Path(os.environ.get("HARNESS_PRESETS_DIR") or PRESETS) / name
     try:
         return json.loads(path.read_text())
@@ -112,7 +112,7 @@ def _body(entry: dict[str, Any]) -> Any:
 
 
 def _branch_path(entry: dict[str, Any]) -> str:
-    """Where a policy entry lands on a new organisation's org branch: its own
+    """Where a policy entry lands on a new organization's org branch: its own
     file name under `policy/`, except the two reach defaults, which are the one
     file `policy/reach.json` the edition picks between (W5-D1c)."""
     if entry["id"].startswith(REACH_DEFAULT):
@@ -173,7 +173,7 @@ def preset_model_native(provider_id: str) -> list[str]:
     OAuth flow for (Pi: `packages/ai/src/auth/oauth/`).
 
     It lives beside `attach` and for the same reason: it is a fact about the
-    runtime the engine ships, not a policy an organisation edits, so it is in
+    runtime the engine ships, not a policy an organization edits, so it is in
     the presets file and never on a branch (`_runtime_rows` writes the row key
     by key and does not copy it). A runtime an admin added themselves is in no
     preset and signs in to nothing, which is the honest answer — we do not know
@@ -213,9 +213,9 @@ def seed_assets(
     not identity, so a preset cannot say this of itself.
 
     Held by its sidecar, which 01 §4.2 makes the asset: a directory the branch
-    already has is the organisation's copy, edits and all, and is left alone.
+    already has is the organization's copy, edits and all, and is left alone.
     One whose sidecar carries a *different* id is a different asset that shares
-    the name, so ours is not named either — an id no organisation asset carries
+    the name, so ours is not named either — an id no organization asset carries
     is `always_loaded_missing` at compose.
     """
     held = existing or {}
@@ -258,7 +258,7 @@ def _fill(existing: list[dict[str, Any]], rows: list[dict[str, Any]]) -> list[di
 
 
 def _runtime_rows(rows: list[dict[str, Any]], approval: str) -> list[dict[str, Any]]:
-    """`harness-providers.json` as a new organisation holds it: the preset carries
+    """`harness-providers.json` as a new organization holds it: the preset carries
     the runtime's identity (W6-D3's `name`, its pin and what it speaks) and the
     seed adds whose decision the approval is."""
     return [
@@ -290,7 +290,7 @@ def seed_policy(
     are the empty shape a branch must carry (`routing`, `groups`, `grants`) and
     `always-loaded.json` is derived from the asset entries' `managed` words.
 
-    `approval` overrides the edition's: the exporter's organisations were
+    `approval` overrides the edition's: the exporter's organizations were
     running Pi before the migration, so their runtimes arrive approved.
     """
     held = existing or {}
@@ -301,7 +301,7 @@ def seed_policy(
         at = _branch_path(entry)
         body = _body(entry)
         if entry["id"] == "harness-providers":
-            # Filled by id: a migrated organisation keeps its own row.
+            # Filled by id: a migrated organization keeps its own row.
             files[at] = _fill(held.get(at) or [], _runtime_rows(body, approval))
         elif entry["id"] == "model-providers":
             # `attach` is how the key is sent, which is the presets' business
@@ -312,14 +312,14 @@ def seed_policy(
                  for row in body],
             )
         elif isinstance(body, list):
-            # A list of names (`kinds.json`): the union, so an organisation that
+            # A list of names (`kinds.json`): the union, so an organization that
             # added a kind keeps it and one that predates a new kind gains it.
             files[at] = sorted(set(held.get(at) or []) | set(body))
         else:
-            # An object (`reach.json`): the organisation's own file wins whole.
+            # An object (`reach.json`): the organization's own file wins whole.
             # D135 — a hobby account's first `pip install` has to work and the
             # Boundaries screen has to show something, so a personal
-            # organisation starts on the suggested allow-list and an enterprise
+            # organization starts on the suggested allow-list and an enterprise
             # starts `off`; the list is offered there as one-click adds, never
             # written for an enterprise.
             files[at] = held.get(at) or body
@@ -331,7 +331,7 @@ def seed_policy(
     files["policy/groups.json"] = held.get("policy/groups.json") or []
     files["policy/grants.json"] = held.get("policy/grants.json") or []
     # W5-D10's two lists, read off the asset entries' `managed` words and filled
-    # by id like every other seeded file: an organisation that already lists
+    # by id like every other seeded file: an organization that already lists
     # something keeps its own order, and an id already required is never also
     # recommended.
     loaded = always_loaded_lists(held.get("policy/always-loaded.json"))
@@ -358,9 +358,9 @@ def seed_policy(
         )
         # W7-D7: a personal account's first session runs on the person's own
         # sign-in (W7-D2), so the routing *Set up* would write is seeded: every
-        # model provider Pi signs in to is approved for the organisation, and
+        # model provider Pi signs in to is approved for the organization, and
         # Anthropic (else the first of them) is the default. Filled only when the
-        # organisation has written nothing of its own, like every other file.
+        # organization has written nothing of its own, like every other file.
         if node_path:
             signs_in = [
                 row["id"] for row in presets("model-providers.json")

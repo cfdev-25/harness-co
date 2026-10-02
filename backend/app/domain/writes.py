@@ -76,7 +76,7 @@ SECRET_PATTERNS = [
 
 @dataclass
 class Authority:
-    """The viewer, their organisation, and what they may write on.
+    """The viewer, their organization, and what they may write on.
 
     `level` and `at` are 00 §4.1's `Viewer.role` (member · team-admin ·
     org-admin) for the sentences; `administers()` is the decision, because a
@@ -244,7 +244,7 @@ async def head_of(connection: Any, org_id: UUID, ref: str) -> str:
         raise ApiError(
             409,
             "index_behind",
-            "The server has not finished reading the latest change to your organisation.",
+            "The server has not finished reading the latest change to your organization.",
             {"ref": ref},
             remedy="Run again in a few seconds.",
         )
@@ -358,7 +358,7 @@ async def commit(
             raise ApiError(
                 403,
                 "policy.org_only",
-                f"{change['path']} belongs to the organisation branch, "
+                f"{change['path']} belongs to the organization branch, "
                 "so it cannot be written on a team's.",
                 {"path": change["path"]},
             )

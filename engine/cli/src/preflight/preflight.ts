@@ -79,7 +79,7 @@ export async function preflight(input: PreflightInput): Promise<PreflightResult>
 		// D11: native only where the adapter can actually use its own sign-in —
 		// and W7-D2, only to a provider it has one *for*. `modelNative` is the
 		// adapter's own list (07 §6); a runtime that declares none signs in to
-		// nothing, so the session is the organisation's model or it is refused
+		// nothing, so the session is the organization's model or it is refused
 		// by the broker at step 5. The two agree, so the boot line's *your own
 		// sign-in · not metered* is never printed for a session the broker
 		// would refuse.

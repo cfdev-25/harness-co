@@ -167,7 +167,7 @@ const browse: BrowseRow[] = [
 
 describe("the store", () => {
   it("names the level a copy would come from, and the two words of its own", () => {
-    // A team or the organisation has a name; *you* and *preset* are words the
+    // A team or the organization has a name; *you* and *preset* are words the
     // console writes, which is why the server sends the level and not a label.
     expect(fromLabel(browse[0])).toBe("acme");
     expect(fromLabel(browse[1])).toBe(ASSETS_TEXT.browseYou);

@@ -51,7 +51,7 @@ Individual specs may still name their own stack — group A's read
 `STACK_A_URL`/`STACK_A_STATE` and group B's `STACK_B_URL`/`STACK_B_COOKIE`
 (`test/screen/stack-b.ts`) — which is how one `playwright test` run can be
 pointed at one group's stack while the other group's spec files are filtered
-out. Run **one group per stack**: the two seed different organisations, so
+out. Run **one group per stack**: the two seed different organizations, so
 group B's specs against stack A's data fail on rows that are not there.
 
 The authentication in both is a personal access token carried in the Supabase

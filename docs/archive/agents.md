@@ -553,7 +553,7 @@ using a credential we did not give it.
 For Claude Code this is a headless `-p` run under the exact generated settings
 asserting the active credential source; for Pi, a headless invocation that
 reports its resolved provider. Any mismatch aborts boot with the real reason —
-including "your organisation's managed settings require a claude.ai login"
+including "your organization's managed settings require a claude.ai login"
 (§5.4). No partial start, no degraded mode.
 
 ## 10. The parity matrix

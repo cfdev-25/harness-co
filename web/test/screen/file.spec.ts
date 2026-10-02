@@ -40,13 +40,13 @@ test("owner_line_per_owner_value", async ({ page }) => {
   await expect(page.locator("[data-owner-line='org']")).toBeAttached();
   await page.locator("main .sub button[aria-label^='About']").click();
   await expect(page.locator("dialog")).toContainText(
-    "Organisation file — nothing below the organisation can change it.",
+    "Organization file — nothing below the organization can change it.",
   );
 });
 
 test("file_owner_matches_winning_branch", async ({ page }) => {
   // The person's own copy of the team's prompt wins, so the file reads *yours*
-  // while the organisation's connection reads *organisation*.
+  // while the organization's connection reads *organization*.
   await openFile(page, "house-style");
   await expect(page.locator("[data-owner-line='you']")).toBeAttached();
   await expect(page.locator("main")).toContainText("Keep the first paragraph to two sentences.");

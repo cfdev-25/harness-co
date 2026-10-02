@@ -32,7 +32,7 @@ ACCEPT_IS_TEAM_ADMINS = (
     "Accepting a request publishes it to everyone on {team}, so a team admin decides it."
 )
 APPOINT_IS_ORG_ADMINS = (
-    "Appointing a team admin is an organisation admin's decision. Anyone may ask; "
+    "Appointing a team admin is an organization admin's decision. Anyone may ask; "
     "the request appears above."
 )
 
@@ -253,7 +253,7 @@ async def accept_request(
             )
         if row["subject_kind"] == "role":
             # D43: the same primitive, a different act. Appointing is the
-            # organisation's decision even when the team's admin can see it.
+            # organization's decision even when the team's admin can see it.
             if not who.is_org_admin:
                 raise ApiError(
                     403,

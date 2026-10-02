@@ -1,6 +1,6 @@
 # Console Plan — 00 · Overview, contracts, and the rules of the plan
 
-The **console** is the web application at three scopes — organisation, team,
+The **console** is the web application at three scopes — organization, team,
 person — through which the engine is operated and observed. It is the
 operator's instrument on the backbone: every screen is a read of the index
 or of a session record, every verb is an endpoint the CLI could also call,
@@ -345,8 +345,8 @@ All `GET`, all scoped by the caller's role and, where present, `?scope=org|team:
 | `/boundaries` | `BoundaryRow[]` | Boundaries |
 | `/providers/harness` · `/providers/model` · `/routing` | harness provider rows with approval, scope, pin, `speaks`, `name`; model provider rows with `status` (`providerStatus`, W6-D6) and their routing; the routing matrix with its pickable `subjects` (W6-D5 — the model tab reads it, the Routing tab is gone) | Providers |
 | `/vaults` · `/vaults/{id}/secrets` | vault rows (connected · reachable now [observed] · secrets listable · hands us minted or stored — text, not a grade), secrets with `Related` groups | Key vaults |
-| `/assets?scope=` · `/assets/{id}?scope=` | the scope's own node's asset rows with `loads`, description, `Related` harnesses/teams/groups, and the organisation's `kinds` beside them (W5-D9); `EdgeWalk` on the one | Assets |
-| `/assets/browse?scope=` | `BrowseRow[]` — everything the viewer can use: the winning copy of every asset on their chain and the bundled presets the organisation does not hold yet, each with its kind, description, the level it comes from and whether they hold a copy (W5-D15). `hidden` when `visibility.store` is off | Assets → *Browse* |
+| `/assets?scope=` · `/assets/{id}?scope=` | the scope's own node's asset rows with `loads`, description, `Related` harnesses/teams/groups, and the organization's `kinds` beside them (W5-D9); `EdgeWalk` on the one | Assets |
+| `/assets/browse?scope=` | `BrowseRow[]` — everything the viewer can use: the winning copy of every asset on their chain and the bundled presets the organization does not hold yet, each with its kind, description, the level it comes from and whether they hold a copy (W5-D15). `hidden` when `visibility.store` is off | Assets → *Browse* |
 | `/logs/{category}` · `/logs/{category}/{id}/diff` · `/endpoints` | `LogRow[]`; `DiffHunk[]` for a git-backed row, fetched on expand; `EndpointRow[]` | Logs |
 | `/people` · `/people/{id}` · `/people/{id}/removal` · `/teams` | `PersonRow[]`, person detail, `RemovalPreview`, `TeamRow[]` | People |
 | `/edges?kind=&id=` | `EdgeWalk` | any *What rests on this* section |
@@ -374,7 +374,7 @@ All `GET`, all scoped by the caller's role and, where present, `?scope=org|team:
 | Disconnect a vault | `DELETE /v1/vaults/{id}` (refused while any group references it) | records + org ref |
 | Deactivate / reactivate a person; remove from a team | `PATCH /v1/people/{id} { state }` · `DELETE /v1/org-units/{team}/members/{id}` | records |
 | Ask to be a team admin | `POST /v1/requests { subject: { kind: "role", … } }` | the request primitive |
-| Sign up | `POST /v1/orgs { code, personal?, org_name?, team_name? }` → the org row (W7-D1, console D101). `code` is compared to `HARNESS_SIGNUP_CODE` **before the transaction opens** and refused `403 signup.code_wrong` — *That access code is not right.* — when it differs or the variable is unset, so nothing is created and the message carries no hint. `personal: true` takes the personal path (no team ref, the person's address names the organisation, `email_label` when that slug is taken) and needs no `org_name`; without it `org_name` is required (`422 org_name_required`) and the signer becomes the organisation's owner. The only write the public pages make | records + the org ref's seed commit (engine D30f, engine D30h) |
+| Sign up | `POST /v1/orgs { code, personal?, org_name?, team_name? }` → the org row (W7-D1, console D101). `code` is compared to `HARNESS_SIGNUP_CODE` **before the transaction opens** and refused `403 signup.code_wrong` — *That access code is not right.* — when it differs or the variable is unset, so nothing is created and the message carries no hint. `personal: true` takes the personal path (no team ref, the person's address names the organization, `email_label` when that slug is taken) and needs no `org_name`; without it `org_name` is required (`422 org_name_required`) and the signer becomes the organization's owner. The only write the public pages make | records + the org ref's seed commit (engine D30f, engine D30h) |
 
 Endpoints marked "commit on … ref" are new in `api` and all go through one helper that calls `definitions:/internal/commit` and appends the audit event — one implementation (K6, engine primitive *Decision record*). The audit action strings these writes emit (`request.*`, `grant.*`, `boundary.*`, `provider.*`, `routing.change`, `vault.connect`, `group.create`, `console.read_as`) are defined once in 03 §6, and route authors use those strings.
 

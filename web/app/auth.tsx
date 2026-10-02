@@ -84,7 +84,7 @@ export function Login() {
   return (
     <AuthShell
       title="Sign in"
-      description="Manage harnesses for yourself or your organisation."
+      description="Manage harnesses for yourself or your organization."
     >
       <form className="mt-6 grid gap-4" onSubmit={submit}>
         <Field
@@ -146,7 +146,7 @@ export function AuthApp({ next }: { next?: string }) {
       setReady(true);
       if (!live) return;
       // An account with no org unit has nowhere to land; `/v1/tree` answers
-      // 404 for exactly that case. Making the first organisation is `/signup`
+      // 404 for exactly that case. Making the first organization is `/signup`
       // and nowhere else, because the access code is checked on that write
       // (W7-D1) — so this is where someone who followed the link on another
       // machine, or left at the access code, resumes: `/signup` sees the
@@ -166,7 +166,7 @@ export function AuthApp({ next }: { next?: string }) {
   }, [enter, router]);
 
   // Signed in and on the way somewhere — the console, or `/signup` to finish
-  // making the organisation — is a blank canvas, never a flash of the form.
+  // making the organization — is a blank canvas, never a flash of the form.
   if (!ready || signedIn) return <main className="min-h-screen bg-canvas" />;
   return <Login />;
 }

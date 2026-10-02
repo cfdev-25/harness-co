@@ -17,14 +17,19 @@ export interface SidebarProps {
   pathname?: string;
 }
 
-const ITEM = "flex items-center gap-2 rounded-md px-2 py-2 text-base no-underline";
+/**
+ * 01 §4.4, D106: an item is indented one step past its eyebrow, and both its
+ * states paint the **whole row** — hovering a word and hovering the gap
+ * beside it are the same gesture to the hand holding the mouse.
+ */
+const ITEM = "flex items-center gap-2 rounded-md py-2 ps-3 pe-2 text-base no-underline";
 
 function Item({ item, current }: { item: NavItem; current: boolean }) {
   return (
     <Link
       href={item.href}
       aria-current={current ? "page" : undefined}
-      className={`${ITEM} ${current ? "bg-accent-soft font-semibold text-accent-text" : "text-muted hover:text-fg"}`}
+      className={`${ITEM} ${current ? "bg-accent-soft font-semibold text-accent-text" : "text-muted hover:bg-sunken hover:text-fg"}`}
     >
       {/* 01 §4.4: the rail is 144px, so a long row truncates and carries
           its own words as a `title` rather than wrapping to two lines. */}
@@ -45,18 +50,25 @@ export function Sidebar({ scope, viewer, inDrawer = false, pathname }: SidebarPr
   const route = usePathname();
   const key = navKeyOf(pathname ?? route ?? "");
   const pinned = pinnedNav();
+  const groups = navFor(scope, viewer);
+  const grouped = groups.length > 1;
   return (
     <nav
       aria-label={inDrawer ? "Console menu" : "Console"}
-      className="flex flex-col gap-5 border-r border-line px-2 py-4"
+      className="flex flex-col border-r border-line px-2 py-4"
     >
-      {navFor(scope, viewer).map((group) => (
-        <div key={group.label} className="grid gap-1">
-          {/* A group whose one row says the same word as the heading — Logs,
-              now that Sessions and Endpoints are its tabs — is one row, not a
-              heading and a row saying it twice. */}
-          {!(group.items.length === 1 && group.items[0].label === group.label) && (
-            <p className="truncate px-2 pb-1 text-2xs font-bold tracking-eyebrow text-faint uppercase">
+      {/* D106: the rows pack from the top with one fixed step between groups
+          — never spread down the rail — and the eyebrows carry the grouping
+          only when there is more than one group to tell apart. `navFor`
+          leaves the label off the one-group case, so this is its own check
+          and not a second rule about counts. */}
+      {groups.map((group, index) => (
+        <div
+          key={group.label ?? group.items[0].key}
+          className={index === 0 ? "grid gap-1" : "mt-4 grid gap-1 border-t border-hairline pt-4"}
+        >
+          {grouped && group.label && (
+            <p className="truncate px-2 pb-1 text-2xs font-semibold tracking-eyebrow text-faint uppercase">
               {group.label}
             </p>
           )}

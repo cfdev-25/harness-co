@@ -67,8 +67,25 @@ describe("navFor — the sidebar shows what you manage", () => {
       "Harnesses", "Assets", "Boundaries", "Logs", "Account",
     ]);
     // The same five wherever a personal account stands: there is one person
-    // and no organisation above them (07 §2).
+    // and no organization above them (07 §2).
     expect(rows(ORG, personal)).toEqual(rows(ME, personal));
+  });
+
+  it("groups exist to part the permission screens from the rest (D106)", () => {
+    // A viewer who administers nothing here has one kind of row, so the rail
+    // is one unlabelled list: four headings over one row each is what made
+    // Logs float alone in the middle of a personal rail.
+    const flat = (scope: Scope, over: Partial<Viewer> = {}) => navFor(scope, viewer(over));
+    expect(flat(ME, { adminHere: true }).map((group) => group.label)).toEqual([undefined]);
+    expect(flat(TEAM).map((group) => group.label)).toEqual([undefined]);
+    expect(flat(ORG).map((group) => group.label)).toEqual([undefined]);
+    expect(flat(ME, { edition: "personal", adminHere: true, teams: [] }).map((g) => g.label))
+      .toEqual([undefined]);
+    // The moment there are permission screens, every group is named — the
+    // one with a single row too, or the hairline above it has no word.
+    expect(flat(ORG, { adminHere: true }).map((group) => group.label)).toEqual([
+      "Assets", "Permissions", "Logs", "People",
+    ]);
   });
 
   it("Sessions and Endpoints have left the sidebar for the Logs tabs", () => {

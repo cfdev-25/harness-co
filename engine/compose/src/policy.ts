@@ -34,7 +34,7 @@ export const SPECS = {
 		kind: "string",
 		"needs?": [NEED],
 		"format?": FORMAT,
-		// WS3a (wave 5): shown on the organisation assets row; written by
+		// WS3a (wave 5): shown on the organization assets row; written by
 		// `PATCH /v1/assets/{id}`, never by a kind's own metadata.
 		"description?": "string",
 	} as Spec,
@@ -105,7 +105,7 @@ export const SPECS = {
 	} as Spec,
 	"kinds.json": ["string"] as Spec,
 	// W5-D10. Two lists; a bare array is still accepted and read as `required`,
-	// which is what every organisation's file holds until an admin changes one.
+	// which is what every organization's file holds until an admin changes one.
 	"always-loaded.json": or(["uuid"], { "required?": ["uuid"], "recommended?": ["uuid"] }) as Spec,
 	// D131. Kept next to the others even though it is per node, not org-only:
 	// the shape is one, and which nodes may hold it is 01 §4.2's business.
@@ -212,7 +212,7 @@ export function narrowingFault(
 	// (d) reach cannot be narrowed by alias, and a team may only pass on what it holds.
 	if (!source.group) return fault("d", `(d) ${from.grant} grants reach, which cannot be narrowed by alias`);
 	const group = groups[source.group];
-	if (!group) return fault("d", `(d) ${from.grant} names the group ${source.group}, which the organisation does not define`);
+	if (!group) return fault("d", `(d) ${from.grant} names the group ${source.group}, which the organization does not define`);
 	// A grant narrowed from an already-narrowed one may only keep that one's
 	// aliases: tighten only, so the trail can never widen a step at a time.
 	const holdable = source.narrowedFrom ? source.narrowedFrom.aliases : group.entries.map((entry) => entry.alias);

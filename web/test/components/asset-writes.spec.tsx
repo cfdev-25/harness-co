@@ -1,23 +1,41 @@
 import { expect, test } from "@playwright/experimental-ct-react";
 import { DeleteAsset } from "@/app/(console)/console/[scope]/assets/_delete";
-import { EditAsset } from "@/app/(console)/console/[scope]/assets/_edit";
+import { AssetTable } from "@/app/(console)/console/[scope]/assets/_table";
 import { Browse } from "@/app/(console)/console/[scope]/assets/_browse";
 import { SetLoads } from "@/app/(console)/console/[scope]/assets/[id]/_loads";
-import type { BrowseRow } from "@/lib/views/assets";
+import type { BrowseRow, OrgAssetRow } from "@/lib/views/assets";
 import { HARNESSES_WORDS } from "@/content/screens/harnesses";
 import { ASSETS, ASSETS_TEXT } from "@/content/screens/assets";
 import { records, refuses } from "./writes";
 
 const ASSET = "0460b220-8379-5ddf-82ef-31bc0e8a99e1";
 
+const ROW: OrgAssetRow = {
+  id: ASSET, kind: "skill", name: "house-style", tree: "skills/house-style", level: "org",
+  sidecar: { description: "How we write" },
+  loads: { scale: "loads", value: "on-request" },
+  harnesses: { unit: "harnesses", items: [] },
+  teams: { unit: "teams", items: [] },
+  groups: { unit: "groups", items: [] },
+  at: "2026-10-01T09:00:00Z",
+};
+
+function table(rows: OrgAssetRow[], scope: string, orgAdmin: boolean) {
+  return (
+    <AssetTable rows={rows} query="" empty="Nothing here" hrefFor="/console/org/assets" canEdit orgAdmin={orgAdmin} scope={scope} />
+  );
+}
+
 test("edit_asset_patches_only_what_changed_at_the_scope", async ({ mount, page }) => {
   const sent = await records(page);
-  await mount(
-    <EditAsset assetId={ASSET} name="house-style" description="How we write" scope="team:acme.marketing" />,
-  );
+  // A team's copy, edited by its team admin: the words are theirs, loads is not.
+  await mount(table([{ ...ROW, level: "team" }], "team:acme.marketing", false));
 
   await page.getByRole("button", { name: ASSETS.verbs.edit.label }).click();
-  await page.getByLabel(ASSETS_TEXT.editDescription).fill("How Marketing writes");
+  // The row is the form (D109): the cells became controls, nothing opened.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: ASSETS_TEXT.loadsLabel })).toHaveCount(0);
+  await page.getByLabel(ASSETS_TEXT.editDescription, { exact: true }).fill("How Marketing writes");
   await page.getByRole("button", { name: ASSETS_TEXT.editSubmit }).click();
 
   // The name did not change, so it is not sent: an unchanged field would
@@ -29,6 +47,54 @@ test("edit_asset_patches_only_what_changed_at_the_scope", async ({ mount, page }
       body: { description: "How Marketing writes" },
     },
   ]);
+});
+
+test("edit_asset_sets_how_it_loads_in_the_row", async ({ mount, page }) => {
+  const sent = await records(page);
+  await mount(table([ROW], "org", true));
+
+  await page.getByRole("button", { name: ASSETS.verbs.edit.label }).click();
+  await page.getByRole("combobox", { name: ASSETS_TEXT.loadsLabel }).selectOption("recommended");
+  // Enter saves. Only loads changed, so only the loads write leaves.
+  await page.getByLabel(ASSETS_TEXT.editName, { exact: true }).press("Enter");
+  await expect.poll(() => sent).toEqual([
+    { method: "PUT", path: `/v1/assets/${ASSET}/loads`, body: { loads: "recommended" } },
+  ]);
+
+  // Moving to required confirms with what it takes first (02 rule 22).
+  await page.getByRole("button", { name: ASSETS.verbs.edit.label }).click();
+  await page.getByRole("combobox", { name: ASSETS_TEXT.loadsLabel }).selectOption("required");
+  await page.getByRole("button", { name: ASSETS_TEXT.editSubmit }).click();
+  await expect(page.locator("[data-confirm-takes]")).toContainText(ASSETS_TEXT.confirmTakes);
+  await page.getByRole("button", { name: ASSETS_TEXT.confirmVerb }).click();
+  await expect.poll(() => sent.at(-1)).toEqual({
+    method: "PUT", path: `/v1/assets/${ASSET}/loads`, body: { loads: "required" },
+  });
+});
+
+test("edit_asset_shows_the_servers_refusal_under_the_cell", async ({ mount, page }) => {
+  const refusal = {
+    status: 409,
+    code: "asset.name_taken",
+    message: "Another skill on this branch is already called style.",
+    remedy: "Pick another name.",
+  };
+  await refuses(page, refusal);
+  await mount(table([ROW], "org", true));
+
+  await page.getByRole("button", { name: ASSETS.verbs.edit.label }).click();
+  await page.getByLabel(ASSETS_TEXT.editName, { exact: true }).fill("style");
+  await page.getByRole("button", { name: ASSETS_TEXT.editSubmit }).click();
+
+  // 02 rule 21: the server's words under the cell that was refused, and the
+  // row stays open for the correction.
+  // The refusal joins the field's label, so the input is found by its name.
+  const name = page.locator('input[name="name"]');
+  await expect(name).toHaveValue("style");
+  await expect(name.locator("xpath=ancestor::label")).toContainText(refusal.message);
+  await expect(name.locator("xpath=ancestor::label")).toContainText(refusal.remedy);
+  await name.press("Escape");
+  await expect(name).toHaveCount(0);
 });
 
 test("delete_asset_names_the_harnesses_it_leaves_then_deletes", async ({ mount, page }) => {
@@ -54,7 +120,7 @@ test("delete_asset_shows_the_servers_refusal_in_place", async ({ mount, page }) 
     status: 403,
     code: "asset.required",
     message: "harness-authoring is required: every session loads it, so it cannot be deleted.",
-    remedy: "An organisation admin decides what is required.",
+    remedy: "An organization admin decides what is required.",
   };
   await refuses(page, refusal);
   await mount(<DeleteAsset assetId={ASSET} leaves={{ all: true, labels: [] }} scope="org" />);

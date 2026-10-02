@@ -43,7 +43,7 @@ test("header_grid_is_two_by_three", async ({ page }) => {
 });
 
 test("compare_control_sized_by_role", async ({ page }) => {
-  // The signed-in person is an organisation admin, so the server sends a
+  // The signed-in person is an organization admin, so the server sends a
   // `member:` option per member of the team (04 §18) and the client adds
   // *Differences*. `versions` is the server's; the console never sizes it.
   const id = await harnessId(page);
@@ -171,7 +171,7 @@ test("commands_button_opens_sheet", async ({ page }) => {
 });
 
 test("edit_refused_names_team_admin", async ({ page }) => {
-  // The signed-in person is the organisation admin, so the verbs are here and
+  // The signed-in person is the organization admin, so the verbs are here and
   // the refusal is not. The refusal's own sentence is V2's to render.
   const id = await harnessId(page);
   await page.goto(`/console/me/harnesses/${id}`);

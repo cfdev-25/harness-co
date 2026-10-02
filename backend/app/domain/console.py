@@ -349,7 +349,7 @@ def chain_teams(chain: list[dict]) -> list[str]:
 
 def routing_paths(chain: list[dict]) -> list[str]:
     """The nodes `Routing.defaultFor.teams` may be keyed by, root first. The
-    organisation is one of them — 01 §4.2's own example keys `teams` by the org
+    organization is one of them — 01 §4.2's own example keys `teams` by the org
     path and the broker reads `approvedFor` the same way (04 step 5) — and for
     a personal account (prd-v2 §12.1) it is the only one there is."""
     return [node["path"] for node in chain if node["kind"] in ("org", "team")]
@@ -358,7 +358,7 @@ def routing_paths(chain: list[dict]) -> list[str]:
 async def setup_model(ctx: Ctx) -> str | None:
     """W7-D2, the `model` row of `setup_facts`: what the person's default model
     provider already is for them. `key` when a security group holds its key,
-    `sign-in` when no key is held and a runtime this organisation lists signs
+    `sign-in` when no key is held and a runtime this organization lists signs
     in to it itself, `None` when there is no default or it is neither — which
     is exactly when the Account list still has something to ask for."""
     built = await policy(ctx)
@@ -395,7 +395,7 @@ async def _scope(pool: Any, scope: str | None, chain: list[dict], role: dict, or
         return "me", [node["path"] for node in chain], viewer["id"], True, org_path
     if scope == "org":
         if role["level"] != "org-admin":
-            raise fail("console.scope_forbidden", team="the organisation")
+            raise fail("console.scope_forbidden", team="the organization")
         return "org", [org_path], org_id, True, org_path
     if scope.startswith("team:"):
         path = scope[5:]
@@ -425,7 +425,7 @@ def _json(value: Any) -> Any:
 
 
 def _visibility_of(policies: list) -> dict:
-    # W5-D15 adds `store`: an organisation may turn the Browse tab off, and a
+    # W5-D15 adds `store`: an organization may turn the Browse tab off, and a
     # personal account has it on because nobody is above the person to say
     # otherwise. Default true like the other two — a key nobody has written is
     # a view nobody has closed.
@@ -680,7 +680,7 @@ async def harness_rows(ctx: Ctx, harness_id: UUID | None = None) -> list[dict]:
 
 def level_of_node(ctx: Ctx, path: str) -> tuple[str, str]:
     """A node's level and its own URL segment (00 D2), from this viewer's seat:
-    the organisation, the viewer's own branch, or a team. The segment is what
+    the organization, the viewer's own branch, or a team. The segment is what
     `/console/<segment>/…` takes, so a link to another level is built the same
     way `href` builds one to this one."""
     if path == ctx.org_path:
@@ -700,8 +700,8 @@ async def cards(ctx: Ctx) -> list[dict]:
     nearest: dict[str, dict] = {}
     # W5-D9: the copies that are *not* nearest are not dropped — they are the
     # card's *also at* links, so a person reading their own version can see
-    # that the organisation holds one too, and open it. Chain order (root
-    # first), so the list reads organisation → team → you.
+    # that the organization holds one too, and open it. Chain order (root
+    # first), so the list reads organization → team → you.
     others: dict[str, list[str]] = {}
     opened = await last_opened(ctx)
     built = await policy(ctx)
@@ -779,7 +779,7 @@ def covering_grants(grants: list[dict], chain: list[dict], harness_id: str | Non
 def routed_provider(routing: dict, harness_id: str, teams: list[str],
                     provider_ids: list[str]) -> str | None:
     """Precedence harness → provider → team (engine 00 D8). The team half is
-    nearest-first up the chain, and the organisation node is a key like any
+    nearest-first up the chain, and the organization node is a key like any
     other — `approvedFor` is read that way by the broker (04 step 5) and 01
     §4.2's own example keys `teams` by the org path."""
     defaults = routing.get("defaultFor") or {}
@@ -932,7 +932,7 @@ async def file_rows(ctx: Ctx, definition: dict, version: str, *, whole_library: 
             "owner": owner_from_path(asset["from_path"], ctx.org_path, ctx.teams,
                                      ctx.chain[-1]["path"]),
             # W5-D10: `required` · `recommended` · `on-request`. A harness file
-            # row is `on-request` unless the organisation says otherwise, which
+            # row is `on-request` unless the organization says otherwise, which
             # is what `harness_view` fills in — `file_rows` is called for the
             # whole library too, where nothing is required by the harness.
             "lastEditor": None, "differs": None, "note": None, "loads": "on-request",
@@ -981,7 +981,7 @@ async def _path_of(ctx: Ctx, auth_user_id: UUID) -> str:
 
 async def unanswered_row(ctx: Ctx, asset_id: str) -> dict:
     """C18. The id is known to the harness and to nothing on this chain; the
-    name is whatever the organisation calls it elsewhere, if anything."""
+    name is whatever the organization calls it elsewhere, if anything."""
     try:
         row = await ctx.pool.fetchrow(
             "select kind, name from idx_assets where org=$1 and id=$2 limit 1",
@@ -1370,7 +1370,7 @@ async def endpoint_rows(ctx: Ctx, since: datetime) -> list[dict]:
             where s.id::text = any($1::text[])""", every, ctx.org_id)}
     opened = await _opened_by(ctx, every)
     # The Allow action needs the file of every node that refused something, and
-    # the organisation's for the rows that name no node (below). One read, the
+    # the organization's for the rows that name no node (below). One read, the
     # same helper the Reach section walks with.
     reach = await _reach_files(ctx, sorted(
         {row["set_by"] for row in rows
@@ -1437,9 +1437,9 @@ def _allow_action(ctx: Ctx, host: str, outcome: str, set_by: str,
     session that started before the list changed, and the next one will not
     make it.
 
-    A row from before `setBy` existed names no node. The organisation is the
+    A row from before `setBy` existed names no node. The organization is the
     only node that could have refused it then, so an org admin is offered the
-    organisation's list and anyone else is told whose decision it is."""
+    organization's list and anyone else is told whose decision it is."""
     if outcome != "refused":
         return {"allow": None}
     # A refusal reach did not make — a wrong proxy secret, a port that is not
@@ -1963,7 +1963,7 @@ async def suggested_commands(ctx: Ctx) -> dict:
     adds under *Set here* on Boundaries → Commands.
 
     Never seeded (`managed: suggested`, engine 01 §4.2): a default that denies
-    something is a decision, and the organisation makes it. `present` is the
+    something is a decision, and the organization makes it. `present` is the
     one fact the preset file cannot hold — whether this level, or anything
     above it, already has that pattern — so a suggestion is never offered
     twice, the way Reach's already are (`suggestions` in `lib/views/reach.ts`).
@@ -2022,7 +2022,7 @@ async def _status(built: dict, provider: dict) -> str:
     (P2, 03 D34) — and a provider that does not answer is *unreachable*, not
     keyless: the two are different problems with different people to go to.
 
-    W7-D2: a keyless provider a runtime this organisation lists signs in to
+    W7-D2: a keyless provider a runtime this organization lists signs in to
     *itself* is *sign-in*, not *needs-key* — nothing is missing, the person's
     own login runs it. A runtime that is `not-approved` cannot sign anybody in,
     so it does not make the row read that way. Still no probe: the endpoint a
@@ -2033,9 +2033,9 @@ async def _status(built: dict, provider: dict) -> str:
 
 
 def signs_in_here(built: dict, model_provider_id: str) -> bool:
-    """W7-D2: some runtime this organisation may actually run has its own
+    """W7-D2: some runtime this organization may actually run has its own
     sign-in for this model provider. One reader of `broker.signs_in` over the
-    organisation's runtimes, so Status and the viewer's `setup.model` cannot
+    organization's runtimes, so Status and the viewer's `setup.model` cannot
     disagree about what *your sign-in* means."""
     return any(
         runtime.get("approval") != "not-approved" and broker.signs_in(runtime, model_provider_id)
@@ -2062,7 +2062,7 @@ async def routing_matrix(ctx: Ctx) -> dict:
     teams = [row["path"] for row in await ctx.pool.fetch(
         "select path from idx_nodes where org=$1 and kind='team' order by path", ctx.org_id)]
     # 03 §4.6: one row per team, keyed by its path, resolved as that team
-    # would resolve it — a default set at the organisation is that team's
+    # would resolve it — a default set at the organization is that team's
     # default until something nearer says otherwise.
     resolved = {team: fact(routed_provider(routing, "", upwards(team), []), "derived", now())
                 for team in teams}
@@ -2075,7 +2075,7 @@ async def _routing_subjects(ctx: Ctx, built: dict, teams: list[str]) -> dict:
     """W6-D5: what *Set default…* and *Approve for…* may pick, with the word a
     person reads for each — a harness id is a uuid and a runtime has a name on
     the contract now, so neither is ever drawn as its id
-    (`node_label_only_on_paths`). The organisation is a subject too: a key set
+    (`node_label_only_on_paths`). The organization is a subject too: a key set
     under the org path is everyone's default until a team says otherwise
     (engine 00 D30i)."""
     names = await harness_names(ctx)
@@ -2091,7 +2091,7 @@ async def _routing_subjects(ctx: Ctx, built: dict, teams: list[str]) -> dict:
 
 def scope_node(ctx: Ctx) -> str:
     """The one node a scope's own copies sit on (W5-D9). Not `ctx.scope_path`:
-    at `me` that is the organisation (the scope reads the whole chain), and a
+    at `me` that is the organization (the scope reads the whole chain), and a
     person's own copies are on their user node — the last node of the chain,
     the same one `harness_of` calls theirs."""
     if ctx.scope == "me":
@@ -2103,7 +2103,7 @@ def scope_nodes(ctx: Ctx) -> list[str]:
     """The nodes whose own copies a scope shows — one, except at *You* on a
     personal account.
 
-    There the organisation **is** the person (07 §1 rule 3): the seed writes
+    There the organization **is** the person (07 §1 rule 3): the seed writes
     the authoring skill and the brief on the org branch, and a personal
     account has no org scope to go and look at them on, so *Nothing on your
     own branch yet* was the screen hiding the only assets the person had. Both
@@ -2117,8 +2117,8 @@ def scope_nodes(ctx: Ctx) -> list[str]:
 
 async def asset_rows(ctx: Ctx) -> list[dict]:
     """W5-D9: one screen at every level, showing that level's own copies — at
-    `me` the person's, at a team the team's, at the organisation the org's.
-    On a personal account *You* shows the organisation's too (`scope_nodes`)."""
+    `me` the person's, at a team the team's, at the organization the org's.
+    On a personal account *You* shows the organization's too (`scope_nodes`)."""
     built = await policy(ctx)
     # W5-D10's three states. `required` is in every session's load set and
     # cannot be deleted; `recommended` seeds every new harness; the rest load
@@ -2200,8 +2200,8 @@ def preset_catalogue() -> list[dict]:
 
 async def browse_rows(ctx: Ctx) -> list[dict]:
     """W5-D15. Everything the viewer can use, in one list: the winning copy of
-    every asset on their chain — the organisation's, each team's, their own —
-    and the bundled presets the organisation does not hold yet.
+    every asset on their chain — the organization's, each team's, their own —
+    and the bundled presets the organization does not hold yet.
 
     Not `asset_rows`, which is one node's own copies: the store is the other
     question. The copies come from `idx_effective`, so a shadowed copy is not
@@ -2263,7 +2263,7 @@ async def search(ctx: Ctx, query: str) -> list[dict]:
         if asset["name"].lower().startswith(query.lower()) and len(found) < 64:
             # W5-D15 fix: the asset page is one node's own copies (W5-D9), so
             # the hit must carry the level that **holds** the copy and not the
-            # level the viewer happens to be on — at *You*, an organisation
+            # level the viewer happens to be on — at *You*, an organization
             # asset linked as `/console/me/assets/<id>` is a 404.
             _, segment = level_of_node(ctx, asset["from_path"])
             found.append({"kind": "asset", "id": asset_id, "label": asset["name"],
@@ -2370,7 +2370,7 @@ async def versions_for(ctx: Ctx, team_path: str) -> list[dict]:
 
 async def version_node(ctx: Ctx, version: str) -> dict:
     """The chain node a version reads from: the viewer's own, the team's (the
-    node above the person — the organisation when there is no team, prd-v2
+    node above the person — the organization when there is no team, prd-v2
     §12.1), or a named member's."""
     if version == "team":
         return ctx.chain[max(len(ctx.chain) - 2, 0)]

@@ -41,7 +41,7 @@ export async function adoptDir(path: string, newId: boolean, kinds: string[], hi
 		kind = (await rl.question(`What kind is this? (${kinds.join(", ")}) `).finally(() => rl.close())).trim();
 	}
 	if (!kinds.includes(kind)) {
-		refuse("cli.kind_unknown", `"${kind}" is not a kind your organisation uses. Kinds: ${kinds.join(", ")}.`, "—");
+		refuse("cli.kind_unknown", `"${kind}" is not a kind your organization uses. Kinds: ${kinds.join(", ")}.`, "—");
 	}
 
 	// An id already on the chain is a same-path-different-id conflict waiting to

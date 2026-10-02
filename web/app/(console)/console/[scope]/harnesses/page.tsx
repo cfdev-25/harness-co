@@ -12,6 +12,7 @@ import { EmptyState } from "../../../ui/empty-state";
 import { SubHeader } from "../../../ui/sub-header";
 import { Screen } from "../../../shell/screen";
 import { Card } from "./_card";
+import { Import } from "./_import";
 import { LaunchNote } from "./_launch";
 import { NewHarness } from "../_new-harness";
 
@@ -73,13 +74,20 @@ export default async function Page({
           level={level}
           search={searchIn(scopeHref(scope, "/harnesses"), query, WORDS.searchPlaceholder)}
           actions={
-            <NewHarness
-              scope={scope}
-              cards={listing.items}
-              empty={listing.items.length === 0}
-              canEdit={level.canEdit}
-              personal={personal}
-            />
+            <>
+              {/* 04 §4: beside *New harness* while there is nothing here —
+                  the other way to a first harness is one you already have on
+                  your machine. A dialog, because the command runs there. */}
+              {listing.items.length === 0 && (
+                <Import installed={viewer.setup?.installed ?? false} />
+              )}
+              <NewHarness
+                scope={scope}
+                cards={listing.items}
+                canEdit={level.canEdit}
+                personal={personal}
+              />
+            </>
           }
         />
       }

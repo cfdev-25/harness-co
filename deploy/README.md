@@ -7,7 +7,7 @@ development stack uses — its schema is already migrated).
 | App | Image | Public hostname | Holds |
 | --- | --- | --- | --- |
 | `harness-co-api` | `deploy/api.Dockerfile` | `https://harness-co-api.fly.dev` | nothing (Postgres is Supabase) |
-| `harness-co-definitions` | `deploy/definitions.Dockerfile` | `https://harness-co-definitions.fly.dev` | the organisations' git repositories, on the volume `definitions_data` at `/data` |
+| `harness-co-definitions` | `deploy/definitions.Dockerfile` | `https://harness-co-definitions.fly.dev` | the organizations' git repositories, on the volume `definitions_data` at `/data` |
 
 If either name is taken on Fly, pick another and substitute it everywhere
 below (and in the two root `fly.*.toml` files' `app =` lines).
@@ -85,6 +85,29 @@ That one variable is both the server-side origin the console fetches and
 the `/v1` rewrite the browser uses; the How this works → Set up block
 renders it into the login command.
 
+The install command on that same block needs no variable: the console reads
+its own origin off the request (`x-forwarded-host` and `x-forwarded-proto`,
+falling back to `host`) and prints
+`curl -fsSL https://<this site>/install.sh | sh`. So the line names whatever
+host the request arrived on — the custom domain for someone on
+`theharnessmanager.com`, the preview URL for someone on a preview
+deployment, which serves the same script. What makes that URL answer
+is `web/`'s `prebuild` script, which copies `../scripts/install.sh` to
+`web/public/install.sh` before every build. Two things follow:
+
+- **Vercel must run `npm run build`, not `next build`** — only the former
+  fires `prebuild`. It is the default Build Command; if the project
+  overrides it, the override has to be `npm run build`.
+- **The project root is `web/`, and the script it copies is outside it.**
+  Settings → General → *Include files outside the root directory in the
+  Build Step* must be on, or the copy fails and the build with it.
+
+**The repository must be public.** The script is served from our origin but
+it `git clone`s `https://github.com/cfdev-25/harness-co`; on a private
+repository that clone asks a stranger for a password, so the `curl` line
+installs nothing. Make the repository public before pointing anyone at it
+(`docs/guide/install.md` says the same, for the person reading the guide).
+
 **6. Supabase.** Authentication → URL Configuration → add the Vercel
 domain's `/signup` and `/login` to *Redirect URLs* (the sign-up link comes
 back there). Before real sign-ups, Project Settings → Auth → SMTP: the
@@ -108,7 +131,7 @@ already open are not affected.
 
 ## Moving existing repositories onto the volume
 
-Organisations created before the deploy have their repositories on the
+Organizations created before the deploy have their repositories on the
 machine that created them, not on the volume. SSH to Fly machines needs a
 WireGuard tunnel some networks block, and `fly machine exec` truncates long
 commands, so the route that always works is a one-off image: put the
@@ -128,7 +151,7 @@ fly deploy -a harness-co-definitions --config fly.definitions.toml --image regis
 ```
 
 The seed extracts only when `<org id>.git` is absent, so a second start is a
-no-op. Done once on 2 Oct 2026 for the development organisation.
+no-op. Done once on 2 Oct 2026 for the development organization.
 
 ## Backups
 

@@ -1,7 +1,7 @@
 import { ORG, TEAM, expect, everyTagLinksToHow, open, test } from "./stack-b";
 
 /** 04 §9's named tests, plus 06 K-M2's `boundaries_listed_in_full_with_source`
- *  and 02 rule 31's two. The scratch organisation has no boundary on its org
+ *  and 02 rule 31's two. The scratch organization has no boundary on its org
  *  branch, so the rows-present halves are `fixme` naming what is missing.
  *
  *  W6-D8 made the screen three tabs as routes, so `/boundaries` is a redirect
@@ -79,7 +79,7 @@ test.fixme(
   async () => {
     // Needs a boundary on the org branch (`policy/boundaries.json` is absent
     // from the exported repository) and a team-admin principal; the scratch
-    // organisation has one org admin and no boundaries.
+    // organization has one org admin and no boundaries.
   },
 );
 
@@ -89,7 +89,7 @@ test.fixme("remove_org_boundary_not_cleared_text", async () => {
 
 test.fixme("member_add_not_cleared", async () => {
   // Needs a member principal. `harness_cutover_dryrun` has one person and
-  // they are the organisation admin.
+  // they are the organization admin.
 });
 
 test.fixme("boundaries_hidden_view_whole_table", async () => {

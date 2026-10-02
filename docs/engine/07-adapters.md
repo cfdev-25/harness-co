@@ -24,7 +24,7 @@ which beat a `brief()` assembler for two call sites).
 | A3 | A provider difference is declared in `capabilities` and reported by `RenderReport`; nothing is silently different between providers. | I7, C2, D13 |
 | A4 | An adapter may add environment keys and never override a core one; it may never add a network host. The proxy URL is the only address it renders. | C6 |
 | A5 | The agent cannot rewrite its own policy: the provider's settings files inside the workspace are in `denyWrite`, **and** the provider is told to ignore workspace settings. Either alone is insufficient. | C7, D12 |
-| A6 | An absent organisation model never becomes an accidental one: every store an ambient login could come from is in `denyRead`. | C20, G13 |
+| A6 | An absent organization model never becomes an accidental one: every store an ambient login could come from is in `denyRead`. | C20, G13 |
 | A7 | What the agent is handed as a "token" is the proxy's session secret. It opens nothing outside the loopback session and is worth nothing to an attacker who exfiltrates it. | I3, C23 |
 | A8 | The pinned binary is the running binary: `locate` checks it before spawn, `probe` checks it after. | D7, D14, D15 |
 
@@ -70,7 +70,7 @@ can, under Pi. This is the acquisition test and it is named:
 | `settings.json` `permissions.deny` | `Boundary { kind: "capability" \| "filesystem" \| "command" }` where the pattern maps (`Read(~/.ssh/**)` → filesystem; `Bash(rm -rf /*)` → `command`, `holds: "intercepted"`, since W6-D9 — §8.1's syntax is ours, so a `Bash(…)` rule imports as the pattern it already is) | partial — unmapped patterns are `dropped` with the pattern quoted |
 | `settings.json` `hooks.*` | nothing — a hook is arbitrary code we cannot vouch for | dropped, each named |
 | `.mcp.json`, `settings.json` `mcpServers` | nothing on Pi (no MCP); recorded as `dropped` with the server names so the console can show what the person is missing | dropped (D10) |
-| `settings.json` `env`, `model`, `apiKeyHelper` | nothing — credentials and model routing are the organisation's (I1, §9) | dropped, named |
+| `settings.json` `env`, `model`, `apiKeyHelper` | nothing — credentials and model routing are the organization's (I1, §9) | dropped, named |
 
 Rules: import writes to the work tree only, with fresh sidecar ids (D3);
 nothing is pushed until the person runs `push` or the exit review offers it;
@@ -307,7 +307,7 @@ features (Claude Code ships a dozen built-in skills of its own; the seeded
 
 1. `pin` must be `{ repo, commit }` → else `adapter.pin_shape`.
 2. `pin.commit !== PI_PIN.commit` → `adapter.pin_mismatch` (*"This CLI ships
-   Pi at 60e7e76b; your organisation approved a1b2c3d4. Update the CLI."*).
+   Pi at 60e7e76b; your organization approved a1b2c3d4. Update the CLI."*).
 3. Bundle path exists → `{ path: <bundle>, version: PI_PIN.version }`.
 
 **`render`** writes under `agentDir`:
@@ -622,12 +622,12 @@ wire formats (`anthropic-messages` at `https://openrouter.ai/api`,
 one `ModelProvider`, agents.md §12.6), so one key runs Pi *and* Claude Code
 through the proxy. The presets for OpenRouter, Anthropic and OpenAI ship as
 data (`engine/compose/presets/model-providers.json`: id, endpoints per
-format, credential header) and are seeded into a new organisation's
+format, credential header) and are seeded into a new organization's
 `providers.json` at sign-up, so a personal user pastes a key and picks a
 model — nothing else (console 07 §2).
 
 **A keyless provider the runtime signs in to is *your sign-in*, not an error**
-(W7-D2, 04 D156). Native mode used to be reachable only when the organisation
+(W7-D2, 04 D156). Native mode used to be reachable only when the organization
 named an alias and granted it to nobody; from W7-D2 it is also the ordinary
 state of a fresh personal account, whose model providers hold no key at all.
 Which providers count is §6's `modelNative`; the console's Status column reads
@@ -670,13 +670,13 @@ never zero.
 | Code | When | Message · Remedy |
 | --- | --- | --- |
 | `adapter.pin_shape` | the org's pin shape does not match the adapter | *Pi is pinned to a binary version, but Pi ships vendored at a commit.* · Providers screen |
-| `adapter.pin_mismatch` | vendored commit ≠ approved commit | *This CLI ships Pi at 60e7e76b; your organisation approved a1b2c3d4.* · update the CLI |
+| `adapter.pin_mismatch` | vendored commit ≠ approved commit | *This CLI ships Pi at 60e7e76b; your organization approved a1b2c3d4.* · update the CLI |
 | `adapter.not_installed` | no `claude` on the system `PATH` | *Claude Code is not installed.* · install link, or `harness run pi` |
-| `adapter.below_min_version` | `claude --version` < floor | *Claude Code 2.1.200 is installed; your organisation requires 2.1.275 or later.* · update Claude Code |
-| `adapter.managed_tier` | managed settings force a login method | *This machine's managed Claude Code settings set `forceLoginOrgUUID`, so an organisation model cannot be used here.* · ask the device admin, or `harness run pi` |
+| `adapter.below_min_version` | `claude --version` < floor | *Claude Code 2.1.200 is installed; your organization requires 2.1.275 or later.* · update Claude Code |
+| `adapter.managed_tier` | managed settings force a login method | *This machine's managed Claude Code settings set `forceLoginOrgUUID`, so an organization model cannot be used here.* · ask the device admin, or `harness run pi` |
 | `adapter.unsupported_concern` | a required concern is `none` for this adapter | *Marketing requires `audit`, which Pi cannot provide in this mode.* · choose the other provider |
 | `adapter.rendered_missing` | `rendered.json` absent at rehydrate | *The session directory was altered before launch.* · re-run |
-| `adapter.native_blocked` | native mode requested while its spike is open | *Signing in with your own Pi account is not available yet (Spike 2).* · ask an admin for an organisation model |
+| `adapter.native_blocked` | native mode requested while its spike is open | *Signing in with your own Pi account is not available yet (Spike 2).* · ask an admin for an organization model |
 | `adapter.probe_version` | running binary ≠ located | *Claude Code 2.1.280 started, but 2.1.275 was checked.* · re-run |
 | `adapter.probe_ambient` | an ambient store was readable | *`~/.config/anthropic` is readable inside the session.* · this is a sandbox defect; report it |
 | `adapter.probe_login` | auth status reports a login with the proxy secret stripped | *Claude Code found a sign-in the harness did not provide.* · sandbox defect; report it |

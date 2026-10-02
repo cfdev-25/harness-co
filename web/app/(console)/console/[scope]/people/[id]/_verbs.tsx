@@ -35,7 +35,7 @@ export interface PersonVerbsProps {
 /**
  * Remove, deactivate and the visibility switch — 04 §15. Removing shows the
  * `RemovalPreview` before the button, never a generic *Are you sure?* (§18),
- * and the visibility switch is an organisation admin's alone.
+ * and the visibility switch is an organization admin's alone.
  */
 export function PersonVerbs(props: PersonVerbsProps) {
   const router = useRouter();

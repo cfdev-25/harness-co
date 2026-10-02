@@ -804,7 +804,7 @@ export interface paths {
          * List Requests
          * @description Requests the viewer authored, plus every request in a unit they
          *     administer. `?subject=role&state=open` is the People screen's list of role
-         *     requests waiting on an organisation admin (04 §15, D43).
+         *     requests waiting on an organization admin (04 §15, D43).
          */
         get: operations["list_requests_v1_requests_get"];
         put?: never;
@@ -1287,7 +1287,7 @@ export interface paths {
         };
         /**
          * Read Assets
-         * @description W5-D9: this level's own copies, with the organisation's kind vocabulary
+         * @description W5-D9: this level's own copies, with the organization's kind vocabulary
          *     beside them — the screen's tabs are the kinds, empty ones included.
          */
         get: operations["read_assets_v1_console_assets_get"];
@@ -1309,7 +1309,7 @@ export interface paths {
         /**
          * Read Browse
          * @description W5-D15, the store: everything the viewer can use — the winning copy of
-         *     every asset on their chain, and the bundled presets the organisation does
+         *     every asset on their chain, and the bundled presets the organization does
          *     not hold yet. Declared **before** `/assets/{asset_id}`, which would
          *     otherwise read `browse` as an id.
          *
@@ -1708,8 +1708,8 @@ export interface paths {
         /**
          * Delete Model Provider
          * @description W6-D5: a model provider is `recommended`, not `required` — the
-         *     organisation's to remove (W6-D1). The file is on the org branch, so `scope`
-         *     only ever names the organisation and the authority is an org admin's.
+         *     organization's to remove (W6-D1). The file is on the org branch, so `scope`
+         *     only ever names the organization and the authority is an org admin's.
          *
          *     Refused `provider.in_use` while anything still points at it: a routing cell
          *     (a team, a harness or a runtime) or a security group entry attached to its
@@ -1737,7 +1737,7 @@ export interface paths {
          * @description 00 §4.10's *connect a key*, and the one place four policy files move
          *     together (console 04 §10, 07 §2): the value into the bundled vault, then
          *     **one** commit carrying the group entry, its grant, the provider's
-         *     credential and — only when nothing is set there — the organisation's
+         *     credential and — only when nothing is set there — the organization's
          *     routing default (D30i). The key is never in the commit, the payload or a
          *     refusal; what is written is a reference to it.
          */
@@ -1974,7 +1974,7 @@ export interface paths {
         get?: never;
         /**
          * Appoint Admin
-         * @description 04 §15: appointing a team admin is an organisation admin's decision.
+         * @description 04 §15: appointing a team admin is an organization admin's decision.
          */
         put: operations["appoint_admin_v1_org_units__id_or_path__admins__person_id__put"];
         post?: never;
@@ -2000,7 +2000,7 @@ export interface paths {
         head?: never;
         /**
          * Set Visibility
-         * @description PRD §16: an organisation admin may turn the boundaries or the logs view
+         * @description PRD §16: an organization admin may turn the boundaries or the logs view
          *     off for a node. The console renders `HiddenView` naming the decision.
          */
         patch: operations["set_visibility_v1_org_units__id_or_path__visibility_patch"];
@@ -2204,7 +2204,7 @@ export interface components {
         /**
          * AssetsPage
          * @description W5-D9: the kinds the screen's tabs are, in `policy/kinds.json` order —
-         *     the organisation's vocabulary, not the kinds that happen to have a row, so
+         *     the organization's vocabulary, not the kinds that happen to have a row, so
          *     a kind with nothing in it is a tab reading zero rather than a tab that
          *     appears the day someone adds one.
          */
@@ -4829,7 +4829,7 @@ export interface components {
         };
         /**
          * SetupResult
-         * @description Whether this key became the organisation's default (D30i) — the modal
+         * @description Whether this key became the organization's default (D30i) — the modal
          *     says so, so the browser is generated with the field and not `unknown`.
          */
         SetupResult: {

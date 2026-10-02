@@ -141,7 +141,7 @@ describe("refusals.ts — Permission not cleared (05 §7, 04)", () => {
       const entry = REFUSALS[id as keyof typeof REFUSALS];
       expect(entry.sentence.trim().endsWith("."), id).toBe(true);
       // Either a role decides it, or the sentence says nobody below can.
-      expect(/admin|organisation|nobody/i.test(entry.sentence), id).toBe(true);
+      expect(/admin|organization|nobody/i.test(entry.sentence), id).toBe(true);
     }
   });
 
@@ -197,7 +197,7 @@ describe("empty.ts — empty states and hidden views (05 §8)", () => {
   });
 
   it("has exactly the three Viewer.visibility-keyed hidden notes", () => {
-    // W5-D15 adds `store`: an organisation may turn the Assets screen's
+    // W5-D15 adds `store`: an organization may turn the Assets screen's
     // *Browse* tab off, and a closed view says so (P10).
     expect(Object.keys(HIDDEN).sort()).toEqual(["boundaries", "logs", "store"]);
     for (const key of Object.keys(HIDDEN)) {
@@ -222,6 +222,21 @@ describe("commands.generated.ts — the command sheet (05 §6, engine 08 §11)",
   // there is nothing to diff against. This is the placeholder for
   // `sheet_matches_cli` (05 DoD) once it does.
   it.todo("matches engine/cli/src/commands/sheet.ts exactly (sheet_matches_cli, V1)");
+
+  /**
+   * The other half of D40, which nothing checked until now: the sheet is the
+   * CLI's, and a `harness …` line printed on a screen must be one of its
+   * rows. The Import dialog (04 §4) prints two, and a command typed into a
+   * screen is a command that drifts from the CLI the first time either moves.
+   */
+  it("prints no `harness …` command a sheet row does not carry", () => {
+    const runs = new Set(COMMAND_SHEET.flatMap((group) => group.rows.map((row) => row.run)));
+    const onScreen = Object.values(harnesses.HARNESSES_WORDS.importCommands);
+    expect(onScreen.length).toBeGreaterThan(0);
+    for (const command of onScreen) {
+      expect(runs.has(command), command).toBe(true);
+    }
+  });
 });
 
 describe("screens/ — one module per console 00 §5 row (05 §3, §12)", () => {
@@ -273,7 +288,10 @@ describe("R9 / R10 — house style across every string in content/", () => {
   });
 
   it("never uses an American spelling from the denylist", () => {
-    const denylist = [/\borganizations?\b/i, /\bcolors?\b/i, /\bbehaviors?\b/i, /\bauthorize[sd]?\b/i, /\bcatalogs?\b/i];
+    // `organization` is the one American form the product uses by decision
+    // (2 Oct 2026, the person's call: it is the word the audience spells that
+    // way); everything else stays British (05 R9).
+    const denylist = [/\borganisations?\b/i, /\bcolors?\b/i, /\bbehaviors?\b/i, /\bauthorize[sd]?\b/i, /\bcatalogs?\b/i];
     for (const s of strings) {
       for (const pattern of denylist) {
         expect(pattern.test(s), `"${s}" matched ${pattern}`).toBe(false);

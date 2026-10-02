@@ -44,7 +44,7 @@ test("entry_ready_is_observed_fact", async ({ page }) => {
 });
 
 test("org_verb_is_new_group_not_narrow", async ({ page }) => {
-  // 04 §8: **New group** at the organisation, **Narrow to a sub-team** at a
+  // 04 §8: **New group** at the organization, **Narrow to a sub-team** at a
   // team. The two are never both on one sub-header.
   await open(page, `/console/${ORG}/groups`);
   await expect(page.getByRole("button", { name: "New group" })).toBeVisible();
@@ -52,7 +52,7 @@ test("org_verb_is_new_group_not_narrow", async ({ page }) => {
 });
 
 test.fixme("narrow_modal_cannot_add_entry", async () => {
-  // The one team in the scratch organisation has no sub-team, so the verb has
+  // The one team in the scratch organization has no sub-team, so the verb has
   // nothing to narrow into and is not rendered. The modal, its preview
   // sentence and `narrowPreview` are covered at V1 in
   // `lib/views/groups.test.ts`; this needs a sub-team in the fixture.
@@ -73,7 +73,7 @@ test("renders_for_every_scope", async ({ page }) => {
 
 test.fixme("outside_grant_in_groups_list", async () => {
   // 06 K-M2. Needs a grant whose payload is reach (`grants.json` with
-  // `reach: true`); the exported organisation has one group grant only.
+  // `reach: true`); the exported organization has one group grant only.
 });
 
 test.fixme("narrow_creates_grant_with_narrowed_from", async () => {
@@ -86,7 +86,7 @@ test.fixme("revoke_confirm_lists_breaking_harnesses", async () => {
 });
 
 test.fixme("team_admin_create_group_not_cleared", async () => {
-  // Needs a team-admin principal; the scratch organisation has one org admin.
+  // Needs a team-admin principal; the scratch organization has one org admin.
 });
 
 test.fixme("member_narrow_not_cleared", async () => {

@@ -13,8 +13,8 @@ import { Notice } from "../../../../ui/notice";
 
 /**
  * `DELETE /v1/providers/model/{id}?scope=org` (W6-D5). Model providers are a
- * `recommended` default (W6-D1): seeded into every organisation and then the
- * organisation's, which means every verb exists — including this one, which the
+ * `recommended` default (W6-D1): seeded into every organization and then the
+ * organization's, which means every verb exists — including this one, which the
  * defaults checker found missing.
  *
  * The confirm says what the delete takes rather than asking *are you sure*

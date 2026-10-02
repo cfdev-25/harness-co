@@ -4,8 +4,11 @@
  * copies that to `web/content/commands.generated.ts` and CI fails on any
  * difference (console 05 §6, D50). One truth, no runtime dependency.
  *
- * The rows are console 05 §6's table word for word, plus the `import` row
- * engine 08 §11.19 documents and 05 §6 omits.
+ * The rows are console 05 §6's table word for word, plus the two `import`
+ * rows engine 08 §11.19 documents and 05 §6 omits — one per provider the
+ * importer reads, because the console's Import dialog hands over the exact
+ * line for the one the person picked and a screen may print no command that
+ * is not a row here (console 05 §6, D40).
  */
 
 export interface CommandRow {
@@ -45,6 +48,11 @@ export const COMMAND_SHEET: CommandGroup[] = [
 				what: "Bring in an existing provider setup",
 				run: "harness import claude",
 				note: "prints what was carried, partial or dropped; nothing is pushed until you review it",
+			},
+			{
+				what: "Bring in a Pi setup instead",
+				run: "harness import pi",
+				note: "the same, reading ~/.pi; the console's Import dialog prints whichever you pick",
 			},
 		],
 	},
@@ -95,7 +103,7 @@ export const COMMAND_SHEET: CommandGroup[] = [
 			{ what: "See every runtime and its approval", run: "harness providers" },
 			{ what: "Turn a runtime on", run: "harness providers approve pi", note: "org admin; --teams narrows who may run it" },
 			{ what: "Turn a runtime off", run: 'harness providers decline claude --reason "…"' },
-			{ what: "Connect a model key", run: "harness keys add openrouter", note: "prompts for the key; sets it as the organisation's default" },
+			{ what: "Connect a model key", run: "harness keys add openrouter", note: "prompts for the key; sets it as the organization's default" },
 			{ what: "Make a harness for a team", run: 'harness new "Weekly newsletter" --team marketing', note: "--org for every team; without a flag it is yours alone" },
 		],
 	},

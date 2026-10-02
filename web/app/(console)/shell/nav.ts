@@ -14,7 +14,12 @@ export interface NavItem {
 }
 
 export interface NavGroup {
-  label: string;
+  /**
+   * The eyebrow over the group. Absent is the one-group sidebar (D106): with
+   * nothing to tell apart, a heading is furniture, so `navFor` leaves it off
+   * and the sidebar draws one tight list.
+   */
+  label?: string;
   items: NavItem[];
 }
 
@@ -67,9 +72,14 @@ export function navKeyOf(pathname: string): NavKey | null {
  * on it; the permission screens belong to whoever administers it, and a row
  * a viewer may open only to be refused is worse than no row (P13).
  *
- * A personal account is one person who is their own organisation (07 §2):
+ * A personal account is one person who is their own organization (07 §2):
  * there are no teams, no people and no permissions to hand out, but reach is
  * theirs to set, so Boundaries stays.
+ *
+ * **Groups exist to separate the permission screens from the rest** (D106).
+ * A viewer who administers nothing here has no second kind of row, so the
+ * four or five they do have are one unlabelled group — a tight list, not
+ * four headings over one row each. A personal account is that case always.
  */
 export function navFor(scope: Scope, viewer: Viewer): NavGroup[] {
   const item = (key: NavKey): NavItem => ({
@@ -83,12 +93,9 @@ export function navFor(scope: Scope, viewer: Viewer): NavGroup[] {
   const admin = viewer.adminHere;
 
   if (viewer.edition === "personal") {
-    return [
-      { label: "Assets", items: [item("harnesses"), item("assets")] },
-      { label: "Permissions", items: [item("boundaries")] },
-      { label: "Logs", items: [item("logs")] },
-      { label: "People", items: [item("account")] },
-    ];
+    // Boundaries is in the one list and not under a *Permissions* heading:
+    // there is nobody else here, so it is a setting of theirs like the rest.
+    return [{ items: [item("harnesses"), item("assets"), item("boundaries"), item("logs"), item("account")] }];
   }
 
   const permissions: NavItem[] = admin && !me
@@ -98,13 +105,17 @@ export function navFor(scope: Scope, viewer: Viewer): NavGroup[] {
     ? [item("account")]
     : [item("people"), ...(admin ? [item("teams")] : [])];
 
-  const groups: NavGroup[] = [
+  // Nothing to separate: one list, in the order the rows have always been in.
+  if (permissions.length === 0) {
+    return [{ items: [item("harnesses"), item("assets"), item("logs"), ...people] }];
+  }
+
+  return [
     { label: "Assets", items: [item("harnesses"), item("assets")] },
     { label: "Permissions", items: permissions },
     { label: "Logs", items: [item("logs")] },
     { label: "People", items: people },
   ];
-  return groups.filter((group) => group.items.length > 0);
 }
 
 export function pinnedNav(): NavItem {

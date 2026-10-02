@@ -1,7 +1,7 @@
 """03 §12 tiers V3/V4: every `/v1/console/*` route against a scratch Postgres.
 
-The world below is 05 R10's fixture organisation — Acme, with Marketing and
-Engineering, Jo (member), Rae (Marketing's admin), Dana (organisation admin)
+The world below is 05 R10's fixture organization — Acme, with Marketing and
+Engineering, Jo (member), Rae (Marketing's admin), Dana (organization admin)
 and Eve on the sibling team — seeded through `POST /v1/internal/index` so the
 index rows are the ones `definitions` would have written, not hand-made rows.
 
@@ -338,7 +338,7 @@ async def test_member_cannot_read_sibling_team():
         assert caught.value.status_code == 403
         assert caught.value.code == "console.scope_forbidden"
         assert "admins" in caught.value.message and caught.value.remedy
-        # The organisation admin may open it, and so may Engineering's own.
+        # The organization admin may open it, and so may Engineering's own.
         assert (await ctx_for(connection, people["dana"], scope=f"team:{ENG}")).scope == "team"
         assert (await ctx_for(connection, people["eve"], scope=f"team:{ENG}")).scope == "team"
 
@@ -406,7 +406,7 @@ async def test_hidden_view_says_so():
         answer = await routes_console.read_boundaries(ctx)
         assert answer["items"] == []
         assert answer["hidden"] == {
-            "boundaries": "An organisation admin has turned off your view of boundaries."}
+            "boundaries": "An organization admin has turned off your view of boundaries."}
         logs = await routes_console.read_logs(await ctx_for(connection, people["jo"]), "harness")
         assert logs["items"] == [] and "logs" in logs["hidden"]
         # An admin reading the team is not the person whose view was turned off.
@@ -464,7 +464,7 @@ async def test_cards_carry_runners_approved_and_routed():
             """update idx_policy set body=$1
                 where org=$2 and node_path=$3 and file='harness-providers.json'""",
             json.dumps(_policy_files()["harness-providers.json"] + [
-                # Declined: the organisation says no, so there is no button.
+                # Declined: the organization says no, so there is no button.
                 {"id": "claude", "approval": "not-approved", "scope": {"teams": "all"},
                  "pin": {"binary": "claude", "minVersion": "0.0.0"},
                  "speaks": ["anthropic-messages"]},
@@ -521,7 +521,7 @@ async def test_harness_cards_collapse_copies_to_the_nearest():
 @requires_postgres
 async def test_cards_name_the_other_copies_as_also_at():
     """W5-D9: the nearest copy is the card, and every other copy of the same
-    id on the chain is an *also at* link — organisation first, then the team,
+    id on the chain is an *also at* link — organization first, then the team,
     because that is the order the chain is walked in."""
     async with scratch_db(_all_migrations()) as connection:
         people = await world(connection)
@@ -541,7 +541,7 @@ async def test_cards_name_the_other_copies_as_also_at():
              "href": f"/console/{MKT}/harnesses/{HARNESS}"},
         ]
         # From Rae's seat the person's copy is not on her chain, so the team's
-        # copy is the card and the organisation's is the one other level.
+        # copy is the card and the organization's is the one other level.
         rae = next(card for card in await console.cards(await ctx_for(connection, people["rae"]))
                    if card["id"] == HARNESS)
         assert [also["level"] for also in rae["alsoAt"]] == ["org"]
@@ -878,13 +878,13 @@ async def test_the_command_starter_set_is_offered_and_never_offered_twice():
         assert not any(one["present"] for one in offered["suggested"])
         assert offered["canEdit"] is True
 
-        # Nothing was seeded by asking: the organisation's own list is still
+        # Nothing was seeded by asking: the organization's own list is still
         # the one endpoint boundary `world()` put there.
         rows = await routes_console.read_boundaries(
             await ctx_for(connection, people["dana"], scope="org"))
         assert [row["kind"] for row in rows["items"]] == ["endpoint"]
 
-        # Once the organisation holds one, it is said to be held rather than
+        # Once the organization holds one, it is said to be held rather than
         # offered again — and a team sees it the same way, because a boundary
         # above this level is one this level already has.
         await connection.execute(
@@ -950,7 +950,7 @@ async def test_secret_walk_reaches_harnesses():
         assert ("team", MKT) in reached
 
 
-# --- providers, routing, vaults, organisation assets ------------------------
+# --- providers, routing, vaults, organization assets ------------------------
 
 
 @requires_postgres
@@ -1102,7 +1102,7 @@ async def test_routing_subjects_carry_a_word_never_an_id():
 
 
 @requires_postgres
-async def test_a_seeded_organisation_reads_with_no_credential():
+async def test_a_seeded_organization_reads_with_no_credential():
     """D30h's first draw: every preset is a row before any key exists, and a row
     without one carries `credential: null` rather than dropping the field —
     *Set up* is the verb the console shows on exactly that (04 §10)."""
@@ -1177,7 +1177,7 @@ async def test_org_asset_rows_say_always_loaded_reaches_every_harness():
 async def test_assets_are_the_levels_own_copies():
     """W5-D9: one screen at every level, each showing the copies that node
     holds — the person's own at `me`, the team's at a team, the
-    organisation's at `org` — and the organisation's kind vocabulary beside
+    organization's at `org` — and the organization's kind vocabulary beside
     them, so a kind with nothing in it is still a tab."""
     async with scratch_db(_all_migrations()) as connection:
         people = await world(connection)
@@ -1198,7 +1198,7 @@ async def test_assets_are_the_levels_own_copies():
         assert (await names("jo", f"team:{MKT}"))[0] == ["triage"]
         assert (await names("dana", "org"))[0] == ["house-style"]
         # Rae's own branch holds nothing; the screen is hers and empty, not
-        # the organisation's list borrowed (the bug W5-D9 names).
+        # the organization's list borrowed (the bug W5-D9 names).
         assert (await names("rae"))[0] == []
 
 
@@ -1212,7 +1212,7 @@ PRESET_BRIEF = "7b1f5c94-2d0a-5e63-9c18-4a6d3f0b28c7"      # system_prompt/harne
 async def test_browse_lists_the_chain_and_the_presets_the_org_lacks():
     """W5-D15: everything the viewer can use, each row naming the branch the
     copy would come from. One row per id — the winning copy — so a shadowed
-    copy is not offered twice, and the bundled presets the organisation does
+    copy is not offered twice, and the bundled presets the organization does
     not hold follow, marked as presets."""
     async with scratch_db(_all_migrations()) as connection:
         people = await world(connection)
@@ -1238,7 +1238,7 @@ async def test_browse_lists_the_chain_and_the_presets_the_org_lacks():
         # Their own copy is the one marked held, and its page is at `me`.
         assert rows["stand-up"]["level"] == "me" and rows["stand-up"]["held"] is True
         assert rows["stand-up"]["href"] == f"/console/me/assets/{mine}"
-        # The bundled assets this organisation does not hold, as presets.
+        # The bundled assets this organization does not hold, as presets.
         assert rows["harness-authoring"]["preset"] is True
         assert rows["harness-authoring"]["level"] == "preset"
         assert rows["harness-authoring"]["href"] is None
@@ -1247,7 +1247,7 @@ async def test_browse_lists_the_chain_and_the_presets_the_org_lacks():
 
 @requires_postgres
 async def test_browse_offers_a_preset_once_the_chain_already_answers_it():
-    """A preset the organisation has taken is not offered again: it is in the
+    """A preset the organization has taken is not offered again: it is in the
     composed set, so it is one of the chain's rows and not a preset row."""
     async with scratch_db(_all_migrations()) as connection:
         people = await world(connection)
@@ -1301,14 +1301,14 @@ async def test_the_store_can_be_turned_off_for_a_person():
         answer = await routes_console.read_browse(await ctx_for(connection, people["jo"]))
         assert answer["items"] == []
         assert answer["hidden"] == {
-            "store": "An organisation admin has turned off browsing for more assets."}
+            "store": "An organization admin has turned off browsing for more assets."}
         assert (await routes_console.read_assets(
             await ctx_for(connection, people["jo"]))).get("hidden") is None
 
 
 @requires_postgres
 async def test_a_search_hit_opens_the_level_that_holds_the_copy():
-    """W5-D15 fix: at *You*, a hit on an organisation asset used to link to
+    """W5-D15 fix: at *You*, a hit on an organization asset used to link to
     `/console/me/assets/<id>`, which 404s — the asset screen is one node's own
     copies. The href carries the level of `from_path` instead."""
     async with scratch_db(_all_migrations()) as connection:
@@ -1431,7 +1431,7 @@ async def test_person_row_names_direct_team_and_unit():
         assert sam["team"] == f"{ENG}.backend"
         assert sam["unit"] == f"{ENG}.backend.sam"
         assert {item["label"] for item in sam["teams"]["items"]} == {"eng", "backend"}
-        # A personal account hangs off the organisation, which is then its team.
+        # A personal account hangs off the organization, which is then its team.
         await _person(connection, people["org"], "kit")
         again = await routes_console.read_people(
             await ctx_for(connection, people["dana"], scope="org"))
@@ -1880,7 +1880,7 @@ async def test_endpoint_row_names_sessions_and_log():
 @requires_postgres
 async def test_routing_keyed_by_team_path():
     """03 §4.6: the matrix is a row per team, and a default set at the
-    organisation is every team's default until something nearer says otherwise."""
+    organization is every team's default until something nearer says otherwise."""
     async with scratch_db(_all_migrations()) as connection:
         people = await world(connection)
         files = _policy_files()
@@ -1897,7 +1897,7 @@ async def test_routing_keyed_by_team_path():
             MKT: "anthropic", ENG: "anthropic"}
         assert all(fact["provenance"] == "derived" for fact in matrix["resolved"].values())
         # And the harness header resolves the same way, or a personal account —
-        # whose only routing key can be the organisation — would read *failing*
+        # whose only routing key can be the organization — would read *failing*
         # on every page.
         view = await routes_console.read_harness(await ctx_for(connection, people["jo"]),
                                                  uuid.UUID(HARNESS))
@@ -1926,7 +1926,7 @@ async def test_people_and_teams_carry_names_and_ids():
 
 @requires_postgres
 async def test_personal_chain_is_org_and_user():
-    """0038: a person may sit directly under the organisation, and their chain
+    """0038: a person may sit directly under the organization, and their chain
     is the two nodes prd-v2 §12.1 describes."""
     async with scratch_db(_all_migrations()) as connection:
         from app.domain import broker
@@ -1959,12 +1959,12 @@ async def test_personal_chain_is_org_and_user():
 
 
 @requires_postgres
-async def test_personal_assets_at_you_include_the_organisations_own():
-    """07 §1 rule 3 and §3: on a personal account the organisation **is** the
+async def test_personal_assets_at_you_include_the_organizations_own():
+    """07 §1 rule 3 and §3: on a personal account the organization **is** the
     person, so *You* lists the copies the seed wrote on the org branch — the
     authoring skill, the brief — beside the person's own, each row saying which
     node it is on. Without this the only assets a new personal account had sat
-    on a branch no screen could reach: it has no organisation scope."""
+    on a branch no screen could reach: it has no organization scope."""
     async with scratch_db(_all_migrations()) as connection:
         org = await _unit(connection, None, "org", "solo")
         unit = await _unit(connection, org, "user", "sam")
@@ -1995,8 +1995,8 @@ async def test_personal_assets_at_you_include_the_organisations_own():
 
 @requires_postgres
 async def test_enterprise_assets_at_you_are_only_your_own():
-    """The other half: at *You* on an enterprise account the organisation's
-    copies belong to the organisation's screen, not to the person's."""
+    """The other half: at *You* on an enterprise account the organization's
+    copies belong to the organization's screen, not to the person's."""
     async with scratch_db(_all_migrations()) as connection:
         people = await world(connection)
         ctx = await ctx_for(connection, people["jo"])
@@ -2084,7 +2084,7 @@ async def test_index_truncate_removes_one_refs_rows():
             assert await connection.fetchval(
                 f"select count(*) from {table} where org=$1 and {column}=$2",
                 people["org"], value) == 0, table
-        # The node tree belongs to no one ref, and the organisation's rows stay.
+        # The node tree belongs to no one ref, and the organization's rows stay.
         assert await connection.fetchval(
             "select count(*) from idx_nodes where org=$1", people["org"]) == 7
         assert await connection.fetchval(
@@ -2109,7 +2109,7 @@ async def test_reach_view_walks_the_chain_and_offers_the_starter_list():
         people = await world(connection)
         at_org = await routes_console.read_reach(
             await ctx_for(connection, people["dana"], scope="org"))
-        # The organisation is the top of the walk: its file *is* the start.
+        # The organization is the top of the walk: its file *is* the start.
         assert at_org["effective"] == {"mode": "on", "hosts": ["competitor.example"],
                                        "setBy": ORG}
         assert [step["node"] for step in at_org["chain"]] == [ORG]
@@ -2211,7 +2211,7 @@ async def test_allow_goes_once_the_host_is_on_the_list_it_was_refused_against():
         already = {"can": False, "why": "Already allowed; the next session can reach it."}
         # On marketing's allow-list already.
         assert by_host["pypi.org"]["allow"] == already
-        # Off the organisation's deny-list already — the same wish, the other mode.
+        # Off the organization's deny-list already — the same wish, the other mode.
         assert by_host["search.example"]["allow"] == already
         # A host that is on neither still offers the button.
         await append_event(connection, org_unit_id=people["org"], actor_type="user",
@@ -2229,8 +2229,8 @@ async def test_allow_goes_once_the_host_is_on_the_list_it_was_refused_against():
 @requires_postgres
 async def test_a_row_from_before_set_by_offers_the_org_to_an_org_admin():
     """W5 cleanup: rows written before `setBy` rode on the event name no node.
-    The organisation is the only node that could have refused them then, so an
-    org admin is offered the organisation's list and nobody else is."""
+    The organization is the only node that could have refused them then, so an
+    org admin is offered the organization's list and nobody else is."""
     async with scratch_db(_all_migrations()) as connection:
         people = await world(connection)
         from app.domain.audit import append_event
@@ -2357,3 +2357,18 @@ def test_allow_is_not_offered_where_a_list_cannot_help():
         assert answer["allow"]["can"] is False, (host, reason)
     allowed = c._allow_action(ctx, "github.com", "refused", "acme", reach, "reach.not-listed")
     assert allowed["allow"]["can"] is True
+
+
+@requires_postgres
+async def test_an_org_admin_sees_every_team_a_member_only_their_own():
+    """The switcher's teams: an organization admin administers every team —
+    including one just created from a personal account, which sits on no
+    chain — so they list them all; a member lists the chain's."""
+    async with scratch_db(_all_migrations()) as connection:
+        people = await world(connection)
+        admin = await routes_console.read_viewer(await ctx_for(connection, people["rae"]))
+        member = await routes_console.read_viewer(await ctx_for(connection, people["jo"]))
+        admin_paths = [team["path"] for team in admin["teams"]]
+        assert admin_paths == sorted(admin_paths)
+        assert {team["path"] for team in member["teams"]} <= set(admin_paths)
+        assert all(team["admin"] for team in admin["teams"])

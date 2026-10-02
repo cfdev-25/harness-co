@@ -119,7 +119,7 @@ async def fake_definitions(**kwargs):
 
 @asynccontextmanager
 async def world():
-    """A scratch database with a login in it and no organisation yet."""
+    """A scratch database with a login in it and no organization yet."""
     async with scratch_db(_all_migrations()) as connection:
         # `append_event`'s partition memo is module-level; a second scratch
         # database in the same process would otherwise inherit a partition it
@@ -419,7 +419,7 @@ def test_seed_commits_the_built_in_skill_and_lists_it_always_loaded():
 
 
 def test_seed_never_overwrites_a_held_asset():
-    """Filling is by id: an organisation that edited the skill keeps its copy,
+    """Filling is by id: an organization that edited the skill keeps its copy,
     and one whose own asset happens to share the directory is not renamed into
     `always-loaded.json` under an id it does not carry."""
     held = _changes("enterprise", {"assets/skill/harness-authoring/asset.json": {"id": AUTHORING},
@@ -449,7 +449,7 @@ SHAPES = {
 
 
 def _wanted(edition: str) -> set[str]:
-    """What the manifest says a new organisation of this edition holds."""
+    """What the manifest says a new organization of this edition holds."""
     wanted: set[str] = set()
     for entry in seed.defaults("required", "recommended"):
         path = entry["path"]
@@ -463,7 +463,7 @@ def _wanted(edition: str) -> set[str]:
     return wanted
 
 
-def test_a_new_organisation_holds_the_manifests_entries_and_nothing_else():
+def test_a_new_organization_holds_the_manifests_entries_and_nothing_else():
     """Every `required` and `recommended` entry lands, every `suggested` one does
     not, and the only other files are the four shapes that hold no default."""
     for edition in ("enterprise", "personal"):
@@ -527,7 +527,7 @@ def test_the_required_asset_ids_are_exactly_the_manifests_required_entries():
 
 
 @requires_postgres
-async def test_a_new_organisation_is_seeded_not_empty():
+async def test_a_new_organization_is_seeded_not_empty():
     """D30h. Seven policy files on `refs/heads/org`, in the last `definitions` call
     the creating transaction makes, against the root commit `/internal/orgs`
     returned — `refs/heads/org` is in no index until this commit indexes it."""
@@ -600,7 +600,7 @@ async def test_a_personal_account_is_seeded_approved_with_my_keys():
 @requires_postgres
 async def test_an_unreadable_preset_directory_is_not_permission_to_skip_the_seed():
     """The same rule as `definitions_unconfigured`: a deployment that cannot
-    read its catalogue refuses the organisation rather than creating one whose
+    read its catalogue refuses the organization rather than creating one whose
     provider tables nobody can act on (D30h)."""
     async with world() as (connection, person), fake_definitions():
         before = await _units(connection)
@@ -622,7 +622,7 @@ async def test_an_unreadable_preset_directory_is_not_permission_to_skip_the_seed
 
 
 @requires_postgres
-async def test_the_right_code_creates_the_organisation():
+async def test_the_right_code_creates_the_organization():
     """The gate is a gate, not a wall: with the configured code the ordinary
     creation path runs and the person has a workspace."""
     async with world() as (connection, person), fake_definitions():
@@ -683,7 +683,7 @@ async def test_an_unset_code_refuses_every_sign_up():
 @requires_postgres
 async def test_team_sign_up_is_an_enterprise_org_with_the_signer_as_its_admin():
     """W7-D1's Team door: the name is the signer's, and they own what they
-    just made — an enterprise organisation, so nothing is approved yet."""
+    just made — an enterprise organization, so nothing is approved yet."""
     async with world() as (connection, person), fake_definitions() as fake:
         body = await routes_org_units.create_org(
             _signup(org_name="Acme", team_name="Marketing"),
@@ -701,7 +701,7 @@ async def test_team_sign_up_is_an_enterprise_org_with_the_signer_as_its_admin():
 
 
 @requires_postgres
-async def test_a_personal_organisation_is_named_after_the_person():
+async def test_a_personal_organization_is_named_after_the_person():
     """W7-D1's Personal door has no name field, so the name is the address's
     local part. `org_units.path` is unique-indexed, so the second `dana@` to
     arrive takes `email_label` — the one form of an address that cannot
@@ -743,7 +743,7 @@ async def test_a_team_sign_up_without_a_name_is_refused():
 @requires_postgres
 async def test_a_personal_account_has_no_team_and_reads_as_personal():
     """D30f, as the records hold it too. `Viewer.edition` is derived from the
-    organisation having no team nodes (console D70), so a vestigial `General`
+    organization having no team nodes (console D70), so a vestigial `General`
     made every signed-up personal account render as an enterprise one — the
     modal's two controls, the Getting started list, the sidebar. Sign-up writes
     no team at all now, and 0038 is what lets it: a user may sit in an org."""

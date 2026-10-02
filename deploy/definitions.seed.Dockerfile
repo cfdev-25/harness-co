@@ -1,6 +1,6 @@
 # One-off migration image for the definitions service: the plain image plus
 # an archive of existing bare repositories, extracted onto the volume once,
-# only when the named organisation's repository is not there yet. Deploy it
+# only when the named organization's repository is not there yet. Deploy it
 # once, verify, then redeploy the plain image. Built from the repository root
 # with the archive at deploy/repos.tgz (not committed).
 ARG BASE

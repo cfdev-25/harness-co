@@ -136,7 +136,7 @@ function capabilityTab(value: string): BoundaryTab {
  * The two blocks (W6-D8): what this level set, and what reaches it from above.
  *
  * `here` is the node this level writes to — the team's path at a team, the
- * organisation's at the organisation, and `null` at *me*, where a person sets
+ * organization's at the organization, and `null` at *me*, where a person sets
  * no boundary of their own and therefore inherits all of them. Everything the
  * level did not set is *Inherited* and read-only, each row still carrying the
  * level that set it, because a refusal you cannot look up is indistinguishable
@@ -194,8 +194,8 @@ export interface SuggestedCommands {
   canEdit: boolean;
 }
 
-/** Who may remove a row: its own scope only, and the organisation's nobody
- *  below the organisation (04 §9's verb table). */
+/** Who may remove a row: its own scope only, and the organization's nobody
+ *  below the organization (04 §9's verb table). */
 export function mayRemove(row: BoundaryRow, scope: Scope, level: string): boolean {
   if (level === "org-admin") return true;
   if (level !== "team-admin") return false;
@@ -211,8 +211,8 @@ export function addScopeOf(scope: Scope, orgPath: string): string {
  * The `Scope` an add written at `here` must carry.
  *
  * At a team it is that team, and `covers()` walks down from it. At the
- * **organisation** it is `"all"`, and it has to be: `covers()` compares a
- * scope's `teams` against the *team* nodes of the chain, and the organisation
+ * **organization** it is `"all"`, and it has to be: `covers()` compares a
+ * scope's `teams` against the *team* nodes of the chain, and the organization
  * node is not one of them — so `{ teams: ["acme"] }` reaches nobody and the
  * boundary is written, listed, and inert. `"all"` is what *this level and
  * everything below it* means at the top (engine 03 §5.1).

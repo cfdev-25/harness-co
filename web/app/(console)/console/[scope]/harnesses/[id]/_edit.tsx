@@ -15,10 +15,8 @@ import { Field } from "../../../../ui/field";
 import { Modal } from "../../../../ui/modal";
 import { Notice } from "../../../../ui/notice";
 import { PermissionNotCleared } from "../../../../ui/permission-not-cleared";
-import { PixelEditor } from "../../../../ui/pixel-editor";
+import { PixelEditor, blankIcon } from "../../../../ui/pixel-editor";
 import { Textarea } from "../../../../ui/textarea";
-
-const BLANK: PixelIcon = { palette: [], rows: Array<string>(16).fill(".".repeat(16)) };
 
 /**
  * 04 §5's edit and delete verbs. The delete confirmation names what it takes
@@ -33,7 +31,7 @@ export function EditHarness({ view, mayChange }: { view: HarnessView; mayChange:
   const [error, setError] = useState<{ message: string; remedy?: string } | null>(null);
   const [name, setName] = useState(view.def.name);
   const [description, setDescription] = useState(view.def.description);
-  const [icon, setIcon] = useState<PixelIcon>(view.def.icon ?? BLANK);
+  const [icon, setIcon] = useState<PixelIcon>(view.def.icon ?? blankIcon());
 
   if (!mayChange) {
     // S6, P13: the refusal is rendered where the verbs would be and names who

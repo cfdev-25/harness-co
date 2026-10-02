@@ -70,7 +70,7 @@ test("signup_asks_the_kind_then_the_email_and_mails_the_link", async ({ mount, p
   // And the sentence that is the whole of the waiting.
   await expect(component.getByText(SIGNUP.sent)).toBeVisible();
   // The choice is kept, because the link may be opened in another tab and
-  // the account it signs in has no organisation to read it off.
+  // the account it signs in has no organization to read it off.
   expect(JSON.parse((await remembered(page, CHOICE)) ?? "null")).toEqual({
     edition: "team",
     orgName: "Acme",
@@ -96,7 +96,7 @@ test("signup_finishes_from_the_link_with_the_password_and_the_code", async ({ mo
   await page.getByLabel(SIGNUP.code).fill(CODE);
   await component.getByRole("button", { name: SIGNUP.finish }).click();
 
-  // The password is set through the auth provider, then the organisation is
+  // The password is set through the auth provider, then the organization is
   // made with the code — one write, the only place the code is checked.
   await expect.poll(() => calls(page)).toContainEqual({
     name: "updateUser",
@@ -145,7 +145,7 @@ test("signup_asks_the_kind_again_when_nothing_was_remembered", async ({ mount, p
   const sent = await records(page);
   await noWorkspace(page);
   // A session and an empty `localStorage`: another browser, or a sign-in
-  // that `AuthApp` sent back here with no organisation to land on.
+  // that `AuthApp` sent back here with no organization to land on.
   const component = await mount(<SignUp finish />);
 
   await expect(component.getByText(SIGNUP.choose)).toBeVisible();

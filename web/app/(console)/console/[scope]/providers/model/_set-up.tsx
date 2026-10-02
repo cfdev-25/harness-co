@@ -16,7 +16,7 @@ import { Notice } from "../../../../ui/notice";
  * 04 §10: a model provider row without a credential carries one verb. The
  * modal has two fields and `POST /v1/providers/model/{id}/setup` does the rest
  * in one write — the vault entry, the group, its grant to every team and the
- * organisation-wide default. The screens that show what it did are Groups and
+ * organization-wide default. The screens that show what it did are Groups and
  * Routing, so those three words are not in here. The one fact the response
  * carries that the row cannot — whether this key became the default — is
  * handed up: this button is gone by the time the refresh lands.

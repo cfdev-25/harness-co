@@ -132,7 +132,7 @@ real `api` over a fixture index, never a mock of it.
 
 ## 8. Copy
 
-24. **British spelling in every string the person reads** (organisation, colour, authorise, licence as noun). American in identifiers where the platform does (`color` tokens, `Authorization` header, `authorize` in an SDK call).
+24. **British spelling in every string the person reads** (organization, colour, authorise, licence as noun). American in identifiers where the platform does (`color` tokens, `Authorization` header, `authorize` in an SDK call).
 
 25. **Explanations are sentences; controls are verbs; headings are nouns.** *Accept all 3* · *Narrow to a sub-team* · *Take the team's* — the button says what happens. A heading says what the thing is (*Security groups*), never what to do with it. An explanation, when one is needed, is a full sentence with a subject.
 

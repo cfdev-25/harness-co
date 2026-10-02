@@ -120,10 +120,10 @@ export function supervise(input: SuperviseInput): Supervisor {
 					if (retired.has(alias)) continue;
 					retired.add(alias);
 					proxy.retire(alias);
-					notify(`The \`${alias}\` credential was retired by your organisation; requests using it will be refused from now.`);
+					notify(`The \`${alias}\` credential was retired by your organization; requests using it will be refused from now.`);
 				}
 				if (validity.status === "revoked") {
-					await terminate("supervise.revoked", `This session was ended by your organisation: ${validity.revoked_reason ?? "no reason was recorded"}.`, "`harness run` starts a new one under the current policy.");
+					await terminate("supervise.revoked", `This session was ended by your organization: ${validity.revoked_reason ?? "no reason was recorded"}.`, "`harness run` starts a new one under the current policy.");
 				} else if (validity.status === "closed") {
 					await terminate("supervise.revoked", "This session was closed from the console.", "`harness run` starts a new one under the current policy.");
 				}

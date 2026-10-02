@@ -1,8 +1,8 @@
 /**
  * Assets — console 04 §12. One screen at every level (W5-D9): at *You* the
- * person's own copies, at a team the team's, at the organisation the
- * organisation's. The verbs are the level's admin's; at *You* that is always
- * the person. The *always loaded* decision stays an organisation admin's,
+ * person's own copies, at a team the team's, at the organization the
+ * organization's. The verbs are the level's admin's; at *You* that is always
+ * the person. The *always loaded* decision stays an organization admin's,
  * and stays on the asset page.
  */
 import type { ScreenContent } from "../types";
@@ -23,7 +23,7 @@ export type AssetsVerb = "setLoads" | "edit" | "remove";
 
 export const ASSETS: ScreenContent<AssetsColumn, AssetsVerb, EmptyId> = {
   title: "Assets",
-  lede: "Everything on the organisation's branch. An organisation asset reaches every team unless a harness leaves it out.",
+  lede: "Everything on the organization's branch. An organization asset reaches every team unless a harness leaves it out.",
   columns: {
     type: { heading: "Type", help: "What kind of asset this is — skill, tool, memory and so on." },
     name: { heading: "Name", help: "The asset's name." },
@@ -43,7 +43,8 @@ export const ASSETS: ScreenContent<AssetsColumn, AssetsVerb, EmptyId> = {
     },
     edit: {
       label: "Edit",
-      explain: "Changes the name and the description of this copy. The harnesses that hold it keep it.",
+      explain:
+        "Changes the name and the description of this copy in its row — and, for an organization admin, how it loads. The harnesses that hold it keep it.",
     },
     remove: {
       label: "Delete",
@@ -84,7 +85,6 @@ export const ASSETS_TEXT = {
   confirmVerb: "Set required",
   cancel: "Cancel",
   notFound: "No asset here answers this id.",
-  editTitle: "Edit this asset",
   editName: "Name",
   editDescription: "Description",
   editSubmit: "Save",
@@ -98,7 +98,7 @@ export const ASSETS_TEXT = {
   /** The store — W5-D15. *Browse* is a tab of this screen and not a screen of
    *  its own: one table, one fetch, one set of verbs, filtered (02 rule 16). */
   browseTab: "Browse",
-  browseExplain: "Everything you can use — what the organisation, your teams and you hold, and what comes bundled.",
+  browseExplain: "Everything you can use — what the organization, your teams and you hold, and what comes bundled.",
   browseFrom: "From",
   browseHeldHeading: "Yours",
   browseHeldYes: "On your branch",

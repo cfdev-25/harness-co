@@ -132,7 +132,7 @@ async def assert_byte_identical(connection, dsn: str, out: Path) -> dict[str, in
 
 
 # ---------------------------------------------------------------------------
-# The fixture organisation: one row of 02 §11.1's table each
+# The fixture organization: one row of 02 §11.1's table each
 # ---------------------------------------------------------------------------
 
 
@@ -199,7 +199,7 @@ async def seed(connection) -> None:
     for unit in (dana, rae, sam):
         await _member(connection, unit)
 
-    # Reaches everybody: one scope row naming the organisation (0022's backfill).
+    # Reaches everybody: one scope row naming the organization (0022's backfill).
     org_triage = await _asset(connection, org, "skill", "triage", {"SKILL.md": b"# org triage\n"})
     await _scope(connection, org_triage, org, org)
     # …and also named at eng, where eng owns the name: shadowed_by_owner.
@@ -214,7 +214,7 @@ async def seed(connection) -> None:
     await _scope(connection, mkt_deploy, marketing, marketing)
     await _asset(connection, dana, "tool", "deploy", {"run": b"echo dana\n"})
 
-    # An organisation asset scoped to one sibling only: sam sees it, dana does not.
+    # An organization asset scoped to one sibling only: sam sees it, dana does not.
     sauce = await _asset(connection, org, "prompt", "secret-sauce", {"PROMPT.md": b"# sauce\n"})
     await _scope(connection, sauce, eng, org)
 
@@ -320,7 +320,7 @@ async def seed(connection) -> None:
 @requires_postgres
 @requires_compose
 async def test_migration_is_byte_identical(tmp_path):
-    """00 D6, over a fixture organisation that exercises every §11.1 row."""
+    """00 D6, over a fixture organization that exercises every §11.1 row."""
     async with scratch_db(_all_migrations()) as connection:
         await seed(connection)
         name = await connection.fetchval("select current_database()")
@@ -348,7 +348,7 @@ async def test_the_export_records_what_it_could_not_carry(tmp_path):
             "placement_collision",
         } <= recorded
         # D46 re-ids the three overrides onto the ancestor's id. Two of them —
-        # marketing's deploy and dana's deploy — land on the *organisation's*
+        # marketing's deploy and dana's deploy — land on the *organization's*
         # id, which is the transitive step: dana overrode marketing, which had
         # already been re-id'd onto the org.
         reid = exported["orgs"][0]["reid"]
@@ -435,8 +435,8 @@ async def test_policy_carries_three_provider_files_kinds_and_harness_ids(tmp_pat
 @requires_postgres
 @requires_compose
 async def test_routing_is_keyed_by_the_owning_path(tmp_path):
-    """D30i: `defaultFor.teams` takes the organisation's own path, and
-    preflight walks up to it — so the one organisation-owned connection is one
+    """D30i: `defaultFor.teams` takes the organization's own path, and
+    preflight walks up to it — so the one organization-owned connection is one
     line, not a copy onto every team."""
     async with scratch_db(_all_migrations()) as connection:
         await seed(connection)
@@ -451,7 +451,7 @@ async def test_routing_is_keyed_by_the_owning_path(tmp_path):
 @requires_postgres
 @requires_compose
 async def test_the_migrated_catalogue_is_seeded_and_filled_by_id(tmp_path):
-    """D30h's other half: a migrated organisation gets the presets too, and the
+    """D30h's other half: a migrated organization gets the presets too, and the
     `anthropic` row the records held keeps its credential rather than being
     replaced by the preset of the same id."""
     async with scratch_db(_all_migrations()) as connection:

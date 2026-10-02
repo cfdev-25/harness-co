@@ -42,6 +42,11 @@ export default async function ScopeLayout({
     if (error instanceof ApiError && error.status === 401) {
       redirect(`/login?next=${encodeURIComponent(scopeHref(scope))}`);
     }
+    // Signed in, no organization yet (`no_workspace`): the one place that makes
+    // one is `/signup`, which opens at its finish step for a session (W7-D1).
+    if (error instanceof ApiError && error.status === 404) {
+      redirect("/signup");
+    }
     if (error instanceof ApiError && error.status === 403) {
       refused = error;
       loaded = await loadViewer({ kind: "me" });

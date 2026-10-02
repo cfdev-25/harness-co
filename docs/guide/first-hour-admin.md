@@ -1,16 +1,16 @@
-# Your first hour as an organisation admin
+# Your first hour as an organization admin
 
 There is no wizard. You sign in to a shell with every screen already there,
 and each screen's first-run notice is the next thing to do. Two of the
 steps below are the ones that matter: after them, anyone on your
-organisation can run a session. Everything after that is narrowing, not
+organization can run a session. Everything after that is narrowing, not
 setting up, so it is marked optional.
 
 ## Sign in
 
 Open the console and sign in. From a terminal the same account works with
 `harness login`. `harness whoami` says who you are, your role and which
-organisation you are in.
+organization you are in.
 
 ## Turn on a runtime
 
@@ -34,7 +34,7 @@ table reads *No key is connected yet, so a session has nowhere to send a
 request. Set one up below.*
 
 **Set up** asks for two things: paste the key, pick a default model. That
-one action reaches every team and becomes the organisation's default —
+one action reaches every team and becomes the organization's default —
 there is nothing further to configure. From a terminal,
 `harness keys add openrouter` does the same; it prompts for the key rather
 than taking it as an argument, so it never lands in your shell history.
@@ -76,14 +76,14 @@ level did you just create this at — with one of three lines:
 ```
 Created on your branch. Only you have it.  (`--team marketing` would make it Marketing's.)
 Created on Marketing's branch. Everyone on Marketing inherits it.
-Created on the organisation's branch. Every team inherits it.
+Created on the organization's branch. Every team inherits it.
 ```
 
 then `harness switch` to pick it up.
 
 ## Check it
 
-`harness setup` prints five lines against what your organisation actually
+`harness setup` prints five lines against what your organization actually
 has: a runtime approved, a model provider with a key, a routing default
 that reaches you, a security group granted, a harness you hold. Each is a
 tick with the fact behind it, or a cross with the exact command that

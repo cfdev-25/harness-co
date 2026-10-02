@@ -1,7 +1,13 @@
 #!/bin/sh
 # Harness — one command installs the CLI (W7-D6).
 #
-#   curl -fsSL https://raw.githubusercontent.com/cfdev-25/harness-co/main/scripts/install.sh | sh
+#   curl -fsSL https://theharnessmanager.com/install.sh | sh
+#
+# The console serves this file: `npm run prebuild` in `web/` copies it to
+# `web/public/install.sh`, so the line above points at the site the person is
+# already reading. This file stays the one source; that copy is a build
+# artefact and is gitignored. The clone below still comes from GitHub, so the
+# repository must be public for a stranger — see `docs/guide/install.md`.
 #
 # Harness is not published to a registry: the CLI, the console and the API are
 # one repository and the Pi runtime is vendored inside it at a pinned commit,

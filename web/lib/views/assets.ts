@@ -28,7 +28,7 @@ export type OrgAssetRow = components["schemas"]["OrgAssetRow"];
 /**
  * The listing (W5-D9). Hand-written rather than
  * `components["schemas"]["Page_OrgAssetRow_"]` because `kinds` — the
- * organisation's kind vocabulary, which the tabs are — landed with this
+ * organization's kind vocabulary, which the tabs are — landed with this
  * workstream and `openapi.json` is regenerated once per wave by the
  * coordinator (02 rule 13, and the plan's ground rules). It is the
  * `AssetsPage` model in `backend/app/domain/console_models.py`.
@@ -76,7 +76,7 @@ function columnKind(key: (typeof COLUMN_KEYS)[number]): Column<AssetDisplay>["ki
 }
 
 /**
- * The kind tabs (W5-D9). One tab per kind the organisation declares, in
+ * The kind tabs (W5-D9). One tab per kind the organization declares, in
  * `policy/kinds.json` order, even when nothing on this branch is of that
  * kind — the count reads zero and the tab is quiet rather than absent. A
  * kind the branch holds that the vocabulary does not name is still a tab, at
@@ -179,7 +179,7 @@ function isWordId(value: string): value is WordId {
 /**
  * The state the server sent, in W5-D10's vocabulary. `always` and `chosen`
  * are the two words the route took before the split and are read as the state
- * they mean for one release — an organisation indexed before WS4 still holds
+ * they mean for one release — an organization indexed before WS4 still holds
  * them. Nothing here *sends* them any more.
  */
 export function loadsValue(row: OrgAssetRow): LoadsState {
@@ -248,7 +248,7 @@ export interface BrowseRow {
   kind: string;
   name: string;
   description: string;
-  /** `preset` for a bundled asset the organisation does not hold yet; else
+  /** `preset` for a bundled asset the organization does not hold yet; else
    *  the level of the node whose copy wins for this viewer. */
   level: "org" | "team" | "me" | "preset";
   /** That node's own name. Empty at `me` and `preset`, whose words are the

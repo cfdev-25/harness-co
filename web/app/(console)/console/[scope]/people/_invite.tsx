@@ -20,7 +20,7 @@ export interface PeopleVerbsProps {
    *  *or* a path, which is what every `/v1/console/*` payload carries. */
   team: string;
   members: Array<{ id: string; name: string }>;
-  /** The teams an invitation may name. At the organisation scope `team` is
+  /** The teams an invitation may name. At the organization scope `team` is
    *  the org path and the route refuses `invite_target_not_team`, so the
    *  page hands down the teams to choose from; at a team scope it is empty
    *  and `team` is that path. */

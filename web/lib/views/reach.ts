@@ -60,12 +60,12 @@ export function setByLabel(
   return levelLabel(scopeOfNode(setBy), viewer);
 }
 
-/** D2: a node path with a dot is a team; the organisation's has none. */
+/** D2: a node path with a dot is a team; the organization's has none. */
 export function scopeOfNode(path: string): Scope {
   return path.includes(".") ? { kind: "team", path } : { kind: "org" };
 }
 
-/** *set by Organisation*, on its own, for a cell with room for one line and a
+/** *set by Organization*, on its own, for a cell with room for one line and a
  *  note under it. Empty when nothing has decided yet. */
 export function reachSetByNote(
   reach: EffectiveReach | null | undefined,
@@ -76,7 +76,7 @@ export function reachSetByNote(
   return node ? fill(REACH_TEXT.setBy, { node }) : "";
 }
 
-/** *allow-list, 3 hosts · set by Organisation* — the whole answer on one line,
+/** *allow-list, 3 hosts · set by Organization* — the whole answer on one line,
  *  for the harness header cell and the session report, which have the width
  *  for it. A narrow column takes `reachSaid` and `reachSetByNote` instead. */
 export function reachLine(
@@ -92,7 +92,7 @@ export function reachLine(
 
 export interface ChainLine {
   node: string;
-  /** *Organisation: allow-list, 3 hosts* */
+  /** *Organization: allow-list, 3 hosts* */
   text: string;
 }
 

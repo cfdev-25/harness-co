@@ -66,6 +66,6 @@ test("renders_for_every_scope", async ({ page }) => {
 
 test.fixme("vaults_deep_link_not_cleared_for_team_admin", async () => {
   // The branch is built (`viewer.role.level !== "org-admin"` renders the
-  // refusal) but the scratch organisation has no team admin to be refused.
+  // refusal) but the scratch organization has no team admin to be refused.
   void TEAM;
 });

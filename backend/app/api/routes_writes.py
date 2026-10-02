@@ -48,18 +48,18 @@ Json = dict[str, Any]
 
 # 04's *Verbs by role* refusals, verbatim. Each names who decides (P13).
 GROUP_IS_ORG_ADMINS = (
-    "Creating a security group, or adding an entry to one, is an organisation "
+    "Creating a security group, or adding an entry to one, is an organization "
     "admin's decision. Narrowing what {team} already holds covers most of what "
     "people ask for."
 )
 NARROW_IS_TEAM_ADMINS = "Narrowing a group into a sub-team is a team admin's decision."
 REVOKE_GRANT_IS_ORG_ADMINS = (
-    "Taking back a grant the organisation made is an organisation admin's decision. "
+    "Taking back a grant the organization made is an organization admin's decision. "
     "{team}'s admins revoke only what {team} narrowed."
 )
 BOUNDARY_ADD_IS_TEAM_ADMINS = "Adding a boundary is a team admin's decision."
 BOUNDARY_LIFT_IS_NOBODY = (
-    "Lifting an organisation boundary is nobody's decision below the organisation. "
+    "Lifting an organization boundary is nobody's decision below the organization. "
     "Boundaries only ever tighten on the way down."
 )
 BOUNDARY_LIFT_IS_THEIRS = (
@@ -67,12 +67,12 @@ BOUNDARY_LIFT_IS_THEIRS = (
     "Boundaries only ever tighten on the way down."
 )
 PROVIDER_IS_ORG_ADMINS = (
-    "Approving a runtime is an organisation admin's decision: it decides whose "
+    "Approving a runtime is an organization admin's decision: it decides whose "
     "program holds a credential in memory."
 )
-VAULTS_ARE_ORG_ADMINS = "Key vaults are an organisation admin's screen."
+VAULTS_ARE_ORG_ADMINS = "Key vaults are an organization admin's screen."
 LOADS_IS_ORG_ADMINS = (
-    "How an organisation asset loads is an organisation admin's decision."
+    "How an organization asset loads is an organization admin's decision."
 )
 HARNESS_IS_TEAM_ADMINS = "Changing a team harness is a team admin's decision."
 ASSET_IS_ADMINS = (
@@ -80,13 +80,13 @@ ASSET_IS_ADMINS = (
     "it. Your own copy is always yours to change."
 )
 APPOINT_IS_ORG_ADMINS = (
-    "Appointing a team admin is an organisation admin's decision. Anyone may ask; "
+    "Appointing a team admin is an organization admin's decision. Anyone may ask; "
     "the request appears above."
 )
 INVITE_IS_TEAM_ADMINS = "Inviting is a team admin's decision."
 REMOVE_IS_TEAM_ADMINS = "Removing someone from a team is a team admin's decision."
-PEOPLE_IS_ORG_ADMINS = "Deactivating a person is an organisation admin's decision."
-VISIBILITY_IS_ORG_ADMINS = "Turning a view off is an organisation admin's decision."
+PEOPLE_IS_ORG_ADMINS = "Deactivating a person is an organization admin's decision."
+VISIBILITY_IS_ORG_ADMINS = "Turning a view off is an organization admin's decision."
 CUSTOMER_VAULT_IS_THEIRS = (
     "We never write to a customer's vault: paste and rotate belong to {vault}'s own "
     "console."
@@ -331,9 +331,9 @@ def _reach_node(who: writes.Authority, scope: str | None) -> str:
     """`?scope=` as the console spells it (03 §4) — `org`, `team:<path>`, `me` —
     as the node whose branch carries `policy/reach.json`.
 
-    `me` is the organisation: 01 §4.2 holds no policy on a person's branch, and
+    `me` is the organization: 01 §4.2 holds no policy on a person's branch, and
     at `me` the only account with a Reach screen is a personal one, where the
-    person *is* the organisation admin (prd-v2 §12.1). An enterprise member
+    person *is* the organization admin (prd-v2 §12.1). An enterprise member
     asking at `me` is refused by the admin check, as they should be.
     """
     if scope in (None, "me", "org"):
@@ -745,7 +745,7 @@ async def put_model_provider(
             message=f"model provider {provider_id}",
             reason_kind="admin-edit",
             action="provider.approve",
-            payload={"provider": provider_id, "scope": "the organisation"},
+            payload={"provider": provider_id, "scope": "the organization"},
         )
 
 
@@ -757,8 +757,8 @@ async def delete_model_provider(
     scope: Annotated[str | None, Query()] = None,
 ) -> Json:
     """W6-D5: a model provider is `recommended`, not `required` — the
-    organisation's to remove (W6-D1). The file is on the org branch, so `scope`
-    only ever names the organisation and the authority is an org admin's.
+    organization's to remove (W6-D1). The file is on the org branch, so `scope`
+    only ever names the organization and the authority is an org admin's.
 
     Refused `provider.in_use` while anything still points at it: a routing cell
     (a team, a harness or a runtime) or a security group entry attached to its
@@ -780,7 +780,7 @@ async def delete_model_provider(
             raise ApiError(
                 404,
                 "model_provider_unknown",
-                f"{provider_id} is not a model provider this organisation holds.",
+                f"{provider_id} is not a model provider this organization holds.",
                 {"provider": provider_id},
             )
         routing = await writes.read_json(
@@ -825,7 +825,7 @@ async def delete_model_provider(
             message=f"remove model provider {provider_id}",
             reason_kind="admin-edit",
             action="provider.delete",
-            payload={"provider": provider_id, "scope": "the organisation"},
+            payload={"provider": provider_id, "scope": "the organization"},
         )
 
 
@@ -837,7 +837,7 @@ class SetupIn(BaseModel):
 
 
 class SetupResult(CommitResult):
-    """Whether this key became the organisation's default (D30i) — the modal
+    """Whether this key became the organization's default (D30i) — the modal
     says so, so the browser is generated with the field and not `unknown`."""
 
     default: bool
@@ -861,7 +861,7 @@ async def set_up_model_provider(
     """00 §4.10's *connect a key*, and the one place four policy files move
     together (console 04 §10, 07 §2): the value into the bundled vault, then
     **one** commit carrying the group entry, its grant, the provider's
-    credential and — only when nothing is set there — the organisation's
+    credential and — only when nothing is set there — the organization's
     routing default (D30i). The key is never in the commit, the payload or a
     refusal; what is written is a reference to it.
     """
@@ -884,7 +884,7 @@ async def set_up_model_provider(
             raise ApiError(
                 404,
                 "model_provider_unknown",
-                f"{provider_id} is not a model provider this organisation holds.",
+                f"{provider_id} is not a model provider this organization holds.",
                 {"provider": provider_id},
                 remedy="Add a model provider first, then set it up.",
             )
@@ -937,7 +937,7 @@ async def set_up_model_provider(
 
         # W7-D3: the grant is the other half of *one Set up is the whole model
         # story*. `teams: "all"` covers a personal chain, which has no team
-        # node at all (`broker.covers` row 1), so the person this organisation
+        # node at all (`broker.covers` row 1), so the person this organization
         # was made for holds the key the moment it is pasted.
         grants = await read("policy/grants.json", [])
         if not any(grant.get("group") == MODEL_KEYS for grant in grants):
@@ -945,17 +945,17 @@ async def set_up_model_provider(
                                 "group": MODEL_KEYS, "by": who.author["email"]}]
             changes.append({"path": "policy/grants.json", "blob": writes.blob(grants)})
 
-        # D30i: one key under the organisation's path is the default for
+        # D30i: one key under the organization's path is the default for
         # everyone, and a team's own line still overrides it. A second provider
         # connected later does not take the first one's place.
         #
-        # W7-D3: on a personal account it does. D30i protects an organisation's
+        # W7-D3: on a personal account it does. D30i protects an organization's
         # standing choice from the next admin who pastes a key; a personal
         # account has one person, no teams and nowhere else to set a default,
         # so *Set up* is that choice being made — the provider just set up is
         # the default and is approved, every time, and nothing else is needed.
         # The edition is derived, not stored: a personal account is an
-        # organisation with zero teams (prd-v2 §12.1, D30f). Read from
+        # organization with zero teams (prd-v2 §12.1, D30f). Read from
         # `idx_nodes` — the definition plane — and not from `org_units`,
         # because the records hold a team row for a personal account that
         # nothing composes: `org_units_role_order` refuses a user whose parent
@@ -994,7 +994,7 @@ async def set_up_model_provider(
             audit_unit=who.org_id,
             action="provider.key_setup",
             payload={"provider": provider_id, "default": default,
-                     "scope": "the organisation"},
+                     "scope": "the organization"},
             expected_head=head,
         )
         return {**committed, "default": default}
@@ -1051,7 +1051,7 @@ def _check_team_routing(who: writes.Authority, current: Json, next_: Json) -> No
                 own = key == who.at or key.startswith(who.at + ".")
                 if side != "defaultFor" or kind != "teams" or not own:
                     raise _forbidden(
-                        "Setting this is an organisation admin's decision; a team admin "
+                        "Setting this is an organization admin's decision; a team admin "
                         f"sets {writes.name_of(who.at)}'s own default.",
                         "routing.not_yours",
                         {"cell": f"{side}.{kind}.{key}"},
@@ -1065,7 +1065,7 @@ def _check_team_routing(who: writes.Authority, current: Json, next_: Json) -> No
                 if after.get(key) and after[key] not in permitted:
                     raise _forbidden(
                         f"{after[key]} is not approved for {writes.name_of(who.at)}, so it "
-                        "cannot be its default. An organisation admin approves it.",
+                        "cannot be its default. An organization admin approves it.",
                         "routing.not_approved",
                         {"approved": sorted(permitted)},
                     )
@@ -1091,7 +1091,7 @@ async def _check_needs_key(
     unrelated cell being set — and *held* is read off the same branch the
     routing is written to, so the two cannot disagree.
 
-    W7-D2: a provider some runtime this organisation lists signs in to itself
+    W7-D2: a provider some runtime this organization lists signs in to itself
     is not keyless — it is *your sign-in* — and may be a default and an
     approval, because that is exactly the session the broker now allows."""
     before, after = _providers_named(current), _providers_named(next_)
@@ -1142,7 +1142,7 @@ def _routing_change(current: Json, next_: Json) -> Json:
     for key in after:
         if before.get(key) != after[key]:
             return {"model_provider": after[key], "target": key}
-    return {"model_provider": "", "target": "the organisation"}
+    return {"model_provider": "", "target": "the organization"}
 
 
 # --- key vaults (records; the org branch only names them) -------------------
@@ -1341,7 +1341,7 @@ async def rotate_secret(
         return {"ref": secret_ref, "version": version["version"], "last4": version["last4"]}
 
 
-# --- organisation assets: how one loads (prd-v2 §5.2) -----------------------
+# --- organization assets: how one loads (prd-v2 §5.2) -----------------------
 
 
 class LoadsIn(BaseModel):
@@ -1382,7 +1382,7 @@ async def set_asset_loads(
             # compose step 12: a listed id must win on the org node.
             raise writes.invalid(
                 "loads",
-                "Only an asset on the organisation branch can be required or recommended.",
+                "Only an asset on the organization branch can be required or recommended.",
             )
         current, head = await writes.edit_file(
             connection,
@@ -1452,7 +1452,7 @@ async def _asset_at(connection: Any, who: writes.Authority, node_path: str, asse
 
 def _always_loaded_lists(body: Any) -> tuple[list[str], list[str]]:
     """W5-D10's `{ required, recommended }`, and a bare array read as the
-    required list — the file's older shape, which an organisation keeps until
+    required list — the file's older shape, which an organization keeps until
     an admin next changes it. One normalisation, shared with the seed, so this
     module and `engine/compose` cannot disagree about what a bare array means."""
     lists = seed.always_loaded_lists(body)
@@ -1650,7 +1650,7 @@ async def delete_asset(
                 "asset.required",
                 f"{name} is required: every session loads it, so it cannot be deleted.",
                 {"kind": kind, "name": name},
-                remedy="An organisation admin decides what is required.",
+                remedy="An organization admin decides what is required.",
             )
         ref = who.ref_for(node_path)
         # On the org node this is the same ref `always` was just read at:
@@ -1922,7 +1922,7 @@ async def _nearest_harness(
 
 
 async def _recommended_ids(connection: Any, who: writes.Authority) -> list[str]:
-    """The organisation's `recommended` list, narrowed to ids the org branch
+    """The organization's `recommended` list, narrowed to ids the org branch
     actually holds — compose drops the others (01 §6 step 12), so a harness
     that named one would only ever show an unanswered row."""
     current, _ = await writes.edit_file(
@@ -1979,7 +1979,7 @@ async def create_harness_on_ref(body: HarnessIn, request: Request, principal: Wh
         if body.from_ is not None:
             _, source = await writes.node_of_harness(connection, who.org_id, body.from_)
             assets = assets or list(source.get("assets") or [])
-        # W5-D10: a new harness starts with what the organisation recommends.
+        # W5-D10: a new harness starts with what the organization recommends.
         # They are ordinary entries from this commit on — the person may take
         # any of them out again, which is what separates them from `required`.
         for asset_id in await _recommended_ids(connection, who):
@@ -2002,7 +2002,7 @@ async def create_harness_on_ref(body: HarnessIn, request: Request, principal: Wh
         path = f"harnesses/{harness_id}.json"
         writes.refuse_secrets(harness, path=path)
         # W5-D15: *New harness from selection* may name a bundled preset the
-        # organisation does not hold. It is copied onto this branch in the
+        # organization does not hold. It is copied onto this branch in the
         # same commit, by the same helper *Add to harness* uses — a harness
         # naming an id nothing answers is an unanswered row and nothing else.
         changes = await _preset_copies(connection, who, node_path, assets)
@@ -2027,7 +2027,7 @@ async def create_harness_on_ref(body: HarnessIn, request: Request, principal: Wh
         # Both are in this transaction, so a refusal on the second rolls the
         # first back here — and the grant reaches this harness and nothing
         # else, which is the sense in which the modal writes nothing *at* the
-        # organisation even though the file it appends to is the org's.
+        # organization even though the file it appends to is the org's.
         grant = {
             "id": f"g-{uuid4().hex[:12]}",
             "scope": {"teams": "all", "harnesses": [harness_id]},
@@ -2132,7 +2132,7 @@ async def create_org_unit(body: TeamIn, request: Request, principal: Who) -> Jso
     if parent_id is None and body.parent is not None:
         parent_id = (await writes.unit_by_id_or_path(get_pool(request), body.parent))["id"]
     if parent_id is None:
-        raise writes.invalid("parent", "Say which team or organisation this sits inside.")
+        raise writes.invalid("parent", "Say which team or organization this sits inside.")
     unit = await routes_org_units.create_org_unit(
         routes_org_units.OrgUnitCreate(
             parent_id=parent_id, role=body.role or "team", name=body.name
@@ -2230,7 +2230,7 @@ class RoleIn(BaseModel):
 async def appoint_admin(
     id_or_path: str, person_id: UUID, body: RoleIn, request: Request, principal: Who
 ) -> Json:
-    """04 §15: appointing a team admin is an organisation admin's decision."""
+    """04 §15: appointing a team admin is an organization admin's decision."""
     async with transaction(get_pool(request)) as connection:
         who = await writes.authority(connection, principal)
         team = await writes.unit_by_id_or_path(connection, id_or_path)
@@ -2295,7 +2295,7 @@ class VisibilityIn(BaseModel):
 async def set_visibility(
     id_or_path: str, body: VisibilityIn, request: Request, principal: Who
 ) -> Json:
-    """PRD §16: an organisation admin may turn the boundaries or the logs view
+    """PRD §16: an organization admin may turn the boundaries or the logs view
     off for a node. The console renders `HiddenView` naming the decision."""
     async with transaction(get_pool(request)) as connection:
         who = await writes.authority(connection, principal)
@@ -2387,7 +2387,7 @@ async def list_requests(
 ) -> Json:
     """Requests the viewer authored, plus every request in a unit they
     administer. `?subject=role&state=open` is the People screen's list of role
-    requests waiting on an organisation admin (04 §15, D43)."""
+    requests waiting on an organization admin (04 §15, D43)."""
     pool = get_pool(request)
     rows = await pool.fetch(
         """select r.*, u.path team_path, coalesce(a.email,'') author_email

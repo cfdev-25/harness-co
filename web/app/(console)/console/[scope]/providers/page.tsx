@@ -18,7 +18,7 @@ import { HarnessProviderTable } from "./_table";
 type Body = components["schemas"]["Page_HarnessProviderRow_"];
 
 /** Harness providers — 04 §10. A catalogue with switches: approval decides
- *  whose program holds a credential in memory, so only an organisation admin
+ *  whose program holds a credential in memory, so only an organization admin
  *  sets it (PRD §9.1), and the switch is in the row — nothing is chosen from
  *  a list that the table already is. */
 export default async function Page({ params }: { params: Promise<{ scope: string }> }) {

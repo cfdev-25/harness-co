@@ -14,7 +14,7 @@ const pinOf = (pin: HarnessProvider["pin"]) => ("repo" in pin ? `${pin.repo}@${p
  * §11.20 (D117). The Providers screen from the terminal. Bare: the composed
  * catalogue, with no I/O of its own. A verb: the one write the console makes,
  * `PUT /v1/providers/harness/{id}`, which the server refuses to anyone who is
- * not an organisation admin — in its own sentence.
+ * not an organization admin — in its own sentence.
  */
 export async function providers(credentials: Credentials, composed: Composed, verb: ProviderVerb | undefined, id: string | undefined, reason: string | undefined, teams: string | undefined): Promise<number> {
 	const rows = Object.values(composed.policy.harnessProviders);
@@ -24,7 +24,7 @@ export async function providers(credentials: Credentials, composed: Composed, ve
 	}
 	const current = rows.find((one) => one.id === id);
 	if (current === undefined) {
-		refuse("cli.provider_unknown", `"${id}" is not a runtime your organisation has listed. You have: ${rows.map((one) => one.id).join(", ") || "none"}.`, `harness providers ${verb} ${rows[0]?.id ?? "<runtime>"}`);
+		refuse("cli.provider_unknown", `"${id}" is not a runtime your organization has listed. You have: ${rows.map((one) => one.id).join(", ") || "none"}.`, `harness providers ${verb} ${rows[0]?.id ?? "<runtime>"}`);
 	}
 	// The console asks for a reason too: a runtime turned off without one is a
 	// row nobody can explain a week later.

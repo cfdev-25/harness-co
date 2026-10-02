@@ -20,7 +20,7 @@ export interface Me {
 const PROVIDERS = "/console/org/providers";
 const teamsOf = (scope: Scope) => (scope.teams === "all" ? "every team" : scope.teams.join(", "));
 
-/** D30i: `routing`'s `teams` keys are team paths **or the organisation's path**,
+/** D30i: `routing`'s `teams` keys are team paths **or the organization's path**,
     so the walk is every node above the person, root first — nearest last. */
 export const routedNodes = (chain: Chain): string[] => chain.filter((node) => node.kind !== "user").map((node) => node.path);
 
@@ -36,7 +36,7 @@ function refuse(code: string, message: string, remedy: string, link?: string): n
  */
 export function choose(composed: Composed, argv: ChooseArgv, selection: Selection | undefined, me: Me): Omit<Choices, "located"> {
 	const teams = routedNodes(composed.chain);
-	const here = teams[teams.length - 1] ?? "your organisation";
+	const here = teams[teams.length - 1] ?? "your organization";
 
 	// Step 1: the provider word.
 	const known = Object.values(composed.policy.harnessProviders);
@@ -48,12 +48,12 @@ export function choose(composed: Composed, argv: ChooseArgv, selection: Selectio
 		provider = known[0];
 	} else {
 		provider = known.find((one) => one.id === argv.provider);
-		if (!provider) refuse("preflight.provider_unknown", `\`${argv.provider}\` is not a runtime your organisation has listed. Listed: ${listed}.`, example);
+		if (!provider) refuse("preflight.provider_unknown", `\`${argv.provider}\` is not a runtime your organization has listed. Listed: ${listed}.`, example);
 	}
 
 	// Step 2: approval, then the beta rule the broker re-checks at mint (D50).
 	if (provider.approval === "not-approved") {
-		refuse("preflight.provider_not_approved", `${provider.id} is not approved for use: ${provider.reason ?? "no reason was recorded"}.`, "Ask an organisation admin to approve it.", PROVIDERS);
+		refuse("preflight.provider_not_approved", `${provider.id} is not approved for use: ${provider.reason ?? "no reason was recorded"}.`, "Ask an organization admin to approve it.", PROVIDERS);
 	}
 	if (provider.approval === "beta" && me.role.level === "member") {
 		refuse("preflight.provider_beta", `${provider.id} is in beta; only an admin may be handed credentials with it.`, "Ask an admin to approve it, or run an approved runtime.", PROVIDERS);
@@ -61,7 +61,7 @@ export function choose(composed: Composed, argv: ChooseArgv, selection: Selectio
 
 	// Step 3: approval scope is by team only — the harness is not chosen yet.
 	if (!covers(provider.scope, composed.chain, null)) {
-		refuse("preflight.provider_out_of_scope", `${provider.id} is approved for ${teamsOf(provider.scope)}, not for ${here}.`, "Ask an organisation admin to widen its approval scope.", PROVIDERS);
+		refuse("preflight.provider_out_of_scope", `${provider.id} is approved for ${teamsOf(provider.scope)}, not for ${here}.`, "Ask an organization admin to widen its approval scope.", PROVIDERS);
 	}
 
 	// Step 4: the harness. A flag never writes the selection (harnesses.md §8.2),
@@ -94,17 +94,17 @@ export function choose(composed: Composed, argv: ChooseArgv, selection: Selectio
 		...(routing.approvedFor.providers[provider.id] ?? []),
 		...teams.flatMap((team) => routing.approvedFor.teams[team] ?? []),
 	]);
-	if (approved.size === 0) refuse("preflight.model_none_approved", `No model provider is approved for ${here}.`, "Ask an organisation admin to approve one.", PROVIDERS);
+	if (approved.size === 0) refuse("preflight.model_none_approved", `No model provider is approved for ${here}.`, "Ask an organization admin to approve one.", PROVIDERS);
 	const defaultId =
 		(harness ? routing.defaultFor.harnesses[harness.id] : undefined) ??
 		routing.defaultFor.providers[provider.id] ??
 		[...teams].reverse().map((team) => routing.defaultFor.teams[team]).find((one) => one !== undefined);
 	if (defaultId === undefined) {
 		const scopes = [harness?.name, provider.id, here].filter((one) => one !== undefined).join("/");
-		refuse("preflight.model_no_default", `No model provider is the default for ${scopes}.`, "Ask an organisation admin to set one.", PROVIDERS);
+		refuse("preflight.model_no_default", `No model provider is the default for ${scopes}.`, "Ask an organization admin to set one.", PROVIDERS);
 	}
 	if (!approved.has(defaultId)) {
-		refuse("preflight.model_default_not_approved", `${defaultId} is the default here but is not approved for ${here}.`, "Ask an organisation admin to approve it, or to change the default.", PROVIDERS);
+		refuse("preflight.model_default_not_approved", `${defaultId} is the default here but is not approved for ${here}.`, "Ask an organization admin to approve it, or to change the default.", PROVIDERS);
 	}
 	const cut = argv.model === undefined ? -1 : argv.model.indexOf("/");
 	const chosenId = argv.model === undefined ? defaultId : cut === -1 ? argv.model : argv.model.slice(0, cut);
@@ -133,7 +133,7 @@ export function choose(composed: Composed, argv: ChooseArgv, selection: Selectio
 	// and its `modelNative` list.
 	//
 	// W7-D2 retires the old *gateway mode is never native* clause here: a model
-	// provider with no `credential` at all used to mean an organisation gateway,
+	// provider with no `credential` at all used to mean an organization gateway,
 	// and W6-D6 retired that — a row nobody holds a key for is no longer usable
 	// as one. So *no key reaches me* is the whole rule, whether that is because
 	// the provider names no alias or because nothing granted to me holds it, and

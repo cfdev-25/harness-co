@@ -13,7 +13,11 @@ export const SWATCHES = [
 ];
 
 const CHIP = "h-6 rounded-md border border-line px-2 text-xs";
-const blank = (): PixelIcon => ({ palette: [], rows: Array<string>(SIZE).fill(".".repeat(SIZE)) });
+/** An empty grid: what *Clear* leaves, and what a dialog opens with. */
+export const blankIcon = (): PixelIcon => ({
+  palette: [],
+  rows: Array<string>(SIZE).fill(".".repeat(SIZE)),
+});
 
 export interface PixelEditorProps {
   value: PixelIcon;
@@ -117,7 +121,7 @@ export function PixelEditor({ value, onChange, eraseLabel, clearLabel }: PixelEd
         <button type="button" aria-pressed={colour === null} onClick={() => setColour(null)} className={CHIP}>
           {eraseLabel}
         </button>
-        <button type="button" onClick={() => onChange(blank())} className={CHIP}>
+        <button type="button" onClick={() => onChange(blankIcon())} className={CHIP}>
           {clearLabel}
         </button>
       </div>

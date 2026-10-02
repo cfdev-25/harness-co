@@ -113,7 +113,7 @@ the team; org: the org node), ⋈ `idx_nodes` for `team`; `fileCount` =
 carries no status, and the count is what the viewer would actually load).
 One card per id: the nearest copy on the chain wins, and the rest become
 `alsoAt: [{ level, label, href }]` in chain order (W5-D9) — the same id on
-the organisation and on the person's branch is one harness read at two
+the organization and on the person's branch is one harness read at two
 levels, not two cards. Sort: own team's first, then name. Provenance: derived.
 `runners: [{ id, name }]` (W5-D13) is the launch buttons: every
 `policy.harnessProviders` entry that is not `not-approved`, whose `scope`
@@ -144,7 +144,7 @@ viewer — PRD harnesses invariant 6).
 | `versions` | `mine`, `team`; plus `member:<id>` for each `org_unit_members` row in the team's subtree when the viewer is admin over the team (PRD §18); `?as` narrows to that member's own two | derived |
 | `files` | §4.2.1 | — |
 | `groups` | the covering grants' groups as `{ name, grant }` | derived |
-| `boundaries` | every `Boundary` in `idx_policy` bodies on the chain, plus `only_for` naming `{id}` (union, PRD §7); **listed in full** (P17); hidden when `visibility.boundaries = false` — the response then carries `hidden: { boundaries: "An organisation admin has turned this view off." }` and no list (P10) | declared |
+| `boundaries` | every `Boundary` in `idx_policy` bodies on the chain, plus `only_for` naming `{id}` (union, PRD §7); **listed in full** (P17); hidden when `visibility.boundaries = false` — the response then carries `hidden: { boundaries: "An organization admin has turned this view off." }` and no list (P10) | declared |
 
 **4.2.1 `HarnessFileRow`.** `?version=mine` (default): `idx_effective` for
 the viewer ⋈ `idx_assets` on `(org, from_path, asset_id)`, filtered to
@@ -160,7 +160,7 @@ truncated below the team node (the composition without the viewer's ref —
 engine 03 `view: "team"`). `?version=member:<id>`: as `mine` for that
 member. Every row carries `tree` (the asset directory's tree id on its
 winning branch) and `loads` — `required` · `recommended` · `on-request`
-(W5-D10, replacing `always: bool`): what the *organisation* said about the
+(W5-D10, replacing `always: bool`): what the *organization* said about the
 asset, not what this harness chose, which is why the row reads
 *skill · required*. The required ids are listed on the page even when the
 harness does not name them (prd-v2 §5.2); a recommended one is here only
@@ -219,11 +219,11 @@ session; it appears in the harness log (§6) only.
 
 ### 4.6 Providers, routing, vaults, assets
 
-**`/providers/harness`** → `HarnessProviderRow`: a `HarnessProvider` — including `name`, the runtime's own word for itself (W6-D3) — + `Related(teams)` from `scoped_to` + `speaks` as chips + `canRun: Related(harnesses)` derived from `speaks` ∩ `exposes` of each harness's routed model provider, minus any whose routed provider *needs a key* (W6-D6) — but **not** one it signs in to itself, which the broker now opens (W7-D2). **`/providers/model`** → `ModelProviderRow`: a `ModelProvider` + `status: ScaleTag providerStatus` (W6-D6, replacing `reachable: Fact<boolean>`), `credential` alias → `Related(groups)` via `entry`, `defaultFor`/`approvedFor` as `Related` per dimension (P4: six columns, two words — PRD §9.2), which 04 §10 draws as two columns of this table now that Routing is not a tab (D95). `status` is `needs-key` when no security group entry in a connected vault holds the credential alias — read from the composed policy, never a secret fetch — `sign-in` when that is so **and** a runtime the organisation lists and has not declined signs in to this provider itself (W7-D2: `broker.signs_in`, the adapter's `modelNative`), else `set-up` or `unreachable` by a `HEAD` with a 3 s budget (as §4.6 vaults). Only a held key is probed: a `sign-in` row's endpoint is reached by the runtime, not by us. **`/routing`** → `RoutingMatrix`: `Routing` verbatim, the resolved default per team as `derived`, and `subjects: { teams, harnesses, providers: [{ id, label }] }` — what *Set default…* and *Approve for…* may pick, labelled by the server because a harness id is a uuid and a runtime has a `name` (W6-D5).
+**`/providers/harness`** → `HarnessProviderRow`: a `HarnessProvider` — including `name`, the runtime's own word for itself (W6-D3) — + `Related(teams)` from `scoped_to` + `speaks` as chips + `canRun: Related(harnesses)` derived from `speaks` ∩ `exposes` of each harness's routed model provider, minus any whose routed provider *needs a key* (W6-D6) — but **not** one it signs in to itself, which the broker now opens (W7-D2). **`/providers/model`** → `ModelProviderRow`: a `ModelProvider` + `status: ScaleTag providerStatus` (W6-D6, replacing `reachable: Fact<boolean>`), `credential` alias → `Related(groups)` via `entry`, `defaultFor`/`approvedFor` as `Related` per dimension (P4: six columns, two words — PRD §9.2), which 04 §10 draws as two columns of this table now that Routing is not a tab (D95). `status` is `needs-key` when no security group entry in a connected vault holds the credential alias — read from the composed policy, never a secret fetch — `sign-in` when that is so **and** a runtime the organization lists and has not declined signs in to this provider itself (W7-D2: `broker.signs_in`, the adapter's `modelNative`), else `set-up` or `unreachable` by a `HEAD` with a 3 s budget (as §4.6 vaults). Only a held key is probed: a `sign-in` row's endpoint is reached by the runtime, not by us. **`/routing`** → `RoutingMatrix`: `Routing` verbatim, the resolved default per team as `derived`, and `subjects: { teams, harnesses, providers: [{ id, label }] }` — what *Set default…* and *Approve for…* may pick, labelled by the server because a harness id is a uuid and a runtime has a `name` (W6-D5).
 
 **`/vaults`** → `VaultRow`, one per resolver in `api`'s registry + the person's machine (PRD §6.2): `{ id, handsUs: "minted" | "stored" /* engine fact, plain text */, issues: "temporary" | "stored", contents: "listable" | "not listable", reachable: Fact<boolean>, groups: Related }`. `reachable` is **observed**: the endpoint calls `Resolver.probe()` with a 3 s budget per vault, in parallel, and the result is returned with `provenance: "observed", at: now` and stored nowhere (P2). **`/vaults/{id}/secrets`** → `SecretRow[]`: secrets from `probe`-time listing when `contents = listable` (observed), else the secrets named by groups (derived from `entry_secret`), each with `Related(groups)`, `ready: Fact<boolean>` (observed), `lastUsed` (from `session.open` slots) and two flags derived from the join: `uncovered` (listed, no group) and `dangling` (named by a group, not listed) — PRD §6.7's two findings.
 
-**`/assets?scope=`** → `AssetsPage { items: OrgAssetRow[], next, kinds }`: the **scope's own node**'s `idx_assets` rows (W5-D9 — the person's user node at `me`, the team's at `team:`, the org node at `org`; `console.scope_node`, because `ctx.scope_path` is the organisation at `me`) — **two nodes at `me` on a personal account**, the organisation's and the person's, because there the organisation *is* the person and the seeded copies have no other screen to appear on (`console.scope_nodes`, 07 §3, D104); every row carries `level: "org" | "team" | "me"`, the node it is on, which is the one thing that tells a seeded copy from an edited one + `loads: ScaleTag` (`required` · `recommended` · `on-request`, from the two lists of `policy/always-loaded.json` — W5-D10) + `Related(harnesses)` via `includes` (`all: true` when required — PRD §15) + `Related(teams)` via `placed_on` subtree + `Related(groups)` via `needs_alias → entry`; `sidecar.description` is the row's description (WS3a). `kinds` is `policy/kinds.json` in its own order — the screen's tabs, including the kinds this node holds nothing of. **`/assets/{id}?scope=`** adds `EdgeWalk` and the reverse view.
+**`/assets?scope=`** → `AssetsPage { items: OrgAssetRow[], next, kinds }`: the **scope's own node**'s `idx_assets` rows (W5-D9 — the person's user node at `me`, the team's at `team:`, the org node at `org`; `console.scope_node`, because `ctx.scope_path` is the organization at `me`) — **two nodes at `me` on a personal account**, the organization's and the person's, because there the organization *is* the person and the seeded copies have no other screen to appear on (`console.scope_nodes`, 07 §3, D104); every row carries `level: "org" | "team" | "me"`, the node it is on, which is the one thing that tells a seeded copy from an edited one + `loads: ScaleTag` (`required` · `recommended` · `on-request`, from the two lists of `policy/always-loaded.json` — W5-D10) + `Related(harnesses)` via `includes` (`all: true` when required — PRD §15) + `Related(teams)` via `placed_on` subtree + `Related(groups)` via `needs_alias → entry`; `sidecar.description` is the row's description (WS3a). `kinds` is `policy/kinds.json` in its own order — the screen's tabs, including the kinds this node holds nothing of. **`/assets/{id}?scope=`** adds `EdgeWalk` and the reverse view.
 
 **`/assets/browse?scope=`** → `Page<BrowseRow>` (W5-D15, the store):
 `{ id, kind, name, description, level, from, href, held, preset,
@@ -290,7 +290,7 @@ No full-text index; `ilike 'q%'` over the indexed `name` columns.
 An asset hit's `href` carries **the level that holds the copy**, not the
 level the viewer is on: `level_of_node(ctx, asset.from_path)` (W5-D15). The
 asset screen is one node's own copies (W5-D9), so at *You* a hit on an
-organisation asset linked as `/console/me/assets/<id>` was a 404 — the same
+organization asset linked as `/console/me/assets/<id>` was a 404 — the same
 rule `HarnessCard.alsoAt` already follows. A member whose hit lands on
 `/console/org/…` meets the scope's own refusal there, which is the honest
 answer and not a dead link.
@@ -574,7 +574,7 @@ when the control is two words:
 | `edit` | a row's own fields change in place (`PATCH`) | `asset-writes.spec.tsx` |
 | `delete` | the thing leaves the branch | `asset-writes.spec.tsx` |
 | `mode` | a scale is set — the three reach modes, not a free field | `reach-writes.spec.tsx` |
-| `approve` · `decline` | an organisation admin's judgement on a provider, with a reason on the refusal | `providers/` |
+| `approve` · `decline` | an organization admin's judgement on a provider, with a reason on the refusal | `providers/` |
 | `pin` · `scope` | the two other columns of a harness provider row: what version it is held at, and who may run it | `providers/` |
 | `set-up` | a credential is attached to a model provider for the first time | `providers/model/` |
 | `default` | a routing choice is made from the row that will serve it | `providers/model/` |
@@ -588,11 +588,11 @@ because the control is there.
 
 | Code | Status | Message | Remedy |
 | --- | --- | --- | --- |
-| `console.scope_forbidden` | 403 | *This view belongs to {team}; its admins and organisation admins can open it.* | *Ask a {team} admin, or open your own view.* |
+| `console.scope_forbidden` | 403 | *This view belongs to {team}; its admins and organization admins can open it.* | *Ask a {team} admin, or open your own view.* |
 | `console.as_forbidden` | 403 | *You can read a member's versions only for teams you administer.* | *Pick a member of {your teams}.* |
 | `console.harness_not_found` | 404 | *No harness with that id is on your chain.* | *`harness switch` lists yours.* |
 | `console.file_not_found` | 404 | *{path} is not in this harness for you.* | *Open the harness and pick a file.* |
-| `console.hidden` | 200 + `hidden` | *An organisation admin has turned this view off.* | *Ask an organisation admin.* |
+| `console.hidden` | 200 + `hidden` | *An organization admin has turned this view off.* | *Ask an organization admin.* |
 | `console.definitions_unavailable` | 503 | *File contents are unavailable right now; the rest of the page is current.* | *Try again in a moment.* |
 | `console.index_stale` | 200 + `stale` | *The index is behind the repository since {since}.* | *Nothing to do; it catches up on its own.* |
 | `request.not_open` | 409 | *This request was {decision} by {by} on {at}.* | *Open it to read the decision.* |
@@ -617,7 +617,7 @@ because the control is there.
 | D32 | `Differences` is computed client-side from `mine` + `team`; `conflict` is shown only when the latest session's composed tree disagrees with both, else `both`. The console has no `refs/harness/remote`. | a server endpoint that reads the person's machine — impossible |
 | D33 | Reading `as` a member is audited (`console.read_as`) at the admin's unit and surfaces in the member's People log. | silent reads (PRD §18 says the member is told) |
 | D34 | Observed probes (`/vaults`) run in parallel with a 3 s budget; a timeout is `reachable: false, provenance: observed`, never an error page. | serial probes; longer budget |
-| D34a | A model provider's probe runs **only when a key is held** (W6-D6): *held* is a group entry in a connected vault, read from the composed policy, so a fresh organisation's three keyless presets cost no network at all and the probe answers one question — *is this endpoint up* — instead of two. | probing every row and reporting *not reachable* for a provider nobody has given a key |
+| D34a | A model provider's probe runs **only when a key is held** (W6-D6): *held* is a group entry in a connected vault, read from the composed policy, so a fresh organization's three keyless presets cost no network at all and the probe answers one question — *is this endpoint up* — instead of two. | probing every row and reporting *not reachable* for a provider nobody has given a key |
 | D35 | `lastEditor` is fetched lazily per page of rows from `definitions:/internal/log`, request-scoped cache only. | denormalising last-editor into `idx_assets` at index time (faster; stale on user-ref pushes only if the indexer misses them — acceptable later) |
 | D36 | `/how` is served by `api`, not bundled, so the CLI and console print identical words (P14). | bundling in the web app |
 | D37 | `requests` is a records table (`api`), not a file on a branch: it has a state machine and comments, which are records, while the paths it names are refs. | `requests/<id>.json` on the team branch |

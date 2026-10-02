@@ -49,7 +49,7 @@ export const PROVIDERS: ScreenContent<ProvidersColumn, ProvidersVerb, "providers
     approval: {
       heading: "Approval",
       scale: "approval",
-      help: "Whether this runtime is approved, in beta, or not approved for your organisation.",
+      help: "Whether this runtime is approved, in beta, or not approved for your organization.",
     },
     approvedFor: { heading: "Approved for", unit: "teams", help: "Which teams may use this runtime." },
     pin: { heading: "Pin", help: "The exact commit or minimum version this runtime is pinned to." },
@@ -85,7 +85,7 @@ export const PROVIDERS: ScreenContent<ProvidersColumn, ProvidersVerb, "providers
     setUp: {
       label: "Set up",
       explain:
-        "Paste a key and pick a default model; the key reaches every team and becomes the organisation's default.",
+        "Paste a key and pick a default model; the key reaches every team and becomes the organization's default.",
     },
     addModelProvider: {
       label: "Add a model provider",
@@ -105,7 +105,7 @@ export const PROVIDERS: ScreenContent<ProvidersColumn, ProvidersVerb, "providers
     },
     deleteModelProvider: {
       label: "Delete",
-      explain: "Removes this provider from the organisation. Refused while anything still points at it.",
+      explain: "Removes this provider from the organization. Refused while anything still points at it.",
     },
   },
   empty: "providers",
@@ -175,7 +175,7 @@ export const PROVIDERS_TEXT = {
   /** 04 §18: what the delete takes, not *are you sure* — and what stops it,
    *  because the server checks both and the row cannot. */
   deleteTakes:
-    "Takes the provider out of the organisation. Refused while a team, harness or runtime still routes to it, or a security group holds its key.",
+    "Takes the provider out of the organization. Refused while a team, harness or runtime still routes to it, or a security group holds its key.",
   deleteSubmit: "Delete the provider",
-  deleteDone: "{provider} is gone from the organisation.",
+  deleteDone: "{provider} is gone from the organization.",
 } as const;

@@ -20,7 +20,7 @@ import { VaultTable } from "./_table";
 type Body = components["schemas"]["Page_VaultRow_"];
 
 /**
- * Key vaults — 04 §11. An organisation admin's screen; a deep link from
+ * Key vaults — 04 §11. An organization admin's screen; a deep link from
  * anywhere else renders the refusal rather than a shorter list. The person's
  * own machine is a row, so no row has a blank provider (PRD §6.2).
  */

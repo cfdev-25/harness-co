@@ -54,8 +54,8 @@ function harnessName(view: HarnessView): Record<string, string> {
  * screens a level has (01 §4.4), so the section and the sidebar cannot
  * disagree. Everyone else reads the same words without a link, because a
  * link that only refuses is worse than plain text (P13). At *me* there is no
- * Boundaries screen and no Security groups screen: an organisation's
- * boundary is not a person's to change. When an organisation admin has
+ * Boundaries screen and no Security groups screen: an organization's
+ * boundary is not a person's to change. When an organization admin has
  * turned boundaries
  * off for this person the block is a `HiddenView` naming the decision, never
  * a shorter list (P10, S7).

@@ -22,7 +22,7 @@ type Groups = components["schemas"]["Page_GroupRow_"];
 /**
  * Security groups — 04 §8. The content is one table of **grants**: a group
  * grant and an outside-endpoints grant are rows in the same list, told apart
- * by *Gives* (PRD §8). Creating a group is an organisation admin's; narrowing
+ * by *Gives* (PRD §8). Creating a group is an organization admin's; narrowing
  * one the team already holds is the team admin's.
  */
 export default async function Page({
@@ -97,7 +97,7 @@ function emptyId(kind: string): "groups.team" | "groups.org" {
   return kind === "team" ? "groups.team" : "groups.org";
 }
 
-/** 04 §8: **New group** at the organisation, **Narrow to a sub-team** at a
+/** 04 §8: **New group** at the organization, **Narrow to a sub-team** at a
  *  team. The two verbs are never both on one sub-header. */
 function verbFor(
   kind: string,

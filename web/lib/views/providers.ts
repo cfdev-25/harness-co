@@ -198,7 +198,7 @@ export function needsKey(row: ModelProviderRow): boolean {
   return statusOf(row) === "needs-key";
 }
 
-/** W7-D2: no key is held, and a runtime this organisation lists signs in to
+/** W7-D2: no key is held, and a runtime this organization lists signs in to
  *  this provider itself. The row routes; the request does not go through us. */
 export function signIn(row: ModelProviderRow): boolean {
   return statusOf(row) === "sign-in";

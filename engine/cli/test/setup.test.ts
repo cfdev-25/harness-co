@@ -63,7 +63,7 @@ describe("keys add (§11.21, D117)", () => {
 		const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
 		expect(await keysAdd(credentials, composed(), "openrouter", "auto", async () => KEY)).toBe(0);
 		expect(calls[0]).toEqual({ url: "http://api/v1/providers/model/openrouter/setup", method: "POST", body: { key: KEY, model: "auto" } });
-		expect(printed()).toEqual(["openrouter · key stored in the bundled vault · default for the organisation · commit abc1234"]);
+		expect(printed()).toEqual(["openrouter · key stored in the bundled vault · default for the organization · commit abc1234"]);
 		// The one place the key may appear is the request body.
 		for (const line of [...printed(), ...errors.mock.calls.map((call) => String(call[0])), calls[0].url]) expect(line).not.toContain(KEY);
 		errors.mockRestore();
@@ -73,7 +73,7 @@ describe("keys add (§11.21, D117)", () => {
 
 describe("setup (§11.22, D117)", () => {
 	it("setup_prints_five_lines_and_exit_code", async () => {
-		// The support fixture is an organisation with every step taken. The
+		// The support fixture is an organization with every step taken. The
 		// sixth line is W5-D13's registration, which is not a checklist step.
 		expect(await setup(composed({ harnesses: [harness()] }), fakeShell())).toBe(0);
 		expect(printed()).toHaveLength(6);

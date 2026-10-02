@@ -26,7 +26,7 @@ export const HARNESS: ScreenContent<HarnessColumn, HarnessVerb, "harness.files">
     name: { heading: "Name", help: "The file's name; opens it." },
     owner: {
       heading: "Owner",
-      help: "Which branch the copy you would load comes from — the organisation, the team, or you.",
+      help: "Which branch the copy you would load comes from — the organization, the team, or you.",
     },
     lastEditor: { heading: "Last editor", help: "Who last changed the version you are viewing." },
     note: { heading: "Their note", help: "The message the editor left with the change." },

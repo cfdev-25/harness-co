@@ -8,7 +8,7 @@ for the first time:
   comes from.
 
 - [`first-hour-admin.md`](first-hour-admin.md) — whoever just created the
-  organisation: turn on a runtime, connect a model key, and everything
+  organization: turn on a runtime, connect a model key, and everything
   after that which is optional.
 - [`first-session.md`](first-session.md) — someone who has never installed
   Pi or anything related, on a personal account: sign up, one install

@@ -60,19 +60,24 @@ Components referenced by name and owned by `01 §7`: `ConsoleShell`,
 ## 4. Harnesses (cards) — PRD §17.1
 
 **Route.** `/console/[scope]/harnesses`. All scopes. `org` lists every
-harness in the organisation grouped by team; `team` its own and its
+harness in the organization grouped by team; `team` its own and its
 sub-teams'; `me` the ones the person can run. Verbs differ; the grid does not.
 
 **Bar.** No tabs; the count (*3 harnesses*), the collapsing search
-(`?q=`, which was `_search.tsx`) and **New harness** (D99, 01 §7.5).
+(`?q=`, which was `_search.tsx`), **Import** (while the grid is empty) and
+**New harness** (D99, 01 §7.5).
 
 **Data.** `GET /v1/console/harnesses?scope=`. Server-fetched; nothing
 observed at draw.
 
 **Layout.** Sub-header: title *Harnesses*, count, search, **New harness**.
-Content: a responsive card grid (`minmax(19rem, 1fr)`), each card
-`PixelArt` 56px top-left, name, description clamped to two lines, team,
-file count in `Mono`. Cards are links.
+Content: a responsive card grid (`minmax(19rem, 1fr)`). A card is **three
+rows and no more** (D107): the **title row** — `PixelArt` 56px at the start,
+name, description clamped to two lines — then **one meta row**, wrapping,
+holding the team, the file count in `Mono` and the *also at* links, all at
+`text-xs text-muted` (the size `Mono` and *also at* were already drawn at,
+now the team's too: a row of facts is one size or it is three rows), then
+**one action row**. Cards are links.
 
 **Columns (card fields).** name · text · sort by name; description · text;
 team · `Related{teams}` (one item); fileCount · number. No `ScaleTag`.
@@ -82,25 +87,34 @@ own** last session with this harness ran and on which machine, `null` for
 everyone else and under `?as` (engine 08 D141). The screen's launch buttons
 read them (WS5b).
 
-**Launch (W5-D13, engine 08 D140).** The card's last row is one link per
-`HarnessCard.runners` entry — the runtimes that can start *this* harness at
-*this* level — under the word *Open in*, each labelled with the runtime's own
-name (*Pi*, *Claude Code*) and each an
-`<a href="harness://run?harness=<id>&provider=<id>">`. The list is the
-server's (03 §4.2): approved or beta for the level, scoped to this harness,
-and speaking a wire format the routed model exposes. The page derives
-nothing, and a card with no runner shows no row rather than a disabled one
-(P13). The row sits above the card's overlay link (`z-10`, as the team cell
-does), so pressing a runtime opens a terminal and never the harness page.
+**The action row (W5-D13, engine 08 D140, D107).** The runtimes are
+`HarnessCard.runners` — the server's list (03 §4.2): approved or beta for
+the level, scoped to this harness, and speaking a wire format the routed
+model exposes. The page derives nothing, and a card with no runner shows no
+row rather than a disabled one (P13). The row sits above the card's overlay
+link (`z-10`, as the meta row does), so pressing a runtime opens a terminal
+and never the harness page. Every link is an
+`<a href="harness://run?harness=<id>&provider=<id>">` and a plain `<a>`:
+the destination is the operating system, not a route, so neither `next/link`
+nor `Button` (whose `href` is one) can carry it.
 
-When `lastWorkspace` is set, a second and quieter line follows: *Open again
-in ~/projects/foo on corby-mbp*, the same link with `&workspace=` carrying
-the **absolute** path percent-encoded — `~` is display only, and the CLI
-refuses a relative path (`cli.link_malformed`). With one runtime the sentence
-is the link; with more, the sentence says where and each runtime follows as
-its own small link, which is the whole of the *menu* (no popover for two
-words). The breadcrumb is drawn from the field being present and nothing
-else, so another person's folders are never on screen.
+The row has **two shapes and never both**:
+
+* **`lastWorkspace` set** — **Resume**, one primary button, the *first*
+  runtime in that workspace, with the folder beside it in muted text (*in
+  ~/projects/foo*) **outside** the link, so the verb is the accessible name
+  and the folder is the fact. `&workspace=` carries the **absolute** path
+  percent-encoded — `~` is display only, and the CLI refuses a relative path
+  (`cli.link_malformed`). A second or third runtime follows as a small
+  secondary link into the same workspace (*Resume in Claude Code*), which is
+  the whole of the *menu* (no popover for two words).
+* **No `lastWorkspace`** — *Open in* and one small link per runtime,
+  labelled with the runtime's own name (*Pi*, *Claude Code*).
+
+The shape is chosen from the field being present and nothing else, so
+another person's folders are never on screen. `lastHost` is still sent and
+is **not drawn**: on the laptop of the one person who ran it, naming the
+machine they are sitting at was the longest thing in the row.
 
 Below the grid, one line: *Buttons open a terminal on this machine. Nothing
 happened? **Install the CLI** and run `harness setup`*, the guide linked. No
@@ -108,11 +122,38 @@ detection is attempted, because a page cannot tell whether a link type is
 registered; the guide (`docs/guide/install.md`) says so and lists the five
 reasons nothing happened.
 
+**Import — a dialog, not a link.** Beside **New harness** while the grid is
+empty, because the other way to a first harness is one the person already
+has. Importing happens **on their machine**: `harness import <provider>`
+reads `~/.claude` or `~/.pi` there (engine 08 §11.19) and no browser can do
+it, so the button opens a `Modal` that hands over the line rather than
+sending them to *Set up*, which answers a question nobody asked.
+
+Inside, in this order: one sentence — *Import runs on your machine: it reads
+the setup Claude Code or Pi already has there and makes it a harness on your
+branch.* — then the two choices, **Claude Code** and **Pi**, as a `Segmented`
+(Claude Code in front), then one `CommandBlock` with Copy carrying the
+chosen provider's line, then the two lines `harness import` itself prints
+when it finishes, as plain text: `harness switch <name>` and
+`harness run <provider> --<name>`. They are text and not blocks because they
+carry the name of a harness that does not exist yet.
+
+Both commands are rows of the sheet (05 §6, D40) — `harness import pi` was
+added to `engine/cli/src/commands/sheet.ts` for this — and a unit test holds
+every `harness …` string this screen prints to a row, which nothing checked
+before.
+
+When `viewer.setup.installed` is false (console D100), one line above the
+block: **Install the command line first**, linking to `/console/how/setup`.
+A server one deploy behind sends no `setup`, which reads as not installed and
+shows the harmless line. It never hides the dialog: the console cannot see a
+machine (D45).
+
 **Also at (W5-D9).** The same id on several nodes of the chain is one
 harness, and the card is the **nearest** copy — the person's own version when
 they have one. Every other copy is a small link under the team cell:
 `HarnessCard.alsoAt: [{ level: "org" | "team" | "me", label, href }]`, in
-chain order (organisation first), each `href` the same harness read at that
+chain order (organization first), each `href` the same harness read at that
 level's segment (00 D2). `cards()` keeps its dedupe and collects the rest as
 it walks. At `org` the scope reads one node, so there is nothing to name.
 
@@ -120,11 +161,12 @@ it walks. At `org` the scope reads one node, so there is nothing to name.
 
 | Verb | Member | Team admin | Org admin | Endpoint |
 | --- | --- | --- | --- | --- |
-| New harness (empty, or *start from a copy* — one button, a select inside) | yes, on own branch | yes, on team or own | yes, on org, team or own | `POST /v1/harnesses { name, description, icon, from? , scope }` |
+| New harness (empty, or *start from a copy* — one button, a select inside; the drawing is made in it, D108) | yes, on own branch | yes, on team or own | yes, on org, team or own | `POST /v1/harnesses { name, description, icon?, from? , scope }` |
 | — and, for a personal viewer, **Web access** and **Outside keys** inside the same dialog (W7-D4) | yes, on own branch | n/a | n/a | the same `POST`, `+ reach?`, `+ grant?` |
+| Import (a dialog printing `harness import claude` / `harness import pi`; only while the grid is empty) | yes | yes | yes | nothing — the command runs on the machine |
 | Open | yes | yes | yes | route |
-| Open in *<runtime>* (one per `runners`) | yes | yes | yes | `harness://run?harness=&provider=` — the machine, not the API |
-| Open again in *<folder>* (only with `lastWorkspace`) | own only | own only | own only | the same link, `&workspace=` |
+| Open in *<runtime>* (one per `runners`; only without `lastWorkspace`) | yes | yes | yes | `harness://run?harness=&provider=` — the machine, not the API |
+| Resume (the primary verb, only with `lastWorkspace`; one small *Resume in <runtime>* per further runtime) | own only | own only | own only | the same link, `&workspace=` |
 
 **New harness lands at the level you are on** (W5-D9): when
 `levelOf(scope, viewer).canEdit`, the button reads *New harness* and posts
@@ -136,14 +178,27 @@ yours, and the button says so before it is pressed. Creating is never
 refused (PRD §17.4), so there is still no `PermissionNotCleared` here: a new
 harness is a new filter, never a new permission.
 
+**The pixel pet is drawn when the harness is made** (D108). Under *Name*,
+the dialog embeds `ui/pixel-editor` — the 16x16 grid and the same palette,
+erase and clear controls the harness page's **Edit** uses (01 §7.13), one
+component and not a second that drifts. Under it, one quiet affordance:
+**Skip, I'll draw it later**, which puts the grey square and the words *A
+grey square until you draw one* in its place, with **Draw one** to take it
+back up. `icon` is sent **only when the grid has a colour in it**: a blank
+grid and a grid nobody opened are the same new harness, and
+`create_harness` reads a falsy `icon` as *none* while storing anything else
+verbatim — so an untouched editor would write sixteen rows of dots. The
+store's *New harness from selection* is this same dialog and so asks the
+same thing; the icon is its own state and no caller passes it.
+
 **A personal viewer's dialog asks two more things** (W7-D4). Under name,
 description and *start from a copy*:
 
 * **Web access** — a switch, **on** by default, which is what a personal
-  organisation's own reach is (engine 01 D155). On sends nothing: absent
+  organization's own reach is (engine 01 D155). On sends nothing: absent
   `reach` means *inherit*, and a harness that restated `on` would narrow
   nothing today and become a `reach-widened` conflict — which stops every
-  session on the chain — the day the person turns their organisation's reach
+  session on the chain — the day the person turns their organization's reach
   down on Boundaries. Off sends `reach: { mode: "off", hosts: [] }`, which
   becomes `HarnessDef.reach` and reads back as *off, set by `harness:<id>`*
   on the harness page and under Boundaries → Reach.
@@ -152,7 +207,7 @@ description and *start from a copy*:
   sends `grant: { group }`, and the route makes one grant of it scoped to this
   harness (`scope: { teams: "all", harnesses: [id] }`). Nothing the modal
   writes reaches further than this harness; the file the grant lands in is the
-  organisation's, because `policy/` is refused on a user branch (engine 01
+  organization's, because `policy/` is refused on a user branch (engine 01
   §4.2), and the API row says so.
 * One **read-only line** under them: which model will serve it, from
   `Viewer.setup.model` (W7-D2) — *Model: your default key* · *Model: your Pi
@@ -162,7 +217,7 @@ description and *start from a copy*:
   those three states, and an absent `setup` reads as the last.
 
 An enterprise viewer sees neither control and the body carries neither field:
-their reach is the organisation's and their keys are a grant an admin makes.
+their reach is the organization's and their keys are a grant an admin makes.
 The caller decides by passing `personal` — the groups come from a fetch and a
 dialog does not fetch (01 rule 2) — so the store's *New harness from
 selection*, which is this same dialog, asks the same two questions.
@@ -180,9 +235,12 @@ no readiness. Those are inside.
 `new_harness_one_button_choice_inside` · `new_harness_from_copy_prefills` ·
 `cards_empty_state_names_new_harness` · `cards_error_shows_server_message` ·
 `cards_carry_runners_approved_and_routed` · `runner_buttons_come_from_the_server` ·
-`a_card_with_no_runners_shows_none` · `no_workspace_no_breadcrumb` ·
-`the_breadcrumb_encodes_the_path_and_shortens_it_only_to_read` ·
+`a_card_with_no_runners_shows_none` · `no_workspace_no_resume` ·
+`resume_is_the_primary_verb_and_the_folder_is_beside_it` ·
+`a_second_runtime_resumes_into_the_same_workspace` ·
 `the_card_overlay_does_not_swallow_a_runner` ·
+`new_harness_sends_the_drawing_the_person_made` ·
+`new_harness_skipped_or_untouched_sends_no_icon` ·
 `new_harness_asks_web_access_and_outside_keys_on_a_personal_account` ·
 `new_harness_on_a_personal_account_writes_nothing_for_the_defaults` ·
 `new_harness_asks_an_enterprise_viewer_neither`.
@@ -215,7 +273,7 @@ preflight (`ScaleTag preflight`) · model provider · security groups
 (`Related{groups}`) · **reach** · file count — all
 three blocks one height. The reach cell is `HarnessView.reach` in the same
 words as the *Applies here* line below it (*allow-list, 3 hosts · set by
-Organisation*): one fact said twice on one screen must be said the same way.
+Organization*): one fact said twice on one screen must be said the same way.
 It replaces the *Outside endpoints* `ScaleTag`, which read `Grant.reach` —
 retired by engine 01 D132, so that cell had become a constant *prohibited*.
 Directly below, on one line: the compare control — a
@@ -266,7 +324,7 @@ with no files): *Nothing in it yet. Add files from your work tree with
 `harness push`, or from the team's with `harness reset <key>`* (with the
 sheet link). Error: server message + remedy. Hidden: if
 `Viewer.visibility.boundaries === false`, the sub-sidebar's Boundaries block
-is `HiddenView`: *An organisation admin has turned off this view* (P10).
+is `HiddenView`: *An organization admin has turned off this view* (P10).
 Stale: n/a here (see §7).
 
 **Not on it.** A per-file state column (PRD §17.2); a merge button; a
@@ -299,8 +357,8 @@ All scopes.
 Server-fetched; nothing observed.
 
 **Layout.** Sub-header: breadcrumb `← <harness>`, path as title, and the
-**owner line first** (PRD §17.1): *Organisation file — nothing below the
-organisation can change it* · *Team file — you may offer changes* · *Yours —
+**owner line first** (PRD §17.1): *Organization file — nothing below the
+organization can change it* · *Team file — you may offer changes* · *Yours —
 on your branch only* · *<Member>'s — on their branch only*. Sub-sidebar (the
 `Screen` aside at the **start**): the harness's file list (the same
 `HarnessFileRow` table, compact) so files are one click apart. Content:
@@ -443,12 +501,12 @@ entry* can send the held ones back unchanged.
 | Revoke a grant (confirm shows the harnesses that stop resolving — from `EdgeWalk.restedOnBy`) | — | own narrowed grants | any | `DELETE /v1/grants/{id}` |
 
 `PermissionNotCleared` (team admin on create): *Creating a security group,
-or adding an entry to one, is an organisation admin's decision. Narrowing
+or adding an entry to one, is an organization admin's decision. Narrowing
 what <team> already holds covers most of what people ask for.* (member on
 narrow): *Narrowing a group into a sub-team is a team admin's decision.*
 
 **States.** Loading: table skeleton. Empty (team): *<Team> holds no security
-groups yet. An organisation admin grants them.* Error: server message.
+groups yet. An organization admin grants them.* Error: server message.
 Hidden: n/a (groups are never hidden from those they cover). Stale: n/a.
 
 **Not on it.** A hygiene or rotation-age column (PRD §6.5). A per-person
@@ -476,7 +534,7 @@ sentences are the screen's readme.
 
 All scopes; listed **in full** everywhere (P17). A personal account reaches
 this screen from the sidebar, because reach lives here and the person is
-their own organisation admin (07 §3, W5-D6).
+their own organization admin (07 §3, W5-D6).
 
 **Data.** `GET /v1/console/boundaries?scope=` → `BoundaryRow[]`, read once
 per tab and filtered by `lib/views/boundaries.ts`'s `tabOf`;
@@ -503,8 +561,8 @@ blocks:
 
 1. **Inherited** — every row that reaches this level from above, read-only
    whoever is looking, each naming the level that set it. A boundary is
-   lifted where it was set, so an organisation admin lifts the
-   organisation's at the organisation; there is no block in which lifting
+   lifted where it was set, so an organization admin lifts the
+   organization's at the organization; there is no block in which lifting
    the row above you is a verb. Nothing above means the block says so rather
    than drawing an empty table.
 2. **Set here** — this level's own rows, with **Remove** per row for an
@@ -559,7 +617,7 @@ sentence `api` would refuse with — said, never a disabled button (P13, 02
 rule 21).
 
 `PermissionNotCleared` (team admin on an org boundary): *Lifting an
-organisation boundary is nobody's decision below the organisation.
+organization boundary is nobody's decision below the organization.
 Boundaries only ever tighten on the way down.* (member on add): *Adding a
 boundary is a team admin's decision.*
 
@@ -567,7 +625,7 @@ boundary is a team admin's decision.*
 reach whatever its grants allow* — with the reach sentence per PRD §8.
 Error: server message. **Hidden** (`Viewer.visibility.boundaries === false`
 at `me`): the blocks are `HiddenView` and the tabs and the Reach section
-stay: *An organisation admin has turned off your view of boundaries. Ask
+stay: *An organization admin has turned off your view of boundaries. Ask
 <admin> why a refusal happened.* (P10).
 
 **Not on it.** A summary sentence in place of the list (PRD §16). Allowlists
@@ -610,10 +668,10 @@ with, and the boundaries are the exceptions to its answer.
 Three parts, in the order they are read:
 
 1. **Inherited** — one line per node above this one that holds a
-   `policy/reach.json`, walk root first: *Organisation: allow-list, 3 hosts*.
+   `policy/reach.json`, walk root first: *Organization: allow-list, 3 hosts*.
    The level's own word, never a dotted path (01 §4.4). Under them, the
    composed answer: *In effect here: allow-list, 3 hosts · set by
-   Organisation*. At the top of the walk there is nothing inherited and the
+   Organization*. At the top of the walk there is nothing inherited and the
    section says so instead, because repeating the radio below would be noise.
 2. **At this level** — the mode as three radio choices, one sentence each
    (*Off* · *An allow-list* · *On, with a deny-list*), then this node's own
@@ -663,7 +721,7 @@ and only then (W6-D6).
 **Layout.** Sub-header: title, the two tabs as routes, **Add** (org, model tab
 only — a provider that is not a preset). Harness providers: a table that is a
 **catalogue with switches** — every runtime the platform knows is a row from
-the day the organisation exists (engine D30h), and the control is **in the
+the day the organization exists (engine D30h), and the control is **in the
 row**: an org admin's approval `Select` (approved · beta · not approved) with
 the reason asked for inline when it becomes *not approved* or *beta*; scope
 (*Approved for*) is edited in the same row. There is no picker modal: nothing
@@ -676,7 +734,7 @@ the presets are rows before any key exists, and a row without a credential
 carries one verb, **Set up** — a modal with two fields, *paste the key* and
 *default model*, that is `POST /v1/providers/model/{id}/setup` (engine
 00 §4.10): the vault entry, the `model-keys` group, its grant to all teams and
-the organisation-wide routing default in one write. The words *group*, *grant*
+the organization-wide routing default in one write. The words *group*, *grant*
 and *routing* do not appear in the modal; the Groups screen and this table's
 own two columns show what it did. A **By team** toggle above the table swaps
 the rows for the old routing matrix — rows teams / harnesses / runtimes, the
@@ -699,13 +757,13 @@ with a **Remove**, and *Approve for…* under them.
 | Value | When | What it means for the rest of the screen |
 | --- | --- | --- |
 | *set-up* | a credential alias is **held** — it appears in a security group entry whose vault id is one `api` has connected — **and** the endpoint answered a `HEAD` within three seconds | nothing special: the row routes |
-| *sign-in* | no key is held, **and** a runtime this organisation lists and has not declined signs in to this provider itself (`modelNative`, engine 07 §6) | the row routes, on the person's own login: both verbs stay, `speaks_routed` is true, the cards keep their launch buttons and the broker opens the session marked *not metered* (engine 04 §5.3 step 5, engine 04 D156). The row says what that means where the keyless row says why it is out, and the screen carries the one honesty line below. *Set up* is still offered, because a key is what routes it through the harness |
+| *sign-in* | no key is held, **and** a runtime this organization lists and has not declined signs in to this provider itself (`modelNative`, engine 07 §6) | the row routes, on the person's own login: both verbs stay, `speaks_routed` is true, the cards keep their launch buttons and the broker opens the session marked *not metered* (engine 04 §5.3 step 5, engine 04 D156). The row says what that means where the keyless row says why it is out, and the screen carries the one honesty line below. *Set up* is still offered, because a key is what routes it through the harness |
 | *needs-key* | no alias, or an alias no group entry holds, **and** no runtime signs in to it | the row is out: `PUT /v1/routing` refuses `provider.needs_key` naming the *Set up* verb, `console.speaks_routed` is false for it so it leaves `runners_for`, `canRun` and the harness cards' launch buttons, and the broker refuses a session routed to it with `broker.provider_needs_key`. The row says so where its two verbs would be |
 | *unreachable* | held, but no answer in three seconds | routing stands, and so do the verbs: a provider that is down is not a provider that is misconfigured |
 
 *Held* is read from the composed policy — a group entry and a connected
 vault — and never a live secret fetch on a page load; the probe runs **only**
-when a key is held, so a fresh organisation's three keyless presets cost no
+when a key is held, so a fresh organization's three keyless presets cost no
 network at all. A *sign-in* row is not probed either: the endpoint a native
 session reaches is the provider's own, and whether it answers *us* says
 nothing about that.
@@ -736,11 +794,11 @@ their own team (D42: a select limited to allowed options is not a refusal);
 *Approve for…*, the **Remove** and **Delete** are absent for them, because the
 server refuses them `routing.not_yours` and `provider.org_admin_required`
 (P13). `PermissionNotCleared` (team admin on approval): *Approving a runtime is
-an organisation admin's decision: it decides whose program holds a credential
+an organization admin's decision: it decides whose program holds a credential
 in memory.*
 
 **States.** Loading: table skeletons. **First run** (the seeded state,
-engine D30h — the tables are never empty for an organisation, so the checklist
+engine D30h — the tables are never empty for an organization, so the checklist
 item is a `Notice` above the table, from the rows the page already holds):
 harness tab, when no row is *approved* — *No runtime is approved yet, so
 nobody can start a session. Turn one on below.*; model tab, when no row has a
@@ -751,7 +809,7 @@ for the same row with `provider.credential_exists` and the sentence names *Key
 vaults* as the place to rotate. **Delete** is refused `provider.in_use` while a
 routing cell or a security group entry still names the provider, and the
 refusal names them. Empty (a table with zero rows, which only a pre-seed
-organisation can show): the `EMPTY.providers` / `EMPTY["providers.model"]`
+organization can show): the `EMPTY.providers` / `EMPTY["providers.model"]`
 sentences. Error: server message. Hidden: n/a.
 
 **Not on it.** A harness→provider binding (PRD §9.3 — `canRunOn` is derived
@@ -813,7 +871,7 @@ grouping) · text; Reached by groups · `Related{groups}` (empty → the
 | Disconnect (confirm lists groups that stop resolving) | yes | `DELETE /v1/vaults/{id}` |
 
 Team admin / member never see this screen; a deep link renders
-`PermissionNotCleared`: *Key vaults are an organisation admin's screen.*
+`PermissionNotCleared`: *Key vaults are an organization admin's screen.*
 
 **States.** Loading: skeleton. Empty (secrets, no list permission): *This
 vault did not grant list permission. The console shows what an admin
@@ -835,7 +893,7 @@ secret value or last4 in the table. Write verbs on a customer vault.
 
 **Route.** `/console/[scope]/assets`, `/assets/[id]`. **One screen at every
 level** (W5-D9): at *You* the person's own copies, at a team the team's, at
-the organisation the organisation's — always the copies that node holds, and
+the organization the organization's — always the copies that node holds, and
 never a borrowed list. The verbs are the level admin's, and at *You* that is
 always the person, so a personal account has the screen too (07 §3, amended).
 The kind tabs and **Browse** are the bar's tabs, parted by a rule, with the
@@ -845,8 +903,8 @@ open — the table's filter box and the store's are gone (D99).
 **Data.** `GET /v1/console/assets?scope=`, `GET /v1/console/assets/{id}?scope=`
 (with `EdgeWalk`). `console.asset_rows` reads one node — `scope_node(ctx)`:
 the last node of the chain at `me` (not `ctx.scope_path`, which is the
-organisation there), the scope's path at a team, the org path at the
-organisation. The listing carries `kinds`, the organisation's
+organization there), the scope's path at a team, the org path at the
+organization. The listing carries `kinds`, the organization's
 `policy/kinds.json` in its own order, beside `items`. Writes:
 `PUT /v1/assets/{id}/loads { loads }` (org ref, 00 D9),
 `PATCH /v1/assets/{id}?scope=` `{ name?, description? }` and
@@ -862,6 +920,11 @@ opens on the first kind that has rows.
 
 **Layout.** Sub-header: title *Assets*, the level chip (01 §7.5), the lede
 for this level. Content: the tabs, the count, a filter box, the table.
+**Edit is in the row (D109)**: pressing it turns the Name, Description and
+Loads cells of that one row into controls and the two buttons into *Save*
+and *Cancel*; Enter saves, Escape cancels; nothing opens. Loads is a select
+only where the route would take it — an organization admin, on a row of the
+organization's branch — and stays the word everywhere else.
 Asset page: the sidecar facts, *Loads*, then the **reverse view** —
 `Related{harnesses}` (*all harnesses* when always loaded, PRD §15),
 `Related{teams}`, `Related{groups}` it needs — then `EdgeWalk`.
@@ -897,25 +960,26 @@ console sends the old words.
 
 | Verb | Member | Team admin (own team) | Org admin | The person, at *You* | Endpoint |
 | --- | --- | --- | --- | --- | --- |
-| Edit (name, description) | no | yes, on the team's copy | yes, on the organisation's | yes, always | `PATCH /v1/assets/{id}?scope=` |
-| Delete | no | yes, on the team's copy | yes, on the organisation's | yes, always | `DELETE /v1/assets/{id}?scope=` |
+| Edit (name, description) | no | yes, on the team's copy | yes, on the organization's | yes, always | `PATCH /v1/assets/{id}?scope=` |
+| Delete | no | yes, on the team's copy | yes, on the organization's | yes, always | `DELETE /v1/assets/{id}?scope=` |
 | Set *Required* / *Recommended* / *On request* (confirm for required: *Preflight will refuse to launch any harness without it*) | no | no | yes | yes (they are their own org admin) | `PUT /v1/assets/{id}/loads` |
 | Tick a row in *Browse* and **Add to harness** | yes | yes | yes | yes | `POST /v1/harnesses/{id}/assets?scope=me` |
 | Tick a row in *Browse* and **New harness from selection** | yes | yes | yes | yes | `POST /v1/harnesses { assets }` |
 
 The two row verbs are rendered when `levelOf(scope, viewer).canEdit` — the
 same fact the chip states, so a screen that says *read and use* never shows a
-verb. Edit opens the library's dialog (01 §7.10; there is no drawer
-component and this workstream added none) with the name and the description,
-and sends only the fields that changed. Delete confirms with what it takes
+verb. Edit is in place (D109): *Save* sends only what changed — the words to
+`PATCH /v1/assets/{id}?scope=`, then loads to `PUT /v1/assets/{id}/loads` —
+and stops at the first refusal; moving to *required* confirms with what it
+takes first, as the asset page's control does. Delete confirms with what it takes
 (rule 22): the harnesses of the row's *used by*, named; *It loads into every
-harness today, and would leave all of them* when the organisation always
+harness today, and would leave all of them* when the organization always
 loads it; *No harness lists it* when none does. A refusal — `asset.required`
 for something every session loads, `asset.name_taken` for a rename that
-collides — renders inside the dialog in the server's own words (rule 21),
-because the dialog is on the top layer and a notice behind it would not be
-seen. Team admin / member on the loads toggle: `PermissionNotCleared`, *How an
-organisation asset loads is an organisation admin's decision.*
+collides — renders in the server's own words (rule 21) where the verb is:
+under Name for the words or under Loads for loads, with the row still open
+for the correction, or inside the Delete dialog. Team admin / member on the loads toggle: `PermissionNotCleared`, *How an
+organization asset loads is an organization admin's decision.*
 
 ### Browse — the store (W5-D15)
 
@@ -929,7 +993,7 @@ quieter filter inside it and still `?kind=`, so a link into one works.
 **Data.** `GET /v1/console/assets/browse?scope=` → `{ items: BrowseRow[],
 next }`, built in `console.browse_rows(ctx)` from `idx_effective` — the
 *winning* copy of every asset the viewer can use, so a shadowed copy is not
-offered twice — plus the bundled presets the organisation does not hold yet,
+offered twice — plus the bundled presets the organization does not hold yet,
 read from the directory the seed reads (`engine/compose/presets/assets`, the
 only copy) and deduped against the same ids. The picker's harnesses are
 `GET /v1/console/harnesses?scope=me`: the cards at *You*, which is what a
@@ -938,7 +1002,7 @@ person may write.
 **Columns (`BrowseRow`).** Type · text (the kind, because the list spans the
 vocabulary); Name · text, linking to the asset page **at the level that holds
 the copy** (`href`, `null` for a preset, which is on no branch); Description
-· text; From · chip — the node's own name for the organisation and a team,
+· text; From · chip — the node's own name for the organization and a team,
 *you* and *preset* for the two the console has words for (the row carries
 `level` and the console writes those two, rule 26); Yours · *On your branch*
 when the viewer's own branch holds a copy. A checkbox leads each row.
@@ -965,7 +1029,7 @@ because `tool/csv-summary` needs it.* The route does the same expansion
 the same set; the console's half is telling the person first. An environment
 nothing in the list answers is left out rather than invented.
 
-**The store switch.** An organisation boundary `visibility.store: false`
+**The store switch.** An organization boundary `visibility.store: false`
 hides the tab, and the route answers `hidden` in place of the list (P10) for
 anyone who reaches the URL. It is the existing visibility mechanism —
 `_visibility_of` in `console.py`, `Viewer.visibility`, `PATCH
@@ -985,19 +1049,21 @@ same verbs table and the same `?kind=`, and splitting it would mean two
 directories that must agree about the tabs. The parts are the split — `_browse`,
 `_selection-bar`, `_table`, `_tabs`, `_edit`, `_delete` — each well under it.
 
-**States.** Loading: table skeleton. Empty: per level — *No organisation
+**States.** Loading: table skeleton. Empty: per level — *No organization
 assets yet. Anything here reaches every team.* / *Nothing on this team's
-branch yet. What the organisation holds still reaches you.* / *Nothing on
-your own branch yet. What your team and your organisation hold still reaches
+branch yet. What the organization holds still reaches you.* / *Nothing on
+your own branch yet. What your team and your organization hold still reaches
 you.* An empty **tab** shows the same sentence under the tabs, which stay.
 Error: server message. Hidden: n/a.
 
 **Not on it.** *required* / *optional* wording (retired, prd-v2 §25). An
 owned/available toggle (retired). Edit of the asset's *content* (that is git,
-via the CLI — Edit here is the name and the description only).
+via the CLI — Edit here is the name, the description and how it loads).
 
 **Tests.** `assets_are_the_levels_own_copies` (backend, me/team/org) ·
 `edit_asset_patches_only_what_changed_at_the_scope` ·
+`edit_asset_sets_how_it_loads_in_the_row` ·
+`edit_asset_shows_the_servers_refusal_under_the_cell` ·
 `delete_asset_names_the_harnesses_it_leaves_then_deletes` ·
 `delete_asset_shows_the_servers_refusal_in_place` ·
 `has_a_tab_per_declared_kind_empty_ones_included` ·
@@ -1231,7 +1297,7 @@ role subject (00 §4.4, §4.11; D43), accept/decline of a role request
 search; table. Teams: a tree **collapsed to the top level** (PRD §12), each
 row: what it sits inside, what sits inside it, people, groups. Person page:
 teams, role, sessions link, **Remove** with the `RemovalPreview` confirm.
-A card *Waiting on an organisation admin* lists role requests with the
+A card *Waiting on an organization admin* lists role requests with the
 admin they wait on (team scope) and with Accept / Decline (org scope).
 A card *Not yours to change* (team scope) enumerates the four items PRD
 §12 names, each with who decides.
@@ -1262,7 +1328,7 @@ each turning a view off without taking away anything already held.
 | Visibility switch (boundaries, logs, store) for a person or team | — | — | yes | `PATCH /v1/org-units/{id}/visibility` |
 
 `PermissionNotCleared` (team admin on appoint): *Appointing a team admin is
-an organisation admin's decision. Anyone may ask; the request appears above.*
+an organization admin's decision. Anyone may ask; the request appears above.*
 (member on invite): *Inviting is a team admin's decision.*
 
 **States.** Loading: table skeleton. Empty (people, team): *Nobody here
@@ -1284,16 +1350,26 @@ no-admin nag (prd-v2 §25). A flat team list (tree, collapsed).
 
 **Route.** `/console/how#<scaleId>` — outside `[scope]`, one URL for every tag's link (00 §5, K4). The sidebar links to it from every scope.
 
+**Tabs.** Two, and they are routes, as Logs' are (§14): **Set up**
+(`/console/how/setup`, §16.1) and **Reference** (`/console/how`, everything
+below). Set up is first, because a console with no command line on the
+machine can do nothing yet; the reference keeps the bare `/console/how` so
+every `ScaleRegistry.href` anchor still resolves. `howTabs(current)` in
+`lib/views/how.ts` is the one place the two URLs are written, and
+`navKeyOf` already reads both as the same sidebar row.
+
 **Data.** `GET /v1/console/how` → `ScaleRegistry` + `05`'s content.
 
 **Layout.** Sub-sidebar (the `Screen` aside at the start): one entry per
-`ScaleId` and one per vocabulary word (`05`); then **Set up** (§16.1), above
-everything, and a search box below it filtering by word (05 §9). Content:
+`ScaleId` and one per vocabulary word (`05`); then the search box filtering
+by word (05 §9). Content:
 for each scale, its values in order with
 `ScaleTag` rendered and the one-line meaning; for each word, its definition
 and where it appears. Every `ScaleTag` on the console links here with the
 scale's anchor (K4); the page is the destination, so it never links back to
-a legend.
+a legend. *Set up* is the other tab and is not drawn here: it was a section
+above the filter box and is now a route of its own, so there is one copy of
+it and the account page links straight at it.
 
 **Columns.** Value · `ScaleTag`; Means · text; Seen on · `Related` of
 screens (links).
@@ -1310,23 +1386,42 @@ between the reference sections (05 D54 — *Set up* is instructions above the
 reference, not prose inside it).
 
 **Tests.** `every_registered_scale_has_anchor` · `every_scale_tag_links_to_how` (V2, run
-over every screen's rendered tags) · `how_word_lists_where_seen` · §16.1's four.
+over every screen's rendered tags) · `how_word_lists_where_seen` · §16.1's five.
 
 ### 16.1 Set up — D105
 
-The first thing on the page, above the filter box, and the only part of it
-that is per viewer: what a person who has just signed up does next, on the
-page every other screen already links to. Three numbered `CommandBlock`s,
-each with its own copy button, in the order they are pasted:
+The first tab of the page (`/console/how/setup`) and the only part of it that
+is per viewer: what a person who has just signed up does next, on the page
+every other screen already links to. **Five numbered cards**, each a title,
+one sentence, and either a `CommandBlock` with its own copy button or
+something to do by hand:
 
-| # | Command | Where the string comes from |
-| --- | --- | --- |
-| 1 | the one install command (W7-D6) | `INSTALL_COMMAND` in `lib/views/account.ts`, the one source of truth |
-| 2 | `harness login --api-url <origin> --token <token>` | the sheet's `harness login` row (D40) plus `HARNESS_API_ORIGIN` and the minted token |
-| 3 | `harness setup` | the sheet's row (engine 08 §11.17) |
+| # | Card | What it carries | Where the string comes from |
+| --- | --- | --- | --- |
+| 1 | *Open a terminal.* | the keystroke for the machine, and a `Segmented` to correct the guess | `HOW_SETUP.os` — macOS *⌘ Space*, Windows *Win*, Linux *Ctrl+Alt+T* |
+| 2 | *Install the command line.* | `curl -fsSL <origin>/install.sh \| sh` | `installCommand(origin)` in `lib/views/account.ts`, the one source of truth (W7-D6) |
+| 3 | *Sign in from that machine.* | `harness login --api-url <origin> --token <token>` and **Generate a token** | the sheet's `harness login` row (D40) plus `HARNESS_API_ORIGIN` and the minted token |
+| 4 | *Register the harness:// link.* | `harness setup` | the sheet's row (engine 08 §11.17) |
+| 5 | *Then* | one sentence naming a screen: *Open a harness from the Harnesses page.*, the words linked | `HOW_SETUP.steps.then` — a `{link}` in the sentence, as `{command}` is on §17.1's rows |
 
-Then one line — *Then open a harness from the Harnesses page.* — which names
-a screen, not a fourth command.
+Card 1 is a card and not a command because **a browser cannot open a
+terminal**, which was the hole in the three-command version: the first
+instruction assumed a terminal the person did not have. The guess at which
+machine runs in an effect (`detectOs`, `lib/views/how.ts`), so the server and
+the first client render agree; the control beside it is how a wrong guess is
+corrected, because a wrong keystroke with no way out is worse than asking.
+Still three commands and three copy buttons: cards 1 and 5 are not commands.
+
+**The install URL is ours (W7-D6).** `npm run prebuild` in `web/` copies
+`scripts/install.sh` to `web/public/install.sh` — the script stays the one
+source and the copy is a build artefact, gitignored — so the console serves
+it at `<origin>/install.sh` and the line a person pastes points at the site
+they are reading. `origin` is the console's own, read on the server off the
+request's `Host` (`lib/origin.server.ts`): not a variable a deployment has to
+set, and not `window.location.origin`, which the server cannot know and which
+would make the first render disagree with the second. The script still clones
+from GitHub, so the repository must be public for a stranger — said in
+`docs/guide/install.md` and `deploy/README.md`, not on the screen.
 
 **The token.** Step 2's slot reads `<token>` and the block carries a
 **Generate a token** button. It posts `{ name: "console setup <date>" }` and
@@ -1349,13 +1444,15 @@ default would be a line that runs and reaches the wrong machine.
 installs the CLI the same way an owner does.
 
 **Not on it.** A fourth command. A second copy of any of the three (§17.1's
-first two rows link here). A token that is listed, re-shown, named by hand or
+first two rows link to this tab, at `/console/how/setup`). A token that is listed, re-shown, named by hand or
 kept anywhere.
 
-**Tests.** `setup_is_three_commands_and_a_token_slot` ·
+**Tests.** `setup_is_five_steps_ending_in_a_screen` ·
+`setup_prints_the_keystroke_for_a_machine_and_takes_a_correction` ·
 `setup_generates_a_token_and_writes_it_into_the_login_line_once` ·
 `setup_asks_for_an_origin_rather_than_printing_a_localhost` ·
-`setup_shows_the_servers_refusal_beside_the_button`.
+`setup_shows_the_servers_refusal_beside_the_button` · `howTabs` and
+`detectOs` in `test/unit/how.test.ts`.
 
 ---
 
@@ -1443,7 +1540,7 @@ endpoint value); the URL (`?version`) is the state. Rules: a member's
 options are exactly `mine · team · differences`; a team admin's add
 `member:<id>` per member of the team, labelled by name; `differences`
 always means *the selected version against the team's*; in History view
-`differences` is removed from the control; for an organisation file all
+`differences` is removed from the control; for an organization file all
 options render the same content and a one-line note says so. Selecting a
 `member:` option sets `?as=` on child routes.
 
@@ -1469,7 +1566,7 @@ sentence always names *who decides* (P13). Copy lives in `content/` (05).
 `HIDDEN` naming the decision and the org admin role (P10; 01 §7). Never used for role-based absence — that is
 `PermissionNotCleared` or simple omission of a verb.
 
-**`EdgeWalk` placement.** Only on object pages (group, secret, organisation
+**`EdgeWalk` placement.** Only on object pages (group, secret, organization
 asset, harness provider, model provider), as the last two cards *What rests
 on this* and *What this rests on*, never merged, never on list pages (P1).
 
@@ -1497,18 +1594,21 @@ it takes with it, computed server-side (`RemovalPreview`,
 | D87 | **Changing the reach mode starts the list empty** (§9.1). `PUT /v1/reach` is the whole file, and an allow-list is not a deny-list: carrying one over as the other would turn *reach these three* into *reach anything but these three* in one click. Each radio's own sentence says the list starts empty, and the suggested hosts are one click each. | carrying the hosts across the mode change |
 | D88 | **A level with no `reach.json` of its own shows no mode chosen and no host list** (§9.1). All three writes act on *that* node's file, so a list drawn from what was inherited would offer a **Remove** that removes nothing and an **Add** that silently forks the parent's list. The section says what the level uses instead; choosing a mode is what starts a file there. | pre-filling the inherited answer as if it were this level's |
 | D89 | **An attempt's outcome is a `Chip`, not a `ScaleTag`** (§14.1). *reached* · *refused* · *stripped* is what happened to one request, not a scale of claim strength; registering a thirteenth scale for it is what D41 already refused, and `ScaleTag` throws on a value no scale registers. | a fourth outcome scale |
-| D90 | **The card's launch buttons are a server field, and the page draws nothing else** (§4, W5-D13). `HarnessCard.runners: [{ id, name }]` is every harness provider not *not-approved*, scoped to this chain and this harness, whose `speaks` meets the routed model's `endpoints` — `console.runners_for`, sharing `speaks_routed` with the `/providers/harness` row's `canRun` so a button appears exactly where the broker would mint. *Beta* is a button: the organisation said *try it*, and the refusal, if there is one, is the broker's with its reason, not a web page's guess. The name was `RUNNER_NAMES`' because `HarnessProvider` had no display name — a contract gap, recorded, not invented per screen; W6-D3 put `name` on the contract and D97 deleted the map. | deriving the list in the page from `/providers/harness`, which would make the console a second composer (K2) |
+| D90 | **The card's launch buttons are a server field, and the page draws nothing else** (§4, W5-D13). `HarnessCard.runners: [{ id, name }]` is every harness provider not *not-approved*, scoped to this chain and this harness, whose `speaks` meets the routed model's `endpoints` — `console.runners_for`, sharing `speaks_routed` with the `/providers/harness` row's `canRun` so a button appears exactly where the broker would mint. *Beta* is a button: the organization said *try it*, and the refusal, if there is one, is the broker's with its reason, not a web page's guess. The name was `RUNNER_NAMES`' because `HarnessProvider` had no display name — a contract gap, recorded, not invented per screen; W6-D3 put `name` on the contract and D97 deleted the map. | deriving the list in the page from `/providers/harness`, which would make the console a second composer (K2) |
 | D91 | **The console states what the buttons do and never detects whether they will work** (§4, engine 08 D140). A page cannot see a registered link type; a probe would be a guess shown as a fact (P5). So one line under the grid — *Buttons open a terminal on this machine. Nothing happened? Install the CLI and run `harness setup`* — links the guide, which owns the five reasons. The guide is linked at its source address until the console serves the guides itself. | a timing hack that "detects" the handler and warns when it is wrong |
 | D92 | **The store is a tab of Assets, and a browse row is its own type** (§12, W5-D15). `GET /v1/console/assets/browse?scope=` answers `BrowseRow[]` — the winning copy of every asset `idx_effective` gives the viewer, plus the bundled presets no id on the chain answers, read from the directory the seed reads. Not a cut-down `OrgAssetRow`: an asset row answers *what is on this branch* and carries that branch's relationships; a browse row answers *what could I use*, so it carries the level the copy would come from, whether the person already holds one, and nothing else. The tab is `?tab=browse` and opens on all kinds, with `?kind=` still the filter inside it. | a Store screen of its own — rejected by rule 16: one directory, one fetch, one set of verbs; and by a second row type that would drift from the first |
 | D93 | **Adding writes the person's version of the harness, and a tool brings its environment** (§12, W5-D15, engine 08 §10.0 step 5a). `POST /v1/harnesses/{id}/assets?scope=me { ids }` extends `harnesses/<id>.json` on the person's own branch, created from the nearest copy on their chain when their branch has none — the file and the rule `joinHarness` already uses, so the store and the terminal cannot write it two ways. A bundled preset is copied onto that branch in the same commit, by the helper `POST /v1/harnesses` shares, because a harness naming an id nothing answers is an unanswered row. A `tool` sidecar's `needs: [{ kind: "environment", name }]` adds that environment too, in the console *and* in the route: the console's copy exists to name it in the confirmation before the button is pressed, which a route cannot do. | the console computing the file and pushing it — rejected: that is the composer in the browser (K2); and expanding the environment only in the console, which would make the CLI's path different |
 | D95 | **Routing is a column and two verbs, not a tab** (§10, W6-D5). Which model provider serves a team, a harness or a runtime is a *setting* on the provider that serves it, and a setting belongs where the thing it sets is read; what actually served a session is a record and is already on Logs → Sessions. So the Routing tab is a redirect, the row carries *Default for* and *Approved for* (data it already held — 03 §5.2), and *Set default…* / *Approve for…* write `routing.json` through the write that was already there. The old matrix survives as the **By team** read view, because an admin auditing *who resolves to what* reads rows per team, not per provider. The old *Approved for providers* column went with the tab: it showed `routing.approvedFor.providers` under a heading that called it derived, and it is one of the three dimensions the new column shows whole. | a Routing screen again — then the same fact lives in two places and the pair can disagree |
 | D96 | **A model provider's Status is three states, not a yes/no** (§10, W6-D6). *Reachable* answered a question nobody asked: a preset with no key answered *no* and looked broken, and a provider with a key and a flaky endpoint answered *no* and looked the same. *set-up* · *needs-key* · *unreachable* name who acts — connect a key, or wait for an endpoint — and the exclusion follows the first of them, everywhere: the routing write, `speaks_routed`, `canRun`, the cards' launch buttons and the broker's step 5 all read `broker.needs_key`, so a row the console greys out is exactly a row the broker would refuse. *Held* is the composed policy (a group entry in a connected vault), never a secret fetch on a page load, and the probe runs only when a key is held. | a `reachable` boolean plus a second *has a key* column, which is the same two facts with no sentence between them |
 | D97 | **The console reads the runtime's name from the contract** (§10, W6-D3). `HarnessProvider.name` ships in the preset and the seed, so `console.RUNNER_NAMES` — the two-entry map that sat beside `runners_for` — is deleted, and every place a runtime is named for a person (the Providers table, the cards' launch buttons, the routing subject picker) reads `provider.name` with the id as the fallback for a branch seeded before the field. | a second map in the console the day a third runtime ships |
-| D98 | **Boundaries is three tabs of two blocks each** (§9, W6-D8). One page held reach, every deny on the chain, and a second table called *Set by the organisation* — so a person asking *what may this session never run?* scrolled past the host list and the file paths to find out, and a team admin could not tell at a glance which rows were theirs to lift. The tabs are the three questions (**Reach** · **Commands** · **Files**), the blocks are the two answers every one of them has (*Inherited*, read-only with the level that set each row; *Set here*, with add and remove), and the capability kind is placed by what its value names until it has a home of its own. Both blocks are `_table.tsx`: they are the same rows filtered. `boundaries/` redirects to Reach rather than 404ing, because the bare address is in the wild. | one page again — then the screen grows a fourth question and the person scrolls past three |
+| D98 | **Boundaries is three tabs of two blocks each** (§9, W6-D8). One page held reach, every deny on the chain, and a second table called *Set by the organization* — so a person asking *what may this session never run?* scrolled past the host list and the file paths to find out, and a team admin could not tell at a glance which rows were theirs to lift. The tabs are the three questions (**Reach** · **Commands** · **Files**), the blocks are the two answers every one of them has (*Inherited*, read-only with the level that set each row; *Set here*, with add and remove), and the capability kind is placed by what its value names until it has a home of its own. Both blocks are `_table.tsx`: they are the same rows filtered. `boundaries/` redirects to Reach rather than 404ing, because the bare address is in the wild. | one page again — then the screen grows a fourth question and the person scrolls past three |
 | D100 | **The setup list is four derived facts and it removes itself** (§17.1, W7-D5). `Viewer.setup` carries *has a session ever run* · *does a token exist* · *is there a model* · *is there a harness*, read in one statement per `/v1/console/me` (`console.setup_facts`) — nothing is stored, so there is no state to tick, to reset, or to disagree with the thing it describes. Each unclosed row carries exactly one command or one link, never both and never a button that does the step: three of the four happen on the person's machine (D40). `gettingStarted(viewer)` answers `null` for an enterprise account and for a personal one that has closed all four, so the card is absent rather than a list of ticks — a finished checklist is furniture (P8). | stored onboarding progress with a *dismiss* — then the list can be wrong and still be shown, and *dismissed* becomes a fifth state nobody can see |
-| D103 | **A fourth status, because *no key* and *no way in* are different sentences** (§10, W7-D2; amends D96, which had three). D96's point was that *needs a key* and *did not answer* send a person to two different places, and the same argument makes a third: a keyless provider the organisation's own runtime logs itself in to sends them nowhere at all — it already works. *sign-in* is that row, and it is `accent`, not `warn`, because nothing is wrong with it. The exclusion still follows the broker exactly: `needs_key ∧ ¬signs_in` is what drops a row from the two routing verbs, from `speaks_routed`, from `canRun` and from the cards, and it is what the broker refuses at step 5 (engine 04 D156) — so the console still greys out exactly what the broker would refuse, which was D96's whole claim. What the screen owes in exchange is the one honesty line: a sign-in request never passes through the proxy, so the model shaping of W5-D3 cannot apply to it, and the screen says so once rather than letting *not metered* read as *free*. | a fourth column (*signs in itself*), which is the same two facts with no sentence between them — D96 refused that shape already; or leaving it *needs-key*, which tells a person to go and get a key they do not need |
-| D102 | **The first-harness modal asks two things, and both are written on the harness** (§4, W7-D4). A personal viewer gets **Web access** — a switch, on by default — and **Outside keys** — a select of their own groups with *None* first and chosen — and one read-only line naming the model that will serve it (`Viewer.setup.model`, W7-D2), with the Providers link only where there is nothing yet. Three consequences the screen is built on. *First*, **on sends nothing**: absent `reach` is *inherit*, and a harness restating `on` narrows nothing today and becomes a `reach-widened` conflict that stops every session on the chain the day the organisation turns its reach down — so the switch is not symmetric, and engine D155 moved the personal default to `on` so that `off` is the one thing a harness can say. *Second*, **the grant is scoped to the harness and nothing else**, so the modal gives a harness keys without giving the person any they did not already hold; the file it lands in is the organisation's only because `policy/` is refused on a user branch. *Third*, **the dialog does not fetch** (01 rule 2): the groups arrive as a `personal` prop that the two screens mounting it build with `loadPersonalChoices`, which is also why *New harness from selection* asks the same two questions instead of growing a second form. An enterprise viewer has neither control and the body carries neither field. | asking a team viewer the same two — rejected: their reach is the organisation's and their keys are a grant an admin makes, so both controls would be refusals waiting to happen; and a *Reach* step after creation, which is a second screen for a one-word answer |
+| D103 | **A fourth status, because *no key* and *no way in* are different sentences** (§10, W7-D2; amends D96, which had three). D96's point was that *needs a key* and *did not answer* send a person to two different places, and the same argument makes a third: a keyless provider the organization's own runtime logs itself in to sends them nowhere at all — it already works. *sign-in* is that row, and it is `accent`, not `warn`, because nothing is wrong with it. The exclusion still follows the broker exactly: `needs_key ∧ ¬signs_in` is what drops a row from the two routing verbs, from `speaks_routed`, from `canRun` and from the cards, and it is what the broker refuses at step 5 (engine 04 D156) — so the console still greys out exactly what the broker would refuse, which was D96's whole claim. What the screen owes in exchange is the one honesty line: a sign-in request never passes through the proxy, so the model shaping of W5-D3 cannot apply to it, and the screen says so once rather than letting *not metered* read as *free*. | a fourth column (*signs in itself*), which is the same two facts with no sentence between them — D96 refused that shape already; or leaving it *needs-key*, which tells a person to go and get a key they do not need |
+| D102 | **The first-harness modal asks two things, and both are written on the harness** (§4, W7-D4). A personal viewer gets **Web access** — a switch, on by default — and **Outside keys** — a select of their own groups with *None* first and chosen — and one read-only line naming the model that will serve it (`Viewer.setup.model`, W7-D2), with the Providers link only where there is nothing yet. Three consequences the screen is built on. *First*, **on sends nothing**: absent `reach` is *inherit*, and a harness restating `on` narrows nothing today and becomes a `reach-widened` conflict that stops every session on the chain the day the organization turns its reach down — so the switch is not symmetric, and engine D155 moved the personal default to `on` so that `off` is the one thing a harness can say. *Second*, **the grant is scoped to the harness and nothing else**, so the modal gives a harness keys without giving the person any they did not already hold; the file it lands in is the organization's only because `policy/` is refused on a user branch. *Third*, **the dialog does not fetch** (01 rule 2): the groups arrive as a `personal` prop that the two screens mounting it build with `loadPersonalChoices`, which is also why *New harness from selection* asks the same two questions instead of growing a second form. An enterprise viewer has neither control and the body carries neither field. | asking a team viewer the same two — rejected: their reach is the organization's and their keys are a grant an admin makes, so both controls would be refusals waiting to happen; and a *Reach* step after creation, which is a second screen for a one-word answer |
 | D105 | **The three install commands are printed once, on *How this works*, with the token in the line** (§16.1, §17.1; W7-D5/D6's commands, one place). *Set up* opens that page with the install command, `harness login --api-url <this console's API origin> --token <token>` and `harness setup`, each a copy-able block, and a **Generate a token** button that mints one and writes it into the second line — shown once, held until the page is left, stored nowhere (P2). The origin is `HARNESS_API_ORIGIN`, read on the server and handed down (02 D23); a deployed console sets it to the public API URL and an unset one prints `<your API URL>` rather than a localhost that would reach the wrong machine. The Account rows that used to carry the first two commands now **link** here, and `harness login`'s own remedy and `docs/guide/first-session.md` name the same section, so the lines a person pastes exist in exactly one place. Amends D40 only in where a command is printed, not in that it is printed: it is still a command, never a button that does the step. | the token on the Account card and the bare `harness login` back on the row — then the person joins an address and a token by hand, and two screens print commands that have to stay equal |
+| D107 | **The card is three rows, and resuming is the one primary verb** (§4). A card that listed *Open in Pi*, then *Open again in ~/projects/foo on corby-mbp*, offered the same person the same harness twice and put the quieter copy on the thing they actually wanted: carrying on where they left off. So the meta facts fold into one wrapping row, the action row has two shapes and never both — **Resume** into `lastWorkspace` with the folder beside it in muted text, or *Open in* per runtime when there is nowhere to resume — and `lastHost` stops being drawn: it named the machine the reader is sitting at. A further runtime is a small secondary into the same workspace, never a second primary. | keeping both lines and promoting the second — then the card has two verbs for one intention, and the louder one is the wrong one |
+| D108 | **The pet is drawn when the harness is made** (§4). `ui/pixel-editor` moves into the *New harness* dialog under *Name* — the same component, palette and keyboard path as the harness page's **Edit** (01 §7.13), because a second editor would drift the first time either changed; the empty grid that *Clear* leaves and that both dialogs open with is the editor's own `blankIcon()`, which was written out by hand in two places before this. Skipping is a choice with its consequence shown — *Skip, I'll draw it later* leaves the grey square and says so — and not a field left blank. `icon` is posted only when the grid has a colour in it, so an untouched editor and a skipped one send the same body; `create_harness` already reads an absent icon as *none*. | an *Add an icon* step after creation — which is a second screen for a thing nobody returns to, and it is why every harness is a grey square today |
+| D109 | **An asset is edited in its row** (§12). The Edit dialog asked for the name and the description and could not ask how the asset loads — that was a control on the asset page, so the one thing the person wanted to change from the list sent them to a second screen. Now Edit turns the row's three cells into controls, *Save* sends only what changed (`PATCH` for the words, then `PUT …/loads`), a refusal lands under Name for the words or under Loads for loads, with the row still open, and moving to *required* keeps its confirmation. The loads select appears exactly where the route would take the write: an organization admin, on the organization's row; a team's copy keeps the word. `ui/field` gains `labelHidden` for a control whose column heading already names it, as `ui/select` had, and `ui/table` stops handling keys that start inside a cell's control. | a loads field in the dialog — which keeps the second screen for a one-word change, and a dialog over a table for a value the table already shows |
 | D45 | **The Account screen's logins come from the last session's slots**, labelled *as of*, because the console cannot probe a machine. | a browser-side probe — impossible |
 | D46 | **Boundaries' `intercepted` option is present but disabled with *not yet*** until command interception ships (engine 06 §13), so the scale is complete on the How page and honest on the form. | hiding the value |
 | D47 | **Not-approved providers are rows**, never filtered out by default. | a *show declined* toggle — rejected: PRD §9.1 |
@@ -1517,7 +1617,7 @@ it takes with it, computed server-side (`RemovalPreview`,
 
 The public site and its pages. SIEM export and any log export (Later). A
 transcript viewer (no transcript exists). An in-browser editor for assets
-(git, via the CLI). Budgets and quotas. Cross-organisation views. A
+(git, via the CLI). Budgets and quotas. Cross-organization views. A
 mobile-specific layout beyond the shell's collapse rule (01).
 
 ## 21. Definition of done

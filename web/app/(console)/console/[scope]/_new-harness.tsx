@@ -3,20 +3,24 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiError, request } from "@/lib/api";
-import { howHref, scopeHref, scopeSegment } from "@/lib/scope";
+import { scopeHref, scopeSegment } from "@/lib/scope";
 import { getToken } from "@/lib/token.client";
 import { type HarnessCard, type PersonalChoices, modelLine } from "@/lib/views/harness";
-import type { Scope } from "@/lib/views/types";
+import type { PixelIcon, Scope } from "@/lib/views/types";
 import { HARNESSES, HARNESSES_WORDS as WORDS } from "@/content/screens/harnesses";
-import { UI } from "@/content/ui";
 import { Button } from "../../ui/button";
-import { CommandBlock } from "../../ui/command-block";
+import { LABEL } from "../../ui/control";
 import { Field } from "../../ui/field";
 import { Modal } from "../../ui/modal";
 import { Notice } from "../../ui/notice";
+import { PixelArt } from "../../ui/pixel-art";
+import { PixelEditor, blankIcon } from "../../ui/pixel-editor";
 import { Select } from "../../ui/select";
 import { Switch } from "../../ui/switch";
 import { Textarea } from "../../ui/textarea";
+
+/** The one quiet affordance this dialog has: skip the drawing, or take it up. */
+const QUIET = "justify-self-start text-xs text-accent-text hover:underline";
 
 /**
  * 04 §4: one button with the choice inside — *start from a copy* is a select
@@ -36,6 +40,12 @@ import { Textarea } from "../../ui/textarea";
  * `HarnessIn.scope` is the segment (`me`, `org`, a dotted team path), never
  * the `team:` spelling a query string uses.
  *
+ * D108: the drawing is made here, in the editor the harness page's Edit
+ * uses — a pet nobody is asked for at the one moment they are naming the
+ * thing is a pet nobody draws. *Skip, I'll draw it later* says what skipping
+ * gets, and an untouched grid sends no `icon` at all, because sixteen rows
+ * of dots is not a drawing the server should store.
+ *
  * W7-D4: on a personal account it asks two more things, and both are written
  * **on the harness** — *Web access* is `HarnessDef.reach`, *Outside keys* is
  * one grant scoped to this harness. The caller decides whether to ask them by
@@ -46,7 +56,6 @@ import { Textarea } from "../../ui/textarea";
 export function NewHarness({
   scope,
   cards,
-  empty = false,
   canEdit,
   assets,
   label,
@@ -55,7 +64,6 @@ export function NewHarness({
 }: {
   scope: Scope;
   cards: HarnessCard[];
-  empty?: boolean;
   /** Whether the viewer administers this level (`levelOf(...).canEdit`). */
   canEdit: boolean;
   /** W5-D15: *New harness from selection* — the store's ticked ids, already
@@ -76,8 +84,12 @@ export function NewHarness({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [from, setFrom] = useState("");
+  // D108: `drawing` is the skip, not an empty icon — a blank grid and a grid
+  // nobody opened must send the same body, and they do: neither has a colour.
+  const [icon, setIcon] = useState<PixelIcon>(blankIcon);
+  const [drawing, setDrawing] = useState(true);
   // W7-D4's two questions. Web access starts on, which is what the personal
-  // organisation's own reach is; keys start at *None*, which is what almost
+  // organization's own reach is; keys start at *None*, which is what almost
   // every first harness wants.
   const [web, setWeb] = useState(true);
   const [group, setGroup] = useState("");
@@ -96,9 +108,13 @@ export function NewHarness({
           name,
           description,
           from: from || undefined,
+          // D108: only a drawing with a colour in it. `create_harness` reads
+          // a falsy `icon` as *none* and stores the empty rows otherwise, so
+          // an untouched grid would write sixteen rows of dots for nothing.
+          ...(drawing && icon.palette.length > 0 ? { icon } : {}),
           // W5-D15: the store's selection, already in it. Absent otherwise —
           // an empty list and no list are the same new harness, and the
-          // route fills the organisation's recommended ids either way.
+          // route fills the organization's recommended ids either way.
           ...(assets && assets.length > 0 ? { assets } : {}),
           // The bare path, `org` or `me` — `HarnessIn.scope` is the segment,
           // never the `team:` spelling a query string uses (`scopeQuery`).
@@ -107,7 +123,7 @@ export function NewHarness({
           // tidiness. Absent means *inherit*, and reach only ever narrows
           // (D131): a harness that restates `on` narrows nothing today and
           // becomes a `reach-widened` conflict — which stops every session on
-          // the chain (`compose.reach_widened`) — the day the organisation
+          // the chain (`compose.reach_widened`) — the day the organization
           // turns its own reach down on Boundaries.
           ...(personal && !web ? { reach: { mode: "off", hosts: [] } } : {}),
           ...(personal && group ? { grant: { group } } : {}),
@@ -116,6 +132,8 @@ export function NewHarness({
       setOpen(false);
       setName("");
       setDescription("");
+      setIcon(blankIcon());
+      setDrawing(true);
       setWeb(true);
       setGroup("");
       router.refresh();
@@ -129,11 +147,6 @@ export function NewHarness({
 
   return (
     <>
-      {empty && (
-        <Button explain={WORDS.importExplain} onClick={() => setOpen(false)} href={howHref("import")}>
-          {WORDS.importLabel}
-        </Button>
-      )}
       <Button variant="primary" explain={verb.explain} onClick={() => setOpen(true)}>
         {verb.label}
       </Button>
@@ -147,6 +160,30 @@ export function NewHarness({
               required
               onChange={(event) => setName(event.target.value)}
             />
+            <div className="grid gap-2">
+              <span className={LABEL}>{WORDS.newIcon}</span>
+              {drawing ? (
+                <>
+                  <PixelEditor
+                    value={icon}
+                    onChange={setIcon}
+                    eraseLabel={WORDS.newErase}
+                    clearLabel={WORDS.newClear}
+                  />
+                  <button type="button" className={QUIET} onClick={() => setDrawing(false)}>
+                    {WORDS.newIconSkip}
+                  </button>
+                </>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <PixelArt size={56} alt={WORDS.newIconNone} />
+                  <span className="text-base text-muted">{WORDS.newIconNone}</span>
+                  <button type="button" className={QUIET} onClick={() => setDrawing(true)}>
+                    {WORDS.newIconDraw}
+                  </button>
+                </div>
+              )}
+            </div>
             <Textarea
               label={WORDS.newDescription}
               name="description"
@@ -203,14 +240,6 @@ export function NewHarness({
                   )}
                 </p>
               </>
-            )}
-            {empty && (
-              <CommandBlock
-                label={WORDS.importExplain}
-                command={WORDS.importCommand}
-                copyLabel={UI.copy.copy}
-                copiedLabel={UI.copy.copied}
-              />
             )}
             {error && (
               <Notice tone="warn">

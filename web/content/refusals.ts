@@ -42,11 +42,11 @@ export const REFUSALS = {
   },
   "approve_provider.team_admin": {
     sentence:
-      "Approving a runtime decides whose program holds credentials for the whole organisation, so an organisation admin decides it.",
-    ask: { label: "Ask {admin}", where: "the request appears in the organisation's People screen" },
+      "Approving a runtime decides whose program holds credentials for the whole organization, so an organization admin decides it.",
+    ask: { label: "Ask {admin}", where: "the request appears in the organization's People screen" },
   },
   "appoint_admin.team_admin": {
-    sentence: "Team admin is granted from above, so an organisation admin appoints one. Anyone may ask.",
+    sentence: "Team admin is granted from above, so an organization admin appoints one. Anyone may ask.",
     ask: {
       label: "Ask to be an admin",
       where: "the request appears in {team}'s People screen marked with the admin it waits on",
@@ -54,7 +54,7 @@ export const REFUSALS = {
   },
   "lift_org_boundary.any": {
     sentence:
-      "An organisation boundary only tightens on the way down. Nobody below the organisation can lift it; an organisation admin can remove it there.",
+      "An organization boundary only tightens on the way down. Nobody below the organization can lift it; an organization admin can remove it there.",
     ask: { label: "Ask {admin}", where: "opens a message with the boundary named" },
   },
   "read_member_branch.member": {
@@ -62,17 +62,17 @@ export const REFUSALS = {
     // no ask (05 §7: "—").
   },
   "revoke_session.other": {
-    sentence: "This session is {owner}'s. Their team's admin, or an organisation admin, can end it.",
+    sentence: "This session is {owner}'s. Their team's admin, or an organization admin, can end it.",
     ask: { label: "Ask {admin}", where: "opens a message with the session named" },
   },
   "create_group.team_admin": {
     sentence:
-      "A security group names a secret and who may mint it, so an organisation admin creates one. Narrowing what {team} already holds covers most of what people ask for.",
+      "A security group names a secret and who may mint it, so an organization admin creates one. Narrowing what {team} already holds covers most of what people ask for.",
     ask: { label: "Ask {admin}", where: "opens a message naming the group needed" },
   },
   "change_sources.team_admin": {
     sentence:
-      "Which sources a group accepts is the rule that stops it resolving from somebody's laptop, so an organisation admin changes it.",
+      "Which sources a group accepts is the rule that stops it resolving from somebody's laptop, so an organization admin changes it.",
     ask: { label: "Ask {admin}", where: "opens a message naming the group and the change needed" },
   },
 
@@ -85,43 +85,43 @@ export const REFUSALS = {
   },
   "groups.create": {
     sentence:
-      "Creating a security group, or adding an entry to one, is an organisation admin's decision. Narrowing what {team} already holds covers most of what people ask for.",
+      "Creating a security group, or adding an entry to one, is an organization admin's decision. Narrowing what {team} already holds covers most of what people ask for.",
   },
   "groups.narrow": {
     sentence: "Narrowing a group into a sub-team is a team admin's decision.",
   },
   "boundaries.lift": {
     sentence:
-      "Lifting an organisation boundary is nobody's decision below the organisation. Boundaries only ever tighten on the way down.",
+      "Lifting an organization boundary is nobody's decision below the organization. Boundaries only ever tighten on the way down.",
   },
   "boundaries.add": {
     sentence: "Adding a boundary is a team admin's decision.",
   },
   "providers.approve": {
     sentence:
-      "Approving a runtime is an organisation admin's decision: it decides whose program holds a credential in memory.",
+      "Approving a runtime is an organization admin's decision: it decides whose program holds a credential in memory.",
   },
   "providers.routing": {
     sentence: "Choosing a team's default is a team admin's decision.",
   },
   "vaults.read": {
-    sentence: "Key vaults are an organisation admin's screen.",
+    sentence: "Key vaults are an organization admin's screen.",
   },
   "assets.loads": {
-    sentence: "How an organisation asset loads is an organisation admin's decision.",
+    sentence: "How an organization asset loads is an organization admin's decision.",
   },
   "sessions.revoke": {
     sentence: "Revoking a session is a team admin's decision. Close it yourself with Ctrl-C.",
   },
   "people.appoint": {
     sentence:
-      "Appointing a team admin is an organisation admin's decision. Anyone may ask; the request appears above.",
+      "Appointing a team admin is an organization admin's decision. Anyone may ask; the request appears above.",
   },
   "people.invite": {
     sentence: "Inviting is a team admin's decision.",
   },
   "people.visibility": {
-    sentence: "Whether someone sees boundaries and logs is an organisation admin's decision.",
+    sentence: "Whether someone sees boundaries and logs is an organization admin's decision.",
   },
 } as const satisfies Record<string, Refusal>;
 

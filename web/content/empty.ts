@@ -77,18 +77,18 @@ export const EMPTY = {
     verb: { label: "Create a group" },
   },
   "groups.team": {
-    sentence: "Marketing holds no security groups yet. An organisation admin grants one.",
+    sentence: "Marketing holds no security groups yet. An organization admin grants one.",
   },
   grants: {
     sentence: "Nothing is granted to this team yet.",
     verb: { label: "Grant a group" },
   },
   "boundaries.org": {
-    sentence: "No boundaries yet. Nothing is restricted beyond the organisation's runtime approvals.",
+    sentence: "No boundaries yet. Nothing is restricted beyond the organization's runtime approvals.",
     verb: { label: "Add a boundary" },
   },
   "boundaries.team": {
-    sentence: "Marketing adds no boundaries of its own. The organisation's apply.",
+    sentence: "Marketing adds no boundaries of its own. The organization's apply.",
     verb: { label: "Add a boundary" },
   },
   providers: {
@@ -107,17 +107,17 @@ export const EMPTY = {
     sentence: "We cannot list what is inside this vault; it shows what an admin declared.",
   },
   "assets.org": {
-    sentence: "No organisation assets yet. Anything here reaches every team.",
+    sentence: "No organization assets yet. Anything here reaches every team.",
     verb: { label: "Add an asset" },
   },
   // W5-D9: Assets is one screen at every level, and a level with nothing on
-  // its branch says so in its own words. 05 §8 has only the organisation's
+  // its branch says so in its own words. 05 §8 has only the organization's
   // row; these two came in the way `boundaries.me` did.
   "assets.team": {
-    sentence: "Nothing on this team's branch yet. What the organisation holds still reaches you.",
+    sentence: "Nothing on this team's branch yet. What the organization holds still reaches you.",
   },
   "assets.me": {
-    sentence: "Nothing on your own branch yet. What your team and your organisation hold still reaches you.",
+    sentence: "Nothing on your own branch yet. What your team and your organization hold still reaches you.",
   },
   logs: {
     sentence: "Nothing recorded yet in this category.",
@@ -167,7 +167,7 @@ export type EmptyId = keyof typeof EMPTY;
 /** P10: the note `HiddenView` renders in place of a list an org admin has
  *  hidden from a member, keyed by the field that is hidden. */
 export const HIDDEN = {
-  boundaries: "Your organisation has chosen not to show boundaries to members. A refusal you meet will still say which boundary it was.",
-  logs: "Your organisation has chosen not to show members their own logs.",
-  store: "Your organisation has chosen not to show members the store. What already reaches you is unchanged.",
+  boundaries: "Your organization has chosen not to show boundaries to members. A refusal you meet will still say which boundary it was.",
+  logs: "Your organization has chosen not to show members their own logs.",
+  store: "Your organization has chosen not to show members the store. What already reaches you is unchanged.",
 } as const satisfies Record<keyof Visibility, string>;

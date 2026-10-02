@@ -9,7 +9,7 @@ interface Version {
 	commit: string;
 	tree: string;
 	shadows?: { from: string; tree: string };
-	/** W5-D10: on the organisation's `required` list, so every session loads it
+	/** W5-D10: on the organization's `required` list, so every session loads it
 	    and no harness may drop it. (Was `alwaysLoaded`.) */
 	required: boolean;
 }

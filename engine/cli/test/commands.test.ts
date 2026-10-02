@@ -123,7 +123,7 @@ describe("new (§11.12, D107)", () => {
 		vi.mocked(console.log).mockClear();
 		await newHarness(credentials, onChain("acme.marketing"), composed([source]), "Everyone", "campaign-drafts", "org");
 		expect(calls[1].body).toMatchObject({ scope: "org", assets: [], from: "h1" });
-		expect(printed()).toContain("Created on the organisation's branch. Every team inherits it.");
+		expect(printed()).toContain("Created on the organization's branch. Every team inherits it.");
 		expect(printed()).toContain("`harness switch \"Everyone\" --team` to pick it up.");
 		vi.unstubAllGlobals();
 	});
@@ -154,7 +154,7 @@ describe("new (§11.12, D107)", () => {
 	});
 
 	it("new_harness_starts_with_the_recommended_ids", async () => {
-		// W5-D10: the organisation's `recommended` list, copied in at creation
+		// W5-D10: the organization's `recommended` list, copied in at creation
 		// and ordinary entries from then on. A recommended id nothing on the
 		// chain answers is not copied — it would only be an unanswered row.
 		const assets = [{ id: "r1" }, { id: "a1" }] as unknown as Composed["assets"];
@@ -225,7 +225,7 @@ describe("adopt (§11.11, D114)", () => {
 		expect(one.id).toMatch(/^[0-9a-f-]{36}$/);
 	});
 
-	it("refuses a kind the organisation does not use", async () => {
+	it("refuses a kind the organization does not use", async () => {
 		const dir = await handMade("odd", { "asset.json": JSON.stringify({ id: "x", kind: "widget" }) });
 		await expect(adopt(dir, false, ["skill", "tool", "memory"])).rejects.toMatchObject({ code: "cli.kind_unknown" });
 	});

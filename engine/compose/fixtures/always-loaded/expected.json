@@ -72,7 +72,7 @@
 				"ref": "refs/heads/org",
 				"commit": "org"
 			},
-			"why": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d is not an organisation asset"
+			"why": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d is not an organization asset"
 		}
 	],
 	"policy": {

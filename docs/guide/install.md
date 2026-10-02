@@ -11,6 +11,19 @@ the CLI on a machine, `scripts/install.sh` is these five commands with the
 checks in front of them, and [`first-session.md`](first-session.md) is the
 walkthrough that starts with it (W7-D6).
 
+The console serves that script from its own origin — `npm run prebuild` in
+`web/` copies `scripts/install.sh` to `web/public/install.sh` before every
+build, so the line *How this works* → *Set up* prints is
+`curl -fsSL https://theharnessmanager.com/install.sh | sh`. The script is
+the one source; the copy under `public/` is a build artefact and is
+gitignored.
+
+> **The repository must be public.** Serving the script is not enough: the
+> script `git clone`s `https://github.com/cfdev-25/harness-co`, so on a
+> private repository `git clone` asks a stranger for a password and the
+> install stops there. Make the repository public before pointing anyone at
+> the `curl` line, or set `HARNESS_REPO` to a checkout they can reach.
+
 ## What you need
 
 - Node 22.19 or newer (`.nvmrc` says which) and `npm`
@@ -72,7 +85,7 @@ route; use the session pooler URL instead (`docs/build-decisions.md`,
    machine. It is shown once.
 2. `harness login` — paste the token. The API is `http://localhost:8400`
    unless you pass `--api-url`.
-3. `harness whoami` — your organisation, team and role.
+3. `harness whoami` — your organization, team and role.
 
 `harness login` keeps the token in `~/.harness/credentials.json`
 (`HARNESS_HOME` moves the whole directory). Nothing else is written outside
@@ -115,7 +128,7 @@ and works with the API down.
 
 ## Then
 
-- An organisation admin: [`first-hour-admin.md`](first-hour-admin.md), or
+- An organization admin: [`first-hour-admin.md`](first-hour-admin.md), or
   just `harness setup`, which prints the same five steps with the command
   that closes each.
 - Everyone else: [`first-session.md`](first-session.md) — sign up, a model,

@@ -142,7 +142,7 @@ export async function importSetup(spec: ImportSpec, source: { dir: string; works
 	}
 	for (const key of ["env", "model", "apiKeyHelper"]) {
 		if (key in settings) {
-			dropped.push({ what: `settings.${key}`, from: settingsPath, why: "Credentials and model routing are the organisation's." });
+			dropped.push({ what: `settings.${key}`, from: settingsPath, why: "Credentials and model routing are the organization's." });
 		}
 	}
 

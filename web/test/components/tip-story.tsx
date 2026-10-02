@@ -19,7 +19,7 @@ type Row = Record<(typeof KEYS)[number], string>;
 
 const ROWS: Row[] = [
   { host: "github.com", outcome: "refused", reason: "Not on the allow-list.",
-    setBy: "Organisation", count: "4", first: "21 hours ago", last: "20 hours ago",
+    setBy: "Organization", count: "4", first: "21 hours ago", last: "20 hours ago",
     sessions: "2", allow: "Allow" },
 ];
 

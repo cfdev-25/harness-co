@@ -17,8 +17,8 @@ import { Textarea } from "../../../ui/textarea";
 export interface AddBoundaryProps {
   /** The node the boundary is added at: this team and below, never wider. */
   scopePath: string;
-  /** The organisation's path, because at the top *below me* is `"all"` and
-   *  not the organisation's own name (`scopeFor`). */
+  /** The organization's path, because at the top *below me* is `"all"` and
+   *  not the organization's own name (`scopeFor`). */
   orgPath: string;
   /** The tab the form was opened from, which picks the kind it starts on
    *  (W6-D8): adding from Commands means adding a command. */

@@ -74,14 +74,14 @@ describe("supervise (§9)", () => {
 		// Called once per alias, and the notice printed once, however many ticks ran.
 		expect(proxy.retire.mock.calls).toEqual([["crm"]]);
 		expect(notes.filter((line) => line.includes("`crm` credential was retired"))).toHaveLength(1);
-		expect(notes[0]).toBe("The `crm` credential was retired by your organisation; requests using it will be refused from now.");
+		expect(notes[0]).toBe("The `crm` credential was retired by your organization; requests using it will be refused from now.");
 	});
 
 	it("revoked_session_terminates_child", async () => {
 		const { child, proxy, watcher } = harness(async () => ({ status: "revoked", revoked_reason: "a boundary tightened" }), { killAfterMs: 10 });
 		await settle();
 		expect(proxy.close).toHaveBeenCalled();
-		expect(notes).toContain("This session was ended by your organisation: a boundary tightened.");
+		expect(notes).toContain("This session was ended by your organization: a boundary tightened.");
 		// SIGTERM first; still alive when the grace runs out, so SIGKILL follows.
 		expect(child.signals[0]).toBe("SIGTERM");
 		await settle();

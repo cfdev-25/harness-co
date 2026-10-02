@@ -23,7 +23,7 @@ import { ApprovalSwitch } from "./_approval";
 export interface HarnessProviderTableProps {
   rows: HarnessProviderRow[];
   personal: boolean;
-  /** 04 §10: only an organisation admin gets the switch; everyone else reads
+  /** 04 §10: only an organization admin gets the switch; everyone else reads
    *  the tag and the refusal the page already renders (P13). */
   orgAdmin: boolean;
   empty: string;

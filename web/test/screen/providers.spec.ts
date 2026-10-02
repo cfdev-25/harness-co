@@ -69,7 +69,7 @@ test("renders_for_every_scope", async ({ page }) => {
 
 test.fixme("not_approved_rows_present_with_reason", async () => {
   // D47: needs a declined runtime in `policy/harness-providers.json`; the
-  // exported organisation has one runtime and it is approved.
+  // exported organization has one runtime and it is approved.
 });
 
 test.fixme("provider_approval_is_a_commit_with_diff", async () => {
@@ -80,7 +80,7 @@ test.fixme("provider_approval_is_a_commit_with_diff", async () => {
 test.fixme("routing_matrix_round_trips", async () => {
   // W6-D5 moved the write to the row's *Set default…* verb, proved at the
   // network in `test/components/providers-writes.spec.tsx` and on the dev
-  // stack; a screen test of it needs a scratch organisation it may write to.
+  // stack; a screen test of it needs a scratch organization it may write to.
 });
 
 test.fixme("team_admin_approve_not_cleared", async () => {

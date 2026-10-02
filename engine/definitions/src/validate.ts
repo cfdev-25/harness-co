@@ -75,7 +75,7 @@ export async function validate(context: Context, update: Update): Promise<void> 
 	if (update.ref.startsWith("refs/heads/teams/"))
 		for (const path of paths)
 			if (ORG_ONLY.includes(path))
-				throw new Refusal("definitions.policy_invalid", 403, path, "this file belongs to the organisation branch");
+				throw new Refusal("definitions.policy_invalid", 403, path, "this file belongs to the organization branch");
 
 	// Step 8. No secrets — over what this push adds or changes. What was already
 	// on the branch passed this rule when it landed.

@@ -76,7 +76,7 @@ you found and what you propose before creating anything.
 | | `~/.claude/skills/*`, `./.claude/skills/*` | `skill`, directory whole |
 | | `settings.json` → `permissions`, `hooks`, `mcpServers`, `env`, `model` | see *what is not carried* |
 | **Codex** | `~/.codex/AGENTS.md`, `./AGENTS.md`, `~/.codex/instructions.md` | `memory` per heading; *Instructions* → `system_prompt` |
-| | `~/.codex/config.toml` → `[profiles]`, `model`, `approval_policy`, `sandbox` | dropped: model routing and approval are the organisation's |
+| | `~/.codex/config.toml` → `[profiles]`, `model`, `approval_policy`, `sandbox` | dropped: model routing and approval are the organization's |
 | | `~/.codex/config.toml` → `[mcp_servers]` | `connection` stub naming the server and its command — no `env` values |
 | | `~/.codex/prompts/*.md` | `prompt`, one each |
 | **Cursor** | `.cursor/rules/*.mdc`, `.cursorrules`, `~/.cursor/rules` | `memory` per rule file (strip the `globs`/`alwaysApply` frontmatter into the first line as *applies to: …*) |
@@ -94,7 +94,7 @@ you found and what you propose before creating anything.
 | Found | Do | Say |
 | --- | --- | --- |
 | API keys, tokens, `env` blocks, `apiKeyHelper`, anything that looks like a secret | **never copy the value**; note the alias it would need | *`OPENAI_API_KEY` was set in `config.toml` — keys live in a key vault here. Connect it under Providers → Set up (or Key vaults) and the alias `openai` reaches it.* |
-| Model choice, provider URLs, `defaultModel`, profiles | drop | *Model routing is the organisation's; your team's default applies.* |
+| Model choice, provider URLs, `defaultModel`, profiles | drop | *Model routing is the organization's; your team's default applies.* |
 | Permission lists (`permissions.allow/deny`, `approval_policy`, `sandbox`) | drop, list them | *These are boundaries — an admin sets them on Boundaries for the team; here is what you had.* |
 | Hooks, lifecycle scripts, `PreToolUse` commands | drop, name each | *A hook is arbitrary code run on every call; it is not carried. If it did one job, say which and it can become a tool.* |
 | MCP servers | a `connection` stub: name, command/URL, **no env** | *Recorded as a connection; the runtime decides whether it can attach it.* |
@@ -109,7 +109,7 @@ End with three lists, in this order and these words, so it matches what
 Carried   memory/no-force-push        from ~/.codex/AGENTS.md § Git
           prompt/release-notes        from ~/.codex/prompts/release-notes.md
 Partial   memory/style                from .cursor/rules/style.mdc — globs dropped, noted in the first line
-Dropped   config.toml model           model routing is the organisation's
+Dropped   config.toml model           model routing is the organization's
           config.toml mcp_servers.env values are secrets; alias needed: openai
 ```
 

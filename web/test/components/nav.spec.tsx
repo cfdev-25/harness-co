@@ -44,7 +44,7 @@ test("nav_team_admin_adds_the_permission_screens_but_not_key_vaults", async ({ m
     /^Harnesses/, "Assets", "Security groups", "Boundaries", "Providers", "Logs",
     "People", "Teams", "How this works",
   ]);
-  // Key vaults are the organisation's, not a team's.
+  // Key vaults are the organization's, not a team's.
   await expect(admin.getByRole("link", { name: "Key vaults" })).toHaveCount(0);
 });
 
@@ -61,13 +61,28 @@ test("nav_personal_has_boundaries_and_no_teams", async ({ mount }) => {
   ]);
 });
 
-test("nav_logs_row_is_not_announced_twice", async ({ mount }) => {
-  // The group heading and its one row said "Logs" twice once Sessions and
-  // Endpoints became tabs; the heading goes when it only repeats the row.
+test("nav_without_permission_screens_is_one_unlabelled_list", async ({ mount }) => {
+  // D106: at a level this viewer administers nothing on there is one kind of
+  // row, so there is nothing for an eyebrow to part — four headings over one
+  // row each is what left *Logs* floating alone in the middle of the rail.
   const nav = await mount(
     <Sidebar scope={{ kind: "me" }} viewer={VIEWER} pathname="/console/me/harnesses" />,
   );
+  // No eyebrow is drawn at all, so every word on the rail is a row.
+  await expect(nav.locator("p")).toHaveCount(0);
   await expect(nav.getByText("Logs", { exact: true })).toHaveCount(1);
+});
+
+test("nav_with_permission_screens_names_every_group_including_logs", async ({ mount }) => {
+  // The other half of D106: once the rail holds two kinds of row, each group
+  // carries its eyebrow — the one with a single row too, because a hairline
+  // with no word above it is a rule, not a label.
+  const nav = await mount(
+    <Sidebar scope={TEAM} viewer={ADMIN} pathname="/console/acme.marketing/harnesses" />,
+  );
+  await expect(nav.locator("p")).toHaveText(["Assets", "Permissions", "Logs", "People"]);
+  // *Logs* now reads twice: once as the eyebrow, once as the row under it.
+  await expect(nav.getByText("Logs", { exact: true })).toHaveCount(2);
 });
 
 /**

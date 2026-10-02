@@ -92,7 +92,7 @@ export const HARNESS_VIEW: HarnessView = {
 };
 
 /**
- * `GET /v1/console/reach?scope=team:acme.marketing` — the organisation is
+ * `GET /v1/console/reach?scope=team:acme.marketing` — the organization is
  * `on` except one host and Marketing narrows that to an allow-list of two,
  * which is D131's walk in its smallest complete form.
  */

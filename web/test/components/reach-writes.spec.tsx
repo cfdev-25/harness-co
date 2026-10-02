@@ -92,7 +92,7 @@ test("reach_is_read_only_without_canEdit", async ({ mount, page }) => {
   await expect(page.getByRole("button", { name: REACH_TEXT.removeVerb })).toHaveCount(0);
   await expect(page.getByLabel(REACH_TEXT.addLabel)).toHaveCount(0);
   // The inherited walk and this level's answer are still there to read.
-  await expect(page.getByText("Organisation: on, except 1 host")).toBeVisible();
+  await expect(page.getByText("Organization: on, except 1 host")).toBeVisible();
 });
 
 test("reach_not_set_here_offers_the_modes_and_no_list", async ({ mount, page }) => {
@@ -108,5 +108,5 @@ test("reach_not_set_here_offers_the_modes_and_no_list", async ({ mount, page }) 
   await expect(page.getByRole("radio", { name: REACH_TEXT.modes.allow.label })).not.toBeChecked();
   await expect(page.getByRole("button", { name: REACH_TEXT.removeVerb })).toHaveCount(0);
   // What it uses instead is still read, above.
-  await expect(page.getByText("Organisation: on, except 1 host")).toBeVisible();
+  await expect(page.getByText("Organization: on, except 1 host")).toBeVisible();
 });

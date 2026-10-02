@@ -4,9 +4,10 @@ import { HARNESSES_WORDS as WORDS } from "@/content/screens/harnesses";
 import type { HarnessCard } from "@/lib/views/harness";
 
 /**
- * W5-D13's launch row on a harness card (04 §4). The runtimes come from the
- * server (`HarnessCard.runners`), the breadcrumb from the viewer's own last
- * session (`lastWorkspace`), and both sit above the card's overlay link.
+ * W5-D13's action row on a harness card (04 §4). The runtimes come from the
+ * server (`HarnessCard.runners`), the shape of the row from the viewer's own
+ * last session (`lastWorkspace`, D107), and all of it sits above the card's
+ * overlay link.
  */
 
 const SCOPE = { kind: "me" } as const;
@@ -46,29 +47,53 @@ test("a_card_with_no_runners_shows_none", async ({ mount, page }) => {
   await expect(page.getByRole("link", { name: "test-harness-1" })).toBeVisible();
 });
 
-test("no_workspace_no_breadcrumb", async ({ mount, page }) => {
+test("no_workspace_no_resume", async ({ mount, page }) => {
   // W5-D14: the server nulls another person's workspace and every workspace
   // under `?as`, so absence is the whole rule the page applies.
   await mount(<Card scope={SCOPE} card={card()} />);
 
   await expect(page.locator('a[href*="workspace="]')).toHaveCount(0);
-  await expect(page.getByText("Open again", { exact: false })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: WORDS.resume, exact: true })).toHaveCount(0);
+  await expect(page.getByText(WORDS.openIn, { exact: true })).toBeVisible();
 });
 
-test("the_breadcrumb_encodes_the_path_and_shortens_it_only_to_read", async ({ mount, page }) => {
+test("resume_is_the_primary_verb_and_the_folder_is_beside_it", async ({ mount, page }) => {
+  // D107: with somewhere to carry on, the row is one button. The host is
+  // gone — it named the machine the person is already sitting at.
   await mount(
     <Card
       scope={SCOPE}
       card={card({ lastWorkspace: "/Users/corby/my projects/foo", lastHost: "corby-mbp" })}
     />,
   );
-  const again = page.getByRole("link", { name: "Open again in ~/my projects/foo on corby-mbp" });
   // `~` is display only; the link carries the absolute path, percent-encoded,
   // because a relative one is `cli.link_malformed`.
-  await expect(again).toHaveAttribute(
+  await expect(page.getByRole("link", { name: WORDS.resume, exact: true })).toHaveAttribute(
     "href",
     `harness://run?harness=${ID}&provider=pi&workspace=%2FUsers%2Fcorby%2Fmy%20projects%2Ffoo`,
   );
+  await expect(page.getByText("in ~/my projects/foo")).toBeVisible();
+  await expect(page.getByText("corby-mbp")).toHaveCount(0);
+  // One button: *Open in* is the other shape of the row, never both.
+  await expect(page.getByText(WORDS.openIn, { exact: true })).toHaveCount(0);
+});
+
+test("a_second_runtime_resumes_into_the_same_workspace", async ({ mount, page }) => {
+  await mount(
+    <Card
+      scope={SCOPE}
+      card={card({
+        runners: [{ id: "pi", name: "Pi" }, { id: "claude", name: "Claude Code" }],
+        lastWorkspace: "/Users/corby/projects/foo",
+      })}
+    />,
+  );
+  // The extra runtime is a small second link, not a second primary verb.
+  await expect(page.getByRole("link", { name: "Resume in Claude Code" })).toHaveAttribute(
+    "href",
+    `harness://run?harness=${ID}&provider=claude&workspace=%2FUsers%2Fcorby%2Fprojects%2Ffoo`,
+  );
+  await expect(page.getByRole("link", { name: WORDS.resume, exact: true })).toHaveCount(1);
 });
 
 test("the_card_overlay_does_not_swallow_a_runner", async ({ mount, page }) => {

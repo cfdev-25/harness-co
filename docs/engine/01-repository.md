@@ -1,6 +1,6 @@
 # Engine Plan — 01 · The repository
 
-The definition plane on disk: how an organisation's branches are laid out on
+The definition plane on disk: how an organization's branches are laid out on
 the server, how the person's clone mirrors them, what a sidecar is, how
 `compose()` turns a chain of refs into one effective set, and how the work
 tree is materialised and pushed back without ever committing more than the
@@ -47,7 +47,7 @@ are in `00 §4.2`.
 
 ## 4. On disk
 
-### 4.1 The server repo — one per organisation
+### 4.1 The server repo — one per organization
 
 ```
 refs/heads/org                       the root. Policy lives here and nowhere else.
@@ -102,15 +102,15 @@ and cannot be deleted (`asset.required`). A **recommended** id is copied into
 a new harness's `assets` at creation — `harness new` and `POST /v1/harnesses`
 — and is an ordinary entry of that harness from then on, which the person may
 take out again. An id on both lists is required; the stronger state wins.
-Both lists name organisation assets only, by the same step-12 rule.
+Both lists name organization assets only, by the same step-12 rule.
 
 A **bare array** is still accepted and reads as `required` everywhere it is
 read — compose, the definitions indexer (which normalises it into the object
 shape on its way into `idx_policy`), `console_index`, `routes_writes`. That
-is the shape every organisation seeded before W5-D10 holds, and the first
+is the shape every organization seeded before W5-D10 holds, and the first
 write to the file leaves the object shape behind.
 
-It starts non-empty: every organisation is seeded with D30j's built-in
+It starts non-empty: every organization is seeded with D30j's built-in
 `harness-authoring` skill at `assets/skill/harness-authoring/`, so its id
 `0460b220-8379-5ddf-82ef-31bc0e8a99e1` is **required** from the first commit,
 and with the default brief at `assets/system_prompt/harness/`
@@ -119,7 +119,7 @@ and with the default brief at `assets/system_prompt/harness/`
 `policy/reach.json` is **`{ mode, hosts }`** and is per node, like
 `boundaries.json` — not org-only. `allow` makes `hosts` the allow-list, `on`
 makes it the deny-list, `off` ignores it; absent everywhere is `off`. The
-organisation's file starts the walk and each team below may only narrow it
+organization's file starts the walk and each team below may only narrow it
 (D131): move `on` → `allow` → `off`, take a host off an allow-list, add one
 to a deny-list. A step that widens is a `reach-widened` conflict, refused at
 pre-receive as `definitions.reach_widens`, and the parent stands. A
@@ -130,7 +130,7 @@ value the session gets is `effectiveReach(policy.reach, harness)`.
 the old answer and is gone: a grant is a security group and nothing else. A
 branch that still holds one composes to a `reach-grant-retired` conflict and
 the push that would carry it is refused with
-`definitions.reach_grant_retired` — which means an organisation upgrading
+`definitions.reach_grant_retired` — which means an organization upgrading
 across this change removes its reach grants before it can push again, and
 until it does, every session on that chain refuses at row 2 with the same
 conflict. That is deliberate: a grant that silently stopped meaning anything
@@ -154,8 +154,8 @@ which console screen manages it (`screen`, a route segment under
 
 | `managed` | Seeded? | Who owns it afterwards |
 | --- | --- | --- |
-| `required` | yes, into every organisation | nobody may remove it — the harness cannot run without it (§4.4) |
-| `recommended` | yes, into every new organisation | the organisation, wholly: create, read, update and delete all exist on the screen the entry names |
+| `required` | yes, into every organization | nobody may remove it — the harness cannot run without it (§4.4) |
+| `recommended` | yes, into every new organization | the organization, wholly: create, read, update and delete all exist on the screen the entry names |
 | `suggested` | **no** | nobody yet — the screen offers each item as a one-click add |
 
 `seed.py` walks the manifest: every `required` and `recommended` entry lands at
@@ -181,11 +181,11 @@ The two reach defaults are D135 made data: `reach-default-personal.json` and
 `policy/reach.json`. **D135 — the wave-5 plan's decision 1c — is amended by W7-D4 / D155**: the personal
 default is `on` with an empty deny-list, not the suggested allow-list. The
 reason is the first-harness modal's *Web access* switch. Reach only ever
-narrows, so a harness can turn web access **off** under an `on` organisation
-and cannot turn it on at all; under an `allow` organisation `off` is still
+narrows, so a harness can turn web access **off** under an `on` organization
+and cannot turn it on at all; under an `allow` organization `off` is still
 reachable but the switch's other position would be a `reach-widened` conflict,
 and the suggested list would be the thing a hobby user had to understand before
-their first harness. So the organisation says *everything, nothing denied* and
+their first harness. So the organization says *everything, nothing denied* and
 the harness says *this one, nothing*. The enterprise default is unchanged
 (`off`), and the suggested list is unchanged: it is what Boundaries → Reach
 offers as one-click adds, which is where an allow-list gets built. Their `screen`, and `reach-suggested.json`'s, is
@@ -194,11 +194,11 @@ were repointed at it, which is what the checker testing a directory rather
 than a sentence is for.
 
 `command-boundaries.json` is the second `suggested` entry (W6-D10, D154): the
-command lines most organisations never want run — the system and home wipes,
+command lines most organizations never want run — the system and home wipes,
 a download piped into a shell, a force push, the shell history turned off —
 each with the `reason` whoever hits it will read and `holds: "intercepted"`,
 which is the only word a command boundary can have (06 §13). It is **never
-seeded**: a default that denies something is a decision, and the organisation
+seeded**: a default that denies something is a decision, and the organization
 makes it on Boundaries → Commands, where each entry is one click.
 
 Examples, each valid against `00 §4`:
@@ -314,21 +314,21 @@ and appears in no file.
 ### 4.4 The harness OS
 
 `managed: required` is the complete list of what the product cannot run
-without. It is short on purpose, it is the one thing an organisation may not
+without. It is short on purpose, it is the one thing an organization may not
 remove, and every entry on it is here with the sentence that says why
 (W6-D1, D147).
 
 | Entry | What it is | Why nothing works without it |
 | --- | --- | --- |
-| `kinds` → `policy/kinds.json` | the asset kinds, as `AssetKind[]` | the kind is the sidecar's one required claim (§5 rule 2) and both adapters render **only the kinds they know** — a kind that is on no list is `unknown-kind` at compose, so an organisation with no `kinds.json` has no assets it can deliver |
+| `kinds` → `policy/kinds.json` | the asset kinds, as `AssetKind[]` | the kind is the sidecar's one required claim (§5 rule 2) and both adapters render **only the kinds they know** — a kind that is on no list is `unknown-kind` at compose, so an organization with no `kinds.json` has no assets it can deliver |
 | `asset:harness-authoring` → `assets/skill/harness-authoring/` | D30j's built-in skill, `required` on `always-loaded.json` | it is how a person makes or extracts an asset; without it the first session can use the product but cannot extend it, and every *write me a skill* answer would be a guess at our own file layout |
 
 Everything else is `recommended` or `suggested`, which is to say: the
-organisation's. The two runtimes' **identities** — their pins, what they speak
+organization's. The two runtimes' **identities** — their pins, what they speak
 and their names (D148) — ship in `harness-providers.json` and are not
 negotiable facts about Pi and Claude Code, but the *row* is `recommended`,
 because whether a runtime is approved, for whom, and whether the row exists at
-all is the organisation's decision and nobody else's (prd-v2 §9.1).
+all is the organization's decision and nobody else's (prd-v2 §9.1).
 
 A default added to the `required` list without a sentence in this table is a
 finding of `scripts/check-defaults.py`, which is the point: *required* is a
@@ -345,7 +345,7 @@ again at compose (§6 step 4), because git carries whatever a file claims
 2. `id` is a lowercase RFC 4122 uuid. `kind` equals the `<kind>` directory
    segment and is in `policy/kinds.json`. `needs`, if present, is an array
    of `Need`. `format`, if present, is a `WireFormat`. `description`, if
-   present, is a string — shown on the organisation assets row and written by
+   present, is a string — shown on the organization assets row and written by
    `PATCH /v1/assets/{id}` (console 00 §4.11, WS3a), the one other field the
    sidecar carries. Unknown keys are refused — a sidecar is not a place for a
    kind's own metadata.
@@ -435,7 +435,7 @@ node, one `cat` per sidecar and policy file; O(assets across the chain).
     `SecurityGroup`; the consumer (03) applies the filter when it walks
     grants, so a group has one definition (I2 applied to credentials).
 10a. **Reach** (D131), per node, root first, beside boundaries and grants.
-    The organisation's `policy/reach.json` *is* the start of the walk:
+    The organization's `policy/reach.json` *is* the start of the walk:
     `{ mode, hosts, setBy: org.path }`, or `{ mode: "off", hosts: [], setBy:
     org.path }` when it holds none. Each team node below may only narrow it —
     move down `on` → `allow` → `off`, drop a host from an allow-list, add one
@@ -637,19 +637,19 @@ strings are defined here so they exist once).
 
 | Code | Message | Remedy |
 | --- | --- | --- |
-| `compose.chain_invalid` | Your organisation's branches do not form a chain: `<detail>`. | This is a server fault. Run `harness preflight` and share the output with an organisation admin. |
+| `compose.chain_invalid` | Your organization's branches do not form a chain: `<detail>`. | This is a server fault. Run `harness preflight` and share the output with an organization admin. |
 | `compose.malformed` | `<path>` on `<node>` does not parse: `<why>`. | An admin of `<node>` fixes the file; the change log shows who last touched it. |
-| `compose.unknown_kind` | `<path>` on `<node>` is a `<kind>`, which this organisation does not define. | Add `<kind>` to `policy/kinds.json` on the organisation, or rename the directory. |
+| `compose.unknown_kind` | `<path>` on `<node>` is a `<kind>`, which this organization does not define. | Add `<kind>` to `policy/kinds.json` on the organization, or rename the directory. |
 | `compose.duplicate_id` | `<node>` holds the same asset id at `<paths>`. | Keep one; give the other a new id with `harness adopt`. |
 | `compose.same_path_different_id` | `<path>` exists on `<a.from>` and `<b.from>` with different ids, so neither can be loaded. | `harness reset <path>` to take theirs, or rename yours. |
 | `compose.invalid_grant` | The grant `<grant>` on `<node>` is not a narrowing of one it holds: `<why>`. | An admin of `<node>` edits `policy/grants.json`; only aliases the team holds, to teams inside it. |
-| `compose.reach_widened` | Your organisation's definitions do not compose: reach-widened at `<node or harness:id>`. | Reach only ever narrows on the way down: `<why>`. An admin of the node above sets it there. |
-| `compose.reach_grant_retired` | Your organisation's definitions do not compose: reach-grant-retired at `<grant>`. | Reach is `policy/reach.json` now, not a grant. An organisation admin removes this grant and sets reach under Boundaries → Reach. |
-| `compose.always_loaded_missing` | `policy/always-loaded.json` names `<id>`, which is not an organisation asset. | Remove it from the file or move the asset to the organisation branch. (Either list — W5-D10.) |
+| `compose.reach_widened` | Your organization's definitions do not compose: reach-widened at `<node or harness:id>`. | Reach only ever narrows on the way down: `<why>`. An admin of the node above sets it there. |
+| `compose.reach_grant_retired` | Your organization's definitions do not compose: reach-grant-retired at `<grant>`. | Reach is `policy/reach.json` now, not a grant. An organization admin removes this grant and sets reach under Boundaries → Reach. |
+| `compose.always_loaded_missing` | `policy/always-loaded.json` names `<id>`, which is not an organization asset. | Remove it from the file or move the asset to the organization branch. (Either list — W5-D10.) |
 | `repo.no_sidecar` | `<key>` has no `asset.json`, so it is not yet an asset. | `harness adopt <path>` gives it an identity. |
 | `repo.id_mismatch` | `<key>` already exists on `<node>` with a different id. | `harness reset <key>` to take theirs, or rename yours. |
 | `repo.branch_moved` | Your branch moved on another machine since this one last pulled. | `harness pull`, then push again. |
-| `repo.chain_mismatch` | The server named `<ref>` in your chain but did not serve it. | This is a server fault. Run `harness preflight` and share the output with an organisation admin. |
+| `repo.chain_mismatch` | The server named `<ref>` in your chain but did not serve it. | This is a server fault. Run `harness preflight` and share the output with an organization admin. |
 | `repo.not_in_work_tree` | `<path>` is not under `~/.harness/assets`. | `harness adopt <path>` moves it there. |
 
 ## 10. Tests
@@ -693,8 +693,8 @@ strings are defined here so they exist once).
 | D146 | **Every out-of-the-box behaviour lives in one place, and that place has a manifest** (§4.2, W6-D1). `engine/compose/presets/` is the only home of a default and `presets/index.json` is its list: per entry, the file or asset directory it is, how it is **managed** (`required` · `recommended` · `suggested`), the console screen that manages it and the verbs that screen offers. A default not in the manifest does not exist; a file under `presets/` no entry names is a finding. One indirection only: a value spelled `@<entry id>` is that entry's file, which is how `reach-default-personal.json` is the suggested list with a mode rather than a second copy of it | letting each new default be added wherever its author stood — which is how the kinds became a Python constant, the reach starter list a JSON array nobody could find, and the runtime display names a map beside one reader |
 | D147 | **The seed walks the manifest and names no file** (§4.2, W6-D2). `seed.py` writes every `required` and `recommended` entry — policy files to `policy/<name>`, asset directories to `assets/<kind>/<name>/` — derives `always-loaded.json`'s two lists from the asset entries' `managed` words, and the only preset it still names is which of the two `reach-default-*` entries an edition takes. `KINDS` and `REQUIRED_ASSETS` are deleted: the kinds are `presets/kinds.json`, read on every branch as `policy/kinds.json` the way they already were, and *required* is a word in the manifest | keeping the lists in Python, where a default is invisible to the checker and to the person it ships to |
 | D149 | **A default without a screen is a build failure** (W6-D4). `scripts/check-defaults.py`, run beside `check-plan-docs.py`: the manifest and `presets/` are the same set; every entry's `screen` is a directory under `web/app/(console)/console/[scope]/`; every verb occurs in that directory's own files or in a write spec of the entry's own name; every `required` entry is named in §4.4 with the sentence that says why. Zero findings is the bar. Its first run says model providers have no `delete` verb, which is true and is the point | checking the manifest against the docs, which would prove only that two prose lists agree |
-| D154 | **The starter set of command boundaries ships as a default and is never seeded** (W6-D10, §4.2). `presets/command-boundaries.json`, `managed: suggested`, `screen: boundaries/commands` — the system and home wipes, a download piped into a shell, the two force-push forms, the shell history turned off. It is `suggested` and not `recommended` because a deny that arrives switched on is a decision we made for an organisation that never asked: the first time a boundary we shipped refuses something real, the person reads a reason written by a stranger. So it is offered, one click each, with its reason, under *Set here* — and what the organisation clicks is its own row at its own node, liftable where it was set like any other. | seeding them, which is the shortest path to an organisation turning the whole feature off |
-| D155 | **A personal organisation starts with reach `on`, so one harness can turn it off** (W7-D4, §4.2; amends D135, the wave-5 plan's decision 1c). `reach-default-personal.json` is `{ "mode": "on", "hosts": [] }` and not the suggested allow-list. The reason is the first-harness modal's *Web access* switch: reach only ever narrows (D131), so a harness under an `on` organisation can say `off` and nothing else, which is exactly the two positions the switch has. Under the old `allow` default the switch's *on* would have been a `reach-widened` conflict — and that conflict stops every session on the chain (`compose.reach_widened`), not just the harness — and a hobby user would have had to understand an allow-list of fourteen hosts before making a first harness. The enterprise default is unchanged (`off`): there an admin turns the organisation on from Boundaries → Reach first. The suggested list is unchanged too, and is still what that screen offers as one-click adds — which is now its only reader, so `@reach-suggested`, the one indirection, has no user and is kept for the next default that is another entry. `POST /v1/harnesses` takes `reach?: { mode, hosts }` and writes it as `HarnessDef.reach`; **the console sends `off` and never `on`**, because absent means *inherit* and a harness restating `on` narrows nothing today and conflicts the day the organisation turns itself down. | keeping `allow` and giving the modal a third position, *inherit*; keeping `allow` and having the switch write an allow-list minus every host, which is a widening by another name |
+| D154 | **The starter set of command boundaries ships as a default and is never seeded** (W6-D10, §4.2). `presets/command-boundaries.json`, `managed: suggested`, `screen: boundaries/commands` — the system and home wipes, a download piped into a shell, the two force-push forms, the shell history turned off. It is `suggested` and not `recommended` because a deny that arrives switched on is a decision we made for an organization that never asked: the first time a boundary we shipped refuses something real, the person reads a reason written by a stranger. So it is offered, one click each, with its reason, under *Set here* — and what the organization clicks is its own row at its own node, liftable where it was set like any other. | seeding them, which is the shortest path to an organization turning the whole feature off |
+| D155 | **A personal organization starts with reach `on`, so one harness can turn it off** (W7-D4, §4.2; amends D135, the wave-5 plan's decision 1c). `reach-default-personal.json` is `{ "mode": "on", "hosts": [] }` and not the suggested allow-list. The reason is the first-harness modal's *Web access* switch: reach only ever narrows (D131), so a harness under an `on` organization can say `off` and nothing else, which is exactly the two positions the switch has. Under the old `allow` default the switch's *on* would have been a `reach-widened` conflict — and that conflict stops every session on the chain (`compose.reach_widened`), not just the harness — and a hobby user would have had to understand an allow-list of fourteen hosts before making a first harness. The enterprise default is unchanged (`off`): there an admin turns the organization on from Boundaries → Reach first. The suggested list is unchanged too, and is still what that screen offers as one-click adds — which is now its only reader, so `@reach-suggested`, the one indirection, has no user and is kept for the next default that is another entry. `POST /v1/harnesses` takes `reach?: { mode, hosts }` and writes it as `HarnessDef.reach`; **the console sends `off` and never `on`**, because absent means *inherit* and a harness restating `on` narrows nothing today and conflicts the day the organization turns itself down. | keeping `allow` and giving the modal a third position, *inherit*; keeping `allow` and having the switch write an allow-list minus every host, which is a widening by another name |
 
 ## 12. Out of scope
 

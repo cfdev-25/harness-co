@@ -52,7 +52,7 @@ test("renders_for_every_scope", async ({ page }) => {
 });
 
 test.fixme("always_loaded_shows_all_harnesses_word", async () => {
-  // Needs an asset in `policy/always-loaded.json`; the exported organisation
+  // Needs an asset in `policy/always-loaded.json`; the exported organization
   // has one asset and it is `when-chosen`.
 });
 

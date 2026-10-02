@@ -17,6 +17,6 @@ export async function auth(argv: { list?: boolean; logout?: string; provider?: s
 	}
 	if (argv.provider === undefined) refuse("cli.provider_ambiguous", "Say which provider: pi, claude.", "—");
 	await authLogin(argv.provider);
-	say(`Signed in to ${argv.provider}. \`harness run ${argv.provider}\` will use it when your organisation's policy allows it.`);
+	say(`Signed in to ${argv.provider}. \`harness run ${argv.provider}\` will use it when your organization's policy allows it.`);
 	return 0;
 }

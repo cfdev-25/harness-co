@@ -49,6 +49,15 @@ export const HARNESSES_WORDS = {
   newFromNone: "Empty",
   newName: "Name",
   newDescription: "Description",
+  /* D108: the pixel pet is drawn when the harness is made, in the same
+     editor the harness page's Edit uses. Skipping is a choice with a stated
+     consequence, not a missing answer — the card shows the grey square. */
+  newIcon: "Icon",
+  newIconSkip: "Skip, I'll draw it later",
+  newIconNone: "A grey square until you draw one",
+  newIconDraw: "Draw one",
+  newErase: "Erase",
+  newClear: "Clear",
   newSubmit: "Create",
   newCancel: "Cancel",
   /* W7-D4: the two questions a first harness asks on a personal account, and
@@ -66,18 +75,41 @@ export const HARNESSES_WORDS = {
   newModelSignIn: "Model: your Pi sign-in",
   newModelNone: "Add a key or sign in to Pi first",
   newModelLink: "Providers",
+  /* The *Import* dialog beside *New harness* (04 §4). It is a dialog and not
+     a link because importing happens on the person's machine: `harness import`
+     reads `~/.claude` or `~/.pi` there, which no browser can do. So the
+     dialog hands over the one line that does it, and says what the line
+     prints next rather than pretending the page will know. */
   importLabel: "Import",
   importExplain: "Brings in a provider setup you already have on this machine.",
-  importCommand: "harness import claude",
+  importLede:
+    "Import runs on your machine: it reads the setup Claude Code or Pi already has there and makes it a harness on your branch.",
+  importWhich: "Which setup",
+  importProviders: { claude: "Claude Code", pi: "Pi" },
+  /** Both are rows of the command sheet (05 §6); `import-commands.test.ts`
+   *  holds them to it, because a command typed on a screen is a command that
+   *  drifts from the CLI. */
+  importCommands: { claude: "harness import claude", pi: "harness import pi" },
+  importThen: "It prints what was carried, then the two lines that run it:",
+  importThenSwitch: "harness switch <name>",
+  importThenRun: "harness run {provider} --<name>",
+  /** Shown only while `viewer.setup.installed` is false: the line is of no
+   *  use on a machine with no `harness` on it. */
+  importInstallFirst: "Install the command line first",
   /** W5-D9: the other copies of the same harness, under the team cell. */
   alsoAt: "Also at",
-  /* W5-D13: the launch row. The button carries the runtime's own name; the
-     row says what pressing one does, so a lone *Pi* is never a riddle. */
+  /* W5-D13: the card's one action row. The button carries the runtime's own
+     name; the row says what pressing one does, so a lone *Pi* is never a
+     riddle. Drawn only where there is no workspace to resume into. */
   openIn: "Open in",
   openInOne: "Open in {runner}",
-  /** W5-D14: the folder this person last ran this harness in, and where. */
-  openAgain: "Open again in {workspace} on {host}",
-  openAgainHere: "Open again in {workspace}",
+  /* D107: with a last workspace the row is one primary verb — carry on where
+     you left off — and the folder beside it, quietly. The host is gone: on
+     one person's own laptop it named the machine they were already sitting
+     at, and on the card it was the longest thing in the row. */
+  resume: "Resume",
+  resumeAt: "in {workspace}",
+  resumeIn: "Resume in {runner}",
   /* W5-D13: a web page cannot tell whether the CLI is installed, so the line
      under the grid says what the buttons do and where to go when nothing
      happens, rather than guessing. The guide explains why it cannot know. */

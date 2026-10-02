@@ -28,7 +28,7 @@ export interface Page<Row> {
 /**
  * W5-D9: another copy of the same harness id on the viewer's chain. The card
  * shows the nearest copy — that is *your* version of it — and names the
- * others so the person can read the one the organisation or the team holds.
+ * others so the person can read the one the organization or the team holds.
  * Hand-written like the rest of this file (the header above): the backend's
  * `AlsoAt` model landed with this workstream and `api.generated.ts` is
  * regenerated once per wave by the coordinator.
@@ -63,7 +63,9 @@ export interface HarnessCard {
   runners?: Runner[];
   /** W5-D14: the viewer's **own** last session with this harness — where it
    *  ran and on which machine. Absent for everyone else and under `?as`, so
-   *  the breadcrumb is drawn only when the field is there. */
+   *  **Resume** is drawn only when `lastWorkspace` is there. `lastHost` is
+   *  still sent and the card no longer draws it (D107): naming the machine
+   *  helps nobody who owns one, and it was the longest word in the row. */
   lastWorkspace?: string | null;
   lastHost?: string | null;
 }
@@ -89,23 +91,7 @@ export function shortPath(path: string): string {
   return path.replace(HOME_LIKE, "~");
 }
 
-/**
- * W5-D14's breadcrumb, in words: where this person last ran this harness and
- * on which machine. The page cannot know which machine the browser is on, so
- * it names both; with no hostname recorded it names the folder alone.
- */
-export function openAgainLine(
-  card: HarnessCard,
-  words: { openAgain: string; openAgainHere: string },
-): string | null {
-  if (!card.lastWorkspace) return null;
-  const workspace = shortPath(card.lastWorkspace);
-  return card.lastHost
-    ? words.openAgain.replace("{workspace}", workspace).replace("{host}", card.lastHost)
-    : words.openAgainHere.replace("{workspace}", workspace);
-}
-
-/** What an *also at* link reads: the level's own word for the organisation
+/** What an *also at* link reads: the level's own word for the organization
  *  and for a person, and the team's name for a team — never a dotted path
  *  (01 §4.4, the rule `levelLabel` follows). */
 export function alsoAtWord(entry: AlsoAt): string {
@@ -118,7 +104,7 @@ export type FileOwner = "org" | "team" | "you" | `member:${string}`;
 export type Differs = "yours-only" | "theirs-only" | "both" | "conflict";
 
 export interface HarnessFileRow {
-  /** W5-D10. `required`: loaded into every session by the organisation, not
+  /** W5-D10. `required`: loaded into every session by the organization, not
    *  chosen by the harness, and it cannot be taken out. `recommended`: what a
    *  new harness starts with. `on-request`: this harness asked for it. */
   loads?: "required" | "recommended" | "on-request";
@@ -182,7 +168,7 @@ export interface FileView {
 
 /**
  * D2: a scope segment is `org`, `me` or a dotted team path, so the node a
- * harness sits on is the organisation when its path has no dot. A card's team
+ * harness sits on is the organization when its path has no dot. A card's team
  * cell links through this rather than assuming every node is a team.
  */
 export function scopeOfPath(path: string): Scope {
@@ -303,11 +289,11 @@ export function headerFacts(
 
 /**
  * A member may change their own harnesses, a team admin the team's and their
- * own, an organisation admin any (04 §5). The refusal names who decides; the
+ * own, an organization admin any (04 §5). The refusal names who decides; the
  * console never renders the verb disabled (P13, S6).
  */
 export function mayEdit(view: HarnessView, viewer: Viewer): boolean {
-  // 07 §3: at n = 0 the person is the organisation admin, so nothing is refused.
+  // 07 §3: at n = 0 the person is the organization admin, so nothing is refused.
   if (viewer.edition === "personal") return true;
   if (viewer.role.level === "org-admin") return true;
   const at = viewer.role.at;
@@ -322,7 +308,7 @@ export function mayEdit(view: HarnessView, viewer: Viewer): boolean {
 }
 
 /**
- * 04 §18: for an organisation file every option renders the same content, and
+ * 04 §18: for an organization file every option renders the same content, and
  * a one-line note says so rather than leaving the reader to compare.
  */
 export function allOrgOwned(rows: HarnessFileRow[]): boolean {

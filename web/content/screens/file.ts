@@ -35,7 +35,7 @@ export const FILE: ScreenContent<FileColumn, FileVerb, "file.content"> = {
 /** 05 R8's strings for the file page; `{name}` is filled in `lib/views/`. */
 export const FILE_WORDS = {
   owner: {
-    org: "Organisation file — nothing below the organisation can change it.",
+    org: "Organization file — nothing below the organization can change it.",
     team: "Team file — you may offer changes.",
     you: "Yours — on your branch only.",
     member: "{name}'s — on their branch only.",

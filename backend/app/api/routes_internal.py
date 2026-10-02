@@ -167,7 +167,7 @@ async def _truncate(connection: asyncpg.Connection, org: UUID, ref: str) -> None
     A rebuild (§8.5) re-indexes ref by ref, and a ref that no longer holds a
     file it once held would otherwise leave that row behind: the delete in the
     write form is scoped to the node and the ref, so nothing removes the rows
-    of a ref that is *gone*. `idx_nodes` is the organisation's whole tree on
+    of a ref that is *gone*. `idx_nodes` is the organization's whole tree on
     every write and belongs to no single ref, so it is never truncated here.
     """
     node_path = await connection.fetchval(

@@ -12,7 +12,7 @@ import { Notice } from "../../../ui/notice";
 import { Select } from "../../../ui/select";
 
 /**
- * `POST /v1/groups` (00 §4.11) — an organisation admin's verb, because a group
+ * `POST /v1/groups` (00 §4.11) — an organization admin's verb, because a group
  * names a secret and who may mint it (PRD §6.3). A group is a named set, so
  * it starts with none: `entries` is sent as the empty list `GroupIn` requires
  * and the first entry comes after, with `PATCH /v1/groups/{name}` (04 §8).

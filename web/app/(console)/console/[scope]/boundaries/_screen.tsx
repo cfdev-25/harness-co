@@ -57,7 +57,7 @@ export async function boundariesContext(
   });
   const personal = viewer.edition === "personal";
   const orgPath = viewer.teams[0]?.path.split(".")[0] ?? "";
-  // A personal account *is* its organisation (07 §3), so *me* is where it
+  // A personal account *is* its organization (07 §3), so *me* is where it
   // writes; an enterprise person at *me* writes nowhere and reads everything.
   const here =
     scope.kind === "team" ? scope.path : scope.kind === "org" || personal ? orgPath : null;

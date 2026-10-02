@@ -53,7 +53,7 @@ export async function newHarness(credentials: Credentials, me: Me, composed: Com
 			refuse("preflight.harness_unknown", `No harness called \`${from}\`. You have: ${composed.harnesses.map((one) => one.name).join(", ") || "none"}.`, "harness switch");
 		}
 	}
-	// W5-D10: a new harness starts with what the organisation recommends —
+	// W5-D10: a new harness starts with what the organization recommends —
 	// ordinary entries from that moment, which the person may remove. Copying
 	// `--from` is the same idea with a different source, so the two union.
 	const recommended = composed.policy.recommended.filter((id) => composed.assets.some((asset) => asset.id === id));
@@ -62,7 +62,7 @@ export async function newHarness(credentials: Credentials, me: Me, composed: Com
 
 	if (node === undefined) await onOwnBranch(credentials, me, name, assets);
 	else {
-		// The copy is the server's: it reads `from`'s assets and the organisation's
+		// The copy is the server's: it reads `from`'s assets and the organization's
 		// recommended list on the ref it commits to, so `assets` stays empty and
 		// nothing here holds a version of them (00 §4.10). The id is resolved
 		// locally because `from` is a uuid on the wire.
@@ -79,7 +79,7 @@ export async function newHarness(credentials: Credentials, me: Me, composed: Com
 		say(`\`harness switch ${name}\` to pick it up.`);
 		return 0;
 	}
-	say(scope === "org" ? "Created on the organisation's branch. Every team inherits it." : `Created on ${label(node)}'s branch. Everyone on ${label(node)} inherits it.`);
+	say(scope === "org" ? "Created on the organization's branch. Every team inherits it." : `Created on ${label(node)}'s branch. Everyone on ${label(node)} inherits it.`);
 	say(`\`harness switch ${JSON.stringify(name)} --team\` to pick it up.`);
 	return 0;
 }

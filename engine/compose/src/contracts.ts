@@ -46,7 +46,7 @@ export interface Sidecar {
 	needs?: Need[];
 	/** A wire format this asset requires from the model, if any (prd-v2 §9.3). */
 	format?: WireFormat;
-	/** Shown on the organisation assets row (00 §4.2); written by `PATCH /v1/assets/{id}` (WS3a). */
+	/** Shown on the organization assets row (00 §4.2); written by `PATCH /v1/assets/{id}` (WS3a). */
 	description?: string;
 }
 
@@ -160,7 +160,7 @@ export type WireFormat =
 	| "openai-responses" | "google-generative" | "bedrock-converse";   // known, Later
 
 /** Presets for OpenRouter, Anthropic and OpenAI ship as data (`engine/compose/presets/model-providers.json`) and
-    are seeded into a new organisation's providers.json at sign-up (07 §11.0). */
+    are seeded into a new organization's providers.json at sign-up (07 §11.0). */
 export interface ModelProvider {
 	id: string;
 	endpoints: Partial<Record<WireFormat, string>>; // base URL per wire format
@@ -174,7 +174,7 @@ export interface ModelProvider {
 export interface HarnessProvider {
 	id: "pi" | "claude" | string;
 	/** W6-D3. What the runtime calls itself — *Pi*, *Claude Code* — for every screen and
-      every launch button. Optional on the contract, because an organisation seeded before
+      every launch button. Optional on the contract, because an organization seeded before
       this change holds rows without one and the reader falls back to the id; required of
       every row in `engine/compose/presets/harness-providers.json`, which is where ours
       come from. */

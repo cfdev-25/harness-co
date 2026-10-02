@@ -70,7 +70,7 @@ export async function internal(config: Config, request: IncomingMessage, url: UR
 	if (method === "POST" && segments[0] === "orgs") {
 		const { org_id, node_path } = await body<{ org_id: string; node_path?: string }>(request);
 		// The dotted org path is the only record of the tree the repo serves (00 §4.10); nothing derives it from refs.
-		if (!node_path) return { status: 400, value: { code: "definitions.node_path_required", message: "An organisation needs its dotted path to be created." } };
+		if (!node_path) return { status: 400, value: { code: "definitions.node_path_required", message: "An organization needs its dotted path to be created." } };
 		const repo = await createRepo(config.root, org_id);
 		// The root commit travels back: `api` seeds the org branch in the same
 		// transaction (D30h) and nothing has indexed this ref yet, so this is the

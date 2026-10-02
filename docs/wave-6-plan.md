@@ -21,10 +21,10 @@ default has been added wherever its author stood. From this wave on:
   manifest fails the checker.
 - Every manifest entry says how it is **managed**:
   `required` — the harness cannot function without it; it ships into every
-  organisation and nobody can remove it (the "harness OS": today that is the
+  organization and nobody can remove it (the "harness OS": today that is the
   `harness-authoring` skill, the asset kinds, the two runtimes' identities).
-  `recommended` — seeded into every new organisation and then **fully the
-  organisation's**: every verb (create, read, update, delete) exists on the
+  `recommended` — seeded into every new organization and then **fully the
+  organization's**: every verb (create, read, update, delete) exists on the
   console screen the entry names.
   `suggested` — never seeded; offered on a screen as one-click adds
   (today the reach starter list; this wave adds the command starter list).
@@ -91,7 +91,7 @@ WS-D does not soften the manifest.
 
 **W6-D2 The seed reads the manifest.** `seed.py` stops naming files: it
 walks `defaults`, writes every `required` and `recommended` entry into a new
-organisation (assets into `assets/`, policy files into `policy/`), and
+organization (assets into `assets/`, policy files into `policy/`), and
 derives `REQUIRED_ASSETS` and the recommended list from `managed`. The asset
 kinds move out of the `KINDS` constant into `presets/kinds.json` and are
 seeded as `policy/kinds.json` the way they already are read. The CLI's

@@ -19,7 +19,7 @@ const teamsOf = (scope: Scope) => (scope.teams === "all" ? "every team" : scope.
 export async function setup(composed: Composed, os: Shell = shell()): Promise<number> {
 	const policy = composed.policy;
 	const nodes = routedNodes(composed.chain);
-	const here = nodes[nodes.length - 1] ?? "your organisation";
+	const here = nodes[nodes.length - 1] ?? "your organization";
 	const runtimes = Object.values(policy.harnessProviders);
 	const models = Object.values(policy.modelProviders);
 	const addKey = `harness keys add ${models[0]?.id ?? "openrouter"}`;

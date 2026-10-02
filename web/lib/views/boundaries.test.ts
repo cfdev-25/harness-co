@@ -42,13 +42,13 @@ describe("boundaries", () => {
     expect(onlyFor(org).items).toEqual([]);
   });
 
-  it("keeps the organisation's rows rather than filtering them away (P17)", () => {
+  it("keeps the organization's rows rather than filtering them away (P17)", () => {
     const split = splitByOrigin([org, team], "acme");
     expect(split.fromOrg.map(setByPath)).toEqual(["acme"]);
     expect(split.own.map(setByPath)).toEqual(["acme.marketing"]);
   });
 
-  it("lets nobody below the organisation lift an organisation boundary", () => {
+  it("lets nobody below the organization lift an organization boundary", () => {
     const scope = { kind: "team", path: "acme.marketing" } as const;
     expect(mayRemove(org, scope, "team-admin")).toBe(false);
     expect(mayRemove(team, scope, "team-admin")).toBe(true);
@@ -80,7 +80,7 @@ describe("boundaries", () => {
     const atTeam = splitByLevel([org, team], "acme.marketing");
     expect(atTeam.here.map(setByPath)).toEqual(["acme.marketing"]);
     expect(atTeam.inherited.map(setByPath)).toEqual(["acme"]);
-    // At the organisation nothing is above, so nothing is inherited.
+    // At the organization nothing is above, so nothing is inherited.
     const atOrg = splitByLevel([org, team], "acme");
     expect(atOrg.here.map(setByPath)).toEqual(["acme"]);
     expect(atOrg.inherited.map(setByPath)).toEqual(["acme.marketing"]);
@@ -101,9 +101,9 @@ describe("boundaries", () => {
     expect(claudeHolds("a; b")).toBe(false);
   });
 
-  it("scopes an add at the organisation to every team, not to the org node", () => {
+  it("scopes an add at the organization to every team, not to the org node", () => {
     // `covers()` compares a scope against the chain's **team** nodes, and the
-    // organisation node is not one of them — so `{ teams: ["acme"] }` is a
+    // organization node is not one of them — so `{ teams: ["acme"] }` is a
     // boundary that is written, listed, and reaches nobody (engine 03 §5.1).
     expect(scopeFor("acme", "acme")).toEqual({ teams: "all" });
     expect(scopeFor("acme.marketing", "acme")).toEqual({ teams: ["acme.marketing"] });

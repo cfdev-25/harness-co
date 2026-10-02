@@ -91,7 +91,7 @@ export function FilesView({
 
   const table: Row[] = rows.map((row) => ({
     assetId: row.assetId,
-    // W5-D10: the organisation decided this, not the harness — `required` into
+    // W5-D10: the organization decided this, not the harness — `required` into
     // every session, `recommended` into every new harness. `on-request` is the
     // ordinary case and says nothing, because the row being here says it.
     kind: row.loads && row.loads !== "on-request" ? `${row.kind} · ${row.loads}` : row.kind,

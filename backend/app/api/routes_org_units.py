@@ -41,9 +41,9 @@ class MemberCreate(BaseModel):
 class OrgCreate(BaseModel):
     # W7-D1: the sign-up door's one access code, checked here against
     # `HARNESS_SIGNUP_CODE` because this is the route that creates the
-    # organisation. It is not a password and not per-person.
+    # organization. It is not a password and not per-person.
     code: str = ""
-    # Team names its organisation. Personal is named after the person, so the
+    # Team names its organization. Personal is named after the person, so the
     # field is absent and the name comes from the signer's address.
     org_name: str | None = Field(default=None, min_length=1, max_length=200)
     team_name: str = Field(default="General", min_length=1, max_length=200)
@@ -130,7 +130,7 @@ async def _org_name(connection, body: "OrgCreate", principal: Principal) -> str:
     """
     if not body.personal:
         if not body.org_name:
-            raise ApiError(422, "org_name_required", "An organisation needs a name.")
+            raise ApiError(422, "org_name_required", "An organization needs a name.")
         return body.org_name
     who = (principal.email or str(principal.auth_user_id)).lower()
     local = slugify(who.split("@", 1)[0])
@@ -170,7 +170,7 @@ async def create_org(
             org_name,
             slugify(org_name),
         )
-        # D30f, corrected: a personal account is an organisation with **zero
+        # D30f, corrected: a personal account is an organization with **zero
         # teams**, in the records as well as in the definition plane. The
         # records used to hold a `General` team anyway, because
         # `org_units_role_order` refused a user outside a team — 0038 widened
@@ -406,7 +406,7 @@ async def create_org_unit(
             raise ApiError(
                 422,
                 "nested_org_has_no_branch",
-                "An organisation inside an organisation has no branch of its own. "
+                "An organization inside an organization has no branch of its own. "
                 "Create a team instead.",
             )
         if body.role == "user":

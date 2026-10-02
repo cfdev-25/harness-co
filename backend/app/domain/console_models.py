@@ -256,7 +256,7 @@ class HarnessFileRow(Meta):
     tree: str = ""
     differs: Literal["yours-only", "theirs-only", "both", "conflict"] | None = None
     note: str | None = None
-    # prd-v2 §5.2, W5-D10: `required` is the organisation's say-so, not the
+    # prd-v2 §5.2, W5-D10: `required` is the organization's say-so, not the
     # harness's; `recommended` is what a new harness starts with; everything
     # else is here because this harness asked for it.
     loads: Literal["required", "recommended", "on-request"] = "on-request"
@@ -636,7 +636,7 @@ class OrgAssetRow(Meta):
     loads: ScaleTag
     # Which node this copy is on, the same word `BrowseRow.level` uses (D104).
     # One value at every scope but *You* on a personal account, where the list
-    # is the organisation's copies and the person's together and this is what
+    # is the organization's copies and the person's together and this is what
     # tells a seeded copy from one the person has edited.
     level: Literal["org", "team", "me"]
     harnesses: Related
@@ -651,7 +651,7 @@ class OrgAssetRow(Meta):
 
 class AssetsPage(Page[OrgAssetRow]):
     """W5-D9: the kinds the screen's tabs are, in `policy/kinds.json` order —
-    the organisation's vocabulary, not the kinds that happen to have a row, so
+    the organization's vocabulary, not the kinds that happen to have a row, so
     a kind with nothing in it is a tab reading zero rather than a tab that
     appears the day someone adds one."""
 
@@ -673,7 +673,7 @@ class BrowseRow(Meta):
     kind: str
     name: str
     description: str = ""
-    # `preset` for a bundled asset the organisation does not hold yet; else the
+    # `preset` for a bundled asset the organization does not hold yet; else the
     # level of the node whose copy wins for this viewer.
     level: Literal["org", "team", "me", "preset"]
     # That node's own name, for the levels that have one. Empty at `me` and

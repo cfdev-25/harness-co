@@ -67,7 +67,7 @@ _RANK = {"on": 0, "allow": 1, "off": 2}
 
 
 def start_reach(said: dict[str, Any] | None, at: str) -> dict[str, Any]:
-    """The organisation is the top of the walk: its file *is* the start, and
+    """The organization is the top of the walk: its file *is* the start, and
     only what is below it can widen anything."""
     mode = (said or NO_REACH).get("mode", "off")
     hosts = [] if mode == "off" else list((said or {}).get("hosts") or [])

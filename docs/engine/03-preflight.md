@@ -153,7 +153,7 @@ failing step throws its `Blocker`.
    person holds reaches `mp` — `mp.credential` is absent, or no covering grant
    supplies its alias. That is `broker.needs_key` read from this side, and
    W7-D2 retired the old clause that a provider with no `credential` at all is
-   an organisation gateway and never native: W6-D6 had already retired the
+   an organization gateway and never native: W6-D6 had already retired the
    keyless gateway provider, so a row no key reaches is one fact, however it
    got that way.
 7. **View.** `view := argv.team || selection?.version === "team" ? "team" : "mine"`.
@@ -218,7 +218,7 @@ grant.narrowedFrom.aliases`.
      *"<deepest team name> holds no group with an entry for `<alias>`."*
      remedy *"Ask a <deepest team name> admin to narrow one into the
      sub-team."* (the PRD's sentence; when the person's deepest team is a
-     top-level team the remedy is *"Ask an organisation admin to grant a
+     top-level team the remedy is *"Ask an organization admin to grant a
      group holding `<alias>` to <team>."*).
    - `|c| ≥ 1` → order by `scopeSpecificity(grant.scope)` descending; if the
      top two are equal → unsatisfied, `preflight.ambiguous_group` listing
@@ -389,12 +389,12 @@ Credential values never appear in it.
 
 **`run` output.** Failing: one line per blocker — `message`, then `remedy`
 indented, then `link` dimmed — nothing else. Passing: one line:
-*Using your organisation's model: anthropic/claude-sonnet-5 · 3 credentials
+*Using your organization's model: anthropic/claude-sonnet-5 · 3 credentials
 from Marketing (1 from your local gh login) · allow-list, 2 hosts.* The last
 clause is the plan's reach in the person's words: *off — only the hosts this
 session holds a credential for* · *allow-list, n hosts* · *on — anything but
 n denied hosts* (01 D131).
-Native mode: *No organisation model for this session — using your own
+Native mode: *No organization model for this session — using your own
 sign-in · not metered.*
 
 **`preflight` output.** The same report rendered in sections, plain words
@@ -443,7 +443,7 @@ surfaced here unchanged.
 
 | Code | Message (shape) | Remedy |
 | --- | --- | --- |
-| `preflight.provider_unknown` | *"`<word>` is not a runtime your organisation has listed. Listed: pi, claude."* — distinct from 08's `cli.provider_unknown`, which fires before any I/O when the word matches no adapter at all | `harness run pi` |
+| `preflight.provider_unknown` | *"`<word>` is not a runtime your organization has listed. Listed: pi, claude."* — distinct from 08's `cli.provider_unknown`, which fires before any I/O when the word matches no adapter at all | `harness run pi` |
 | `preflight.provider_ambiguous` | *"Say which runtime: pi, claude."* | as above |
 | `preflight.provider_not_approved` | *"<name> is not approved for use: <reason>."* | link: Providers screen |
 | `preflight.provider_beta` | *"<name> is in beta; only an admin may be handed credentials with it."* | *Ask an admin to approve it, or run an approved runtime.* |
@@ -453,7 +453,7 @@ surfaced here unchanged.
 | `preflight.harness_gone` | *"Your harness `<name>` no longer exists, or is no longer shared with you."* | `harness switch` (selection file already deleted) |
 | `preflight.asset_missing` | *"<harness> names an asset that nothing on your chain provides."* | link: the harness in the console |
 | `preflight.asset_needed` | *"<A> needs <B>, which is not in this harness."* | *Add <B> to <harness>, or remove <A>.* |
-| `preflight.no_compatible_group` | *"<team> holds no group with an entry for `<alias>`."* | *Ask a <team> admin to narrow one into the sub-team.* / *Ask an organisation admin to grant …* |
+| `preflight.no_compatible_group` | *"<team> holds no group with an entry for `<alias>`."* | *Ask a <team> admin to narrow one into the sub-team.* / *Ask an organization admin to grant …* |
 | `preflight.ambiguous_group` | *"Two grants of equal scope hold `<alias>`: <g1>, <g2>."* | link: Security groups |
 | `preflight.asset_format` | *"<asset> needs the <fmt> format, and <provider> exposes <fmts>."* | *Drop it from this harness, or route through a provider exposing <fmt>.* link: the asset |
 | `preflight.model_none_approved` | *"No model provider is approved for <team>."* | link: Model providers |

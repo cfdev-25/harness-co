@@ -1,4 +1,4 @@
--- A personal account is an organisation with zero teams (prd-v2 §12.1, engine
+-- A personal account is an organization with zero teams (prd-v2 §12.1, engine
 -- 00 D30f): the chain is `org · me`, so the person's user node hangs directly
 -- off the org. `org_units_role_order` (0001, widened for sub-teams in 0027)
 -- refuses that — `user` was only ever allowed inside a `team` — so sign-up

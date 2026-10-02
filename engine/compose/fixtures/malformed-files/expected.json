@@ -118,7 +118,7 @@
 				"ref": "refs/heads/teams/acme.marketing",
 				"commit": "t1"
 			},
-			"why": "only the organisation branch holds policy/kinds.json"
+			"why": "only the organization branch holds policy/kinds.json"
 		},
 		{
 			"kind": "malformed",

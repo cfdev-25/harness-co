@@ -151,7 +151,7 @@ One line, `flex-nowrap`, in two groups: **where you are** on the left and
 | --- | --- | --- | --- |
 | left | Drawer | hamburger, `< 960` only | opens the sidebar as a `<dialog>` (§4.1) |
 | left | Breadcrumb | `BrandMark` (small) + *Harness*, a muted `›`, then the screen's name — *Harness › Assets* | *Harness* links to `/console/me/harnesses`. The screen's name is its nav label (`navKeyOf(pathname)` into `NAV_LABELS`, *How this works* for `/console/how`, `shell/section.tsx`) and is the document's one `<h1>` (02 rule 35, D99): the page's name belongs to the chrome, because it is the sidebar row you pressed. A detail screen shows its **section** — *Harnesses*, not the harness — and names the thing it is showing in its own content (`EntityHeader`, §7.5). A route under no nav key renders neither the chevron nor the name. The name truncates; nothing wraps |
-| right | Level switcher | the current level as a button: *You* · *Marketing* · *Organisation* | a menu that is a **tree** (D84): *You*, then each of `viewer.teams` with its sub-teams indented under it (a team path is dotted, so depth is the path's depth below the shallowest team on the chain), then *Organisation* last; the current row is marked with §4.4's selected idiom and `aria-current`. Choosing navigates to the same screen at the new level where it exists, else that level's `/harnesses`. It is the console's **only** level control — no screen carries one. It sits on the right with the other controls, because changing level is something you *do*, not somewhere you *are* |
+| right | Level switcher | the current level as a button: *You* · *Marketing* · *Organization* | a menu that is a **tree** (D84): *You*, then each of `viewer.teams` with its sub-teams indented under it (a team path is dotted, so depth is the path's depth below the shallowest team on the chain), then *Organization* last; the current row is marked with §4.4's selected idiom and `aria-current`. Choosing navigates to the same screen at the new level where it exists, else that level's `/harnesses`. It is the console's **only** level control — no screen carries one. It sits on the right with the other controls, because changing level is something you *do*, not somewhere you *are* |
 | right | Search | icon button, `/` focuses it | opens the **Palette** (D61): a `<dialog>` with one input; results are objects in the viewer's current scope by name — harnesses, files, groups, boundaries, people, requests — plus the command sheet's rows; Enter opens the first; arrow keys move; results come from one endpoint `/v1/console/search?q=` (00 §4.10 addition, reported) |
 | right | Account | avatar/initials button | click toggles a `role="menu"`; items: *Account*, *Theme* (steel/light), *Sign out*; arrow keys and Escape |
 
@@ -162,8 +162,8 @@ One line, `flex-nowrap`, in two groups: **where you are** on the left and
 short nouns does not need a third of the screen at 1280, and the width it
 gives back is a table column. A row that no longer fits — *Security
 groups*, *How this works* — truncates with an ellipsis and carries its own
-words as a `title`; it never wraps to two lines, and the group eyebrows
-stay. The drawer breakpoint stays at 960: the rail got narrower, so the
+words as a `title`; it never wraps to two lines. The drawer breakpoint
+stays at 960: the rail got narrower, so the
 width at which the content runs out did not move.
 
 Groups and items come from one function, `navFor(scope, viewer): NavGroup[]`
@@ -181,22 +181,43 @@ is worse than no row (P13):
 | org | Harnesses, Assets, Logs, People | Security groups, Boundaries, Providers, Key vaults, Teams |
 | personal, at any level | Harnesses, Assets, Boundaries, Logs, Account | — |
 
-A personal account is one person who is their own organisation (07 §2):
+A personal account is one person who is their own organization (07 §2):
 there are no teams and no permissions to hand out, but reach is theirs to
 set, so Boundaries stays. As groups:
 
 | Group | Items (`NavKey`) | Who |
 | --- | --- | --- |
 | Assets | `harnesses` · `assets` | everyone on the level |
-| Permissions | `groups` · `boundaries` · `providers` · `vaults` | `adminHere`; `vaults` at the organisation only; personal: `boundaries` alone |
+| Permissions | `groups` · `boundaries` · `providers` · `vaults` | `adminHere`; `vaults` at the organization only |
 | Logs | `logs` | everyone on the level |
-| People | `people` · `teams` · `account` | `people` at a team or the organisation, `teams` with `adminHere`, `account` at *me* |
+| People | `people` · `teams` · `account` | `people` at a team or the organization, `teams` with `adminHere`, `account` at *me* |
 | — | `how` | all, pinned at the bottom |
 
 `sessions` and `endpoints` are no longer rows: they are tabs of Logs
 (04 §14), and `navKeyOf` reads every route under `/logs` — and the old
-`/sessions` — as the one Logs row. A group heading that would only repeat
-its single row's word is not drawn.
+`/sessions` — as the one Logs row.
+
+**Groups exist to part the permission screens from the rest** (D106). Where
+there are none — any level a viewer only reads, *me* always, and a personal
+account always — `navFor` returns **one group with no label** and the rail
+is one tight list: `harnesses · assets · logs · account` at *me*, and
+`harnesses · assets · boundaries · logs · account` on a personal account,
+whose Boundaries is a setting of their own and not somebody else's
+permission (07 §2). Where there are permission screens, all four groups are
+drawn and **every one of them carries its eyebrow**, including the single
+row under *Logs*: a group whose heading is omitted is a hairline with no
+word above it.
+
+**Drawing.** The rail packs from the top; nothing is ever distributed down
+it. An eyebrow is `text-2xs font-semibold tracking-eyebrow text-faint
+uppercase` at the group's own inset (`px-2`), and every group after the
+first is preceded by one hairline and one fixed step either side of it
+(`mt-4 border-t border-hairline pt-4` — the row separator's weight, not the rail's own edge) — one step between groups, the same
+step at every length of list. An item sits **one indent in** from its
+eyebrow (`ps-3 pe-2 py-2`), `gap-1` from its neighbours, and both of its
+states paint the whole row, not the word: `hover:bg-sunken hover:text-fg`,
+and `bg-accent-soft text-accent-text` selected. *How this works* keeps its
+`mt-auto` at the foot of the rail.
 
 Each item renders `label`, an optional count from `viewer.waiting[key]`
 (work waiting: open requests on *harnesses*, role requests on *people*,
@@ -406,7 +427,7 @@ came for.
 `level` is the chip (`LevelChip`, `ui/level-chip.tsx`): `{Level} · you can
 edit here` when `Viewer.adminHere` and always at *me*, otherwise
 `{Level} · read and use`, where the level's word is the team's name or
-*You* / *Organisation* and never a dotted path. Every screen inside
+*You* / *Organization* and never a dotted path. Every screen inside
 `[scope]` passes one (`levelOf(scope, viewer)` in `lib/views/level.ts`,
 which builds the sentence from `content/shell.ts` so the component is given
 its strings); the scope-independent *How this works* does not (D84).
@@ -688,10 +709,11 @@ the one bubble has one placement rule, in `ui/use-tip`:
 | D67 | `Modal` is a native `<dialog>` | trap, restore and Escape come from the platform; 40 lines less | a div overlay with a hand-rolled trap |
 | D68 | `Alert`, `KindTag`, `TagGrid`, `Json`, `Eyebrow`, `HeaderSearch` are removed, not ported | each is another component's job (§7 list) | — |
 | D83 | **The sidebar shows what you manage.** `navFor(scope, viewer)` reads `Viewer.adminHere` — a fact about the scope, fetched with it — and lists the permission screens only for an admin of that level; Sessions and Endpoints leave for the Logs tabs | a row a viewer may open only to be refused is worse than no row (P13); `/v1/console/me` had to learn `?scope=` either way | listing every screen and refusing on arrival |
-| D84 | **One level control, and every header says where you are.** The switcher is a tree (*You* · teams with sub-teams indented · *Organisation*, current marked) every screen's one bar carries a level chip (D99 moved it off the page title and onto `SubHeader`); no screen has a level toggle of its own | a flat menu hid the team tree, and a person could not tell from a screen whether they could change what was on it | a per-screen scope control |
+| D84 | **One level control, and every header says where you are.** The switcher is a tree (*You* · teams with sub-teams indented · *Organization*, current marked) every screen's one bar carries a level chip (D99 moved it off the page title and onto `SubHeader`); no screen has a level toggle of its own | a flat menu hid the team tree, and a person could not tell from a screen whether they could change what was on it | a per-screen scope control |
 | D94 | **The tooltip is a portal, and it stays on screen.** `useTip` returns a rendered `tip.element` — a `position: fixed` bubble at `document.body` (or at the trigger's `<dialog>`) placed from the trigger's rect: below and left-aligned, flipped above or right-aligned when the viewport says so, 8px gutter, 20rem and wrapping, placed again on scroll and resize — instead of `node` props the caller spreads into a `<span>` beside the trigger (W6-D7, §11) | the bubble lived inside the cell that triggered it, so `Table`'s `overflow-x-auto` clipped it and the last column's `(?)` ran off the right edge; a position rule only works where nothing can clip it, and a portal is an element, not a bag of attributes | returning `node` props again and accepting the clipping, or adding a positioning dependency |
 | D99 | **A screen has one header, it is a bar, and it is one line.** The page's *name* leaves the screen altogether and becomes the section in the top bar (§4.3, `shell/section.tsx`, the document's one `h1`); `SubHeader` is everything else — tabs on the left, then the count, the readme `(?)`, the level chip, the search and the verbs, `flex-nowrap`, the tab strip scrolling when it must — and it is the only sticky element a screen adds. A screen's explanation is behind the `(?)` (`Readme`, *About {name}*), never printed. `PageHeader` is gone: a detail screen's object is `EntityHeader`, its **first block of content**. `Toolbar` and the four per-screen `_tabs.tsx` files are deleted with it | every screen had grown its own chrome: a title row that repeated the sidebar row just pressed, a lede under it that pushed the first row of the table below the fold, four tab components with three ideas of what *selected* looks like, a search box in five tables, and two header rows on the harness page. Read once, a sentence is furniture; a name you have just clicked is not news | giving a screen back a title row, or letting the bar wrap |
 | D69 | `faint` never carries required information; accent-as-text is the alias `accent-text` (`accent` in steel, `accent-deep` in light) so no component picks per theme | contrast table §10 | retinting the tokens |
+| D106 | **A group in the sidebar is a kind of row, not a shelf** (§4.4). `navFor` groups only to part the permission screens from the rest, so a viewer who administers nothing here — *me* always, a personal account always, any level they only read — gets **one unlabelled group** and the rail is a tight list; where there are permission screens every group is named, the single *Logs* row included. The drawing follows the rule: eyebrows small, muted and letter-spaced at the group's inset, items one indent in with hover and selected painting the whole row, and one hairline plus one fixed step between groups — rows pack from the top and are never distributed down the rail. | with few rows the old shape put four headings over one row each and left *Logs* floating alone in the middle of the rail; a category must look unlike an item, and the rail must read top-down at any length | hiding only the heading that repeats its one row — which is what left four headings over one row each, and *Logs* floating unlabelled in the middle of a four-row rail |
 
 ## 15. Out of scope
 

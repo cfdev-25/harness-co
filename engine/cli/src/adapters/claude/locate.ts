@@ -8,7 +8,7 @@ const run = promisify(execFile);
 
 /** C21 — the customer's own managed tier. Harness policy sits below it and
     never fights it: a machine whose device admin forced a login method
-    cannot run an organisation model, and says so by name. */
+    cannot run an organization model, and says so by name. */
 const MANAGED = {
 	darwin: "/Library/Application Support/ClaudeCode/managed-settings.json",
 	linux: "/etc/claude-code/managed-settings.json",
@@ -27,7 +27,7 @@ export function managedTier(): Blocker | null {
 		if (!(key in settings)) continue;
 		return {
 			code: "adapter.managed_tier",
-			message: `This machine's managed Claude Code settings set \`${key}\`, so an organisation model cannot be used here.`,
+			message: `This machine's managed Claude Code settings set \`${key}\`, so an organization model cannot be used here.`,
 			remedy: "Ask the device admin, or run `harness run pi`.",
 		};
 	}
@@ -84,7 +84,7 @@ export async function locate(pin: HarnessProvider["pin"]): Promise<Located> {
 	if (!atLeast(version, pin.minVersion)) {
 		throw {
 			code: "adapter.below_min_version",
-			message: `Claude Code ${version} is installed; your organisation requires ${pin.minVersion} or later.`,
+			message: `Claude Code ${version} is installed; your organization requires ${pin.minVersion} or later.`,
 			remedy: "Update Claude Code.",
 		} satisfies Blocker;
 	}

@@ -46,7 +46,7 @@ export default async function Page({
   );
 
   const level = viewer.role.level;
-  // 04 §15: an invitation is to a team. At the organisation scope there is no
+  // 04 §15: an invitation is to a team. At the organization scope there is no
   // team in the route, so the form is given the ones to choose from; at a team
   // scope the scope's path is the team and the field is not shown.
   const teams =

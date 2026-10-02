@@ -80,7 +80,7 @@ SENTENCES: dict[str, tuple[str | None, str]] = {
     "provider.decline": ("provider", "{actor} declined {provider}: {reason}"),
     "routing.change": ("provider", "{actor} set {model_provider} as default for {target}"),
     "provider.key_setup": ("provider", "{actor} connected a key for {provider} for {scope}"),
-    # W6-D5: a model provider is the organisation's, so it can be taken away
+    # W6-D5: a model provider is the organization's, so it can be taken away
     # again. The row says what it was holding when it went.
     "provider.delete": ("provider", "{actor} removed the model provider {provider}"),
     # People.
@@ -90,10 +90,10 @@ SENTENCES: dict[str, tuple[str | None, str]] = {
     "member.invite_revoke": ("people", "{actor} withdrew the invitation to {email}"),
     "member.remove": ("people", "{actor} removed {person} from {team} ({n} groups lost)"),
     "member.role": ("people", "{actor} made {person} a {role} at {team}"),
-    "org.create": ("people", "{actor} created the organisation {name}"),
+    "org.create": ("people", "{actor} created the organization {name}"),
     "org.seed": (
         "provider",
-        "{actor} seeded the organisation's catalogue: {runtimes} runtimes, "
+        "{actor} seeded the organization's catalogue: {runtimes} runtimes, "
         "{providers} model providers",
     ),
     "org_unit.create": ("people", "{actor} created {name} inside {team}"),
@@ -125,7 +125,7 @@ FALLBACKS: dict[str, str] = {
     "alias": "a credential",
     "aliases": "nothing",
     "author": "its author",
-    "blocker": "the organisation's rules refused it",
+    "blocker": "the organization's rules refused it",
     "date": "an earlier version",
     "email": "someone",
     "group": "a security group",
@@ -186,7 +186,7 @@ def sentence(action: str, fields: dict[str, Any]) -> str:
 FAILURES: dict[str, tuple[int, str, str]] = {
     "console.scope_forbidden": (
         403,
-        "This view belongs to {team}; its admins and organisation admins can open it.",
+        "This view belongs to {team}; its admins and organization admins can open it.",
         "Ask a {team} admin, or open your own view.",
     ),
     "console.as_forbidden": (
@@ -206,8 +206,8 @@ FAILURES: dict[str, tuple[int, str, str]] = {
     ),
     "console.hidden": (
         200,
-        "An organisation admin has turned this view off.",
-        "Ask an organisation admin.",
+        "An organization admin has turned this view off.",
+        "Ask an organization admin.",
     ),
     "console.definitions_unavailable": (
         503,
@@ -226,11 +226,11 @@ FAILURES: dict[str, tuple[int, str, str]] = {
 
 # The sentence `HiddenView` renders in place of a list (P10; 05 §8 `HIDDEN`).
 HIDDEN = {
-    "boundaries": "An organisation admin has turned off your view of boundaries.",
-    "logs": "An organisation admin has turned off your view of the logs.",
+    "boundaries": "An organization admin has turned off your view of boundaries.",
+    "logs": "An organization admin has turned off your view of the logs.",
     # W5-D15: `visibility.store` off. What the person already holds is
     # untouched — only the place to pick more from is closed.
-    "store": "An organisation admin has turned off browsing for more assets.",
+    "store": "An organization admin has turned off browsing for more assets.",
 }
 
 # Engine C18, console 04 §6: a harness may name an id that nothing on this

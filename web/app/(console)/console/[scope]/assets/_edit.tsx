@@ -4,96 +4,120 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiError, request } from "@/lib/api";
 import { getToken } from "@/lib/token.client";
-import { ASSETS, ASSETS_TEXT } from "@/content/screens/assets";
-import { Button } from "../../../ui/button";
-import { Field } from "../../../ui/field";
-import { Modal } from "../../../ui/modal";
-import { Notice } from "../../../ui/notice";
-import { Textarea } from "../../../ui/textarea";
+import { type LoadsState, type OrgAssetRow, description, loadsValue } from "@/lib/views/assets";
+import { ASSETS_TEXT } from "@/content/screens/assets";
+import { Confirm } from "../../../ui/confirm";
 
-export interface EditAssetProps {
-  assetId: string;
+export interface Draft {
+  id: string;
   name: string;
   description: string;
-  /** The `?scope=` the write takes — `org`, `team:<path>` or `me` (03 §4):
-   *  the node whose copy is being changed, not the URL's segment. */
-  scope: string;
+  loads: LoadsState;
+}
+
+export interface Failure {
+  /** Which cell the server refused: the words (name, description) or loads. */
+  at: "words" | "loads";
+  message: string;
+  remedy?: string;
 }
 
 /**
- * `PATCH /v1/assets/{id}?scope=` (WS3a) — the row's Edit. It opens in the
- * library's dialog (01 §7.10); there is no drawer component and this task
- * did not add one. Only the fields that changed are sent, because a body
- * carrying an unchanged description would still write a commit.
+ * One row edited in place (console D109). Edit turns the row's Name,
+ * Description and Loads cells into controls; Save sends only what changed —
+ * `PATCH /v1/assets/{id}?scope=` for the words, then `PUT /v1/assets/{id}/loads`
+ * — and stops at the first refusal, which is shown under the cell it belongs
+ * to in the server's own words (02 rule 21), with the row still being edited.
+ * Moving to *required* confirms with what it takes first (02 rule 22), as the
+ * asset page's control does. A second Edit replaces the draft: one row at a
+ * time.
  */
-export function EditAsset({ assetId, name, description, scope }: EditAssetProps) {
+export function useAssetEdit(scope: string) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  /** What the row said when Edit was pressed, so only a change is sent. */
+  const [was, setWas] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
-  const [failure, setFailure] = useState<{ message: string; remedy?: string } | null>(null);
-  const [draft, setDraft] = useState({ name, description });
+  const [failure, setFailure] = useState<Failure | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
-  async function save(event: React.FormEvent) {
-    event.preventDefault();
+  function start(row: OrgAssetRow) {
+    const current = { id: row.id, name: row.name, description: description(row), loads: loadsValue(row) };
+    setWas(current);
+    setDraft(current);
+    setFailure(null);
+  }
+
+  function cancel() {
+    setDraft(null);
+    setWas(null);
+    setFailure(null);
+    setConfirming(false);
+  }
+
+  function set(change: Partial<Omit<Draft, "id">>) {
+    setDraft((current) => (current ? { ...current, ...change } : current));
+  }
+
+  function save() {
+    if (!draft || !was) return;
+    if (draft.loads === "required" && was.loads !== "required") setConfirming(true);
+    else void commit();
+  }
+
+  async function commit() {
+    if (!draft || !was) return;
     setBusy(true);
     setFailure(null);
-    const body: { name?: string; description?: string } = {};
-    if (draft.name !== name) body.name = draft.name;
-    if (draft.description !== description) body.description = draft.description;
+    const words: { name?: string; description?: string } = {};
+    if (draft.name !== was.name) words.name = draft.name;
+    if (draft.description !== was.description) words.description = draft.description;
+    let at: Failure["at"] = "words";
     try {
-      if (Object.keys(body).length > 0) {
-        await request(`/v1/assets/${assetId}?scope=${scope}`, await getToken(), {
+      const token = await getToken();
+      if (Object.keys(words).length > 0) {
+        await request(`/v1/assets/${draft.id}?scope=${scope}`, token, {
           method: "PATCH",
-          body: JSON.stringify(body),
+          body: JSON.stringify(words),
+        });
+        // The words are written: a retry after a loads refusal must not send them again.
+        setWas({ ...was, name: draft.name, description: draft.description });
+      }
+      at = "loads";
+      if (draft.loads !== was.loads) {
+        await request(`/v1/assets/${draft.id}/loads`, token, {
+          method: "PUT",
+          body: JSON.stringify({ loads: draft.loads }),
         });
       }
-      setOpen(false);
+      cancel();
       router.refresh();
     } catch (error) {
       const api = error instanceof ApiError ? error : null;
-      setFailure({ message: api?.message ?? String(error), remedy: api?.remedy });
+      setFailure({ at, message: api?.message ?? String(error), remedy: api?.remedy });
+      setConfirming(false);
     } finally {
       setBusy(false);
     }
   }
 
-  return (
-    <>
-      <Button size="sm" explain={ASSETS.verbs.edit.explain} onClick={() => setOpen(true)}>
-        {ASSETS.verbs.edit.label}
-      </Button>
-      {open && (
-        <Modal title={ASSETS_TEXT.editTitle} onClose={() => setOpen(false)}>
-          <form className="grid gap-4" onSubmit={(event) => void save(event)}>
-            <Field
-              label={ASSETS_TEXT.editName}
-              name="name"
-              value={draft.name}
-              required
-              onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-            />
-            <Textarea
-              label={ASSETS_TEXT.editDescription}
-              name="description"
-              value={draft.description}
-              onChange={(event) => setDraft({ ...draft, description: event.target.value })}
-            />
-            {/* 02 rule 21: the server's own words, beside the control. */}
-            {failure && (
-              <Notice tone="warn">
-                <p>{failure.message}</p>
-                {failure.remedy && <p className="text-muted">{failure.remedy}</p>}
-              </Notice>
-            )}
-            <div className="flex justify-end gap-2">
-              <Button onClick={() => setOpen(false)}>{ASSETS_TEXT.cancel}</Button>
-              <Button variant="primary" type="submit" busy={busy}>
-                {ASSETS_TEXT.editSubmit}
-              </Button>
-            </div>
-          </form>
-        </Modal>
-      )}
-    </>
-  );
+  const confirm = confirming ? (
+    <Confirm
+      title={ASSETS_TEXT.confirmTitle}
+      takes={<p>{ASSETS_TEXT.confirmTakes}</p>}
+      verb={ASSETS_TEXT.confirmVerb}
+      cancel={ASSETS_TEXT.cancel}
+      busy={busy}
+      onConfirm={() => void commit()}
+      onClose={() => setConfirming(false)}
+    />
+  ) : null;
+
+  return { draft, busy, failure, start, cancel, set, save, confirm };
+}
+
+/** The refusal as one line under the control, remedy included (02 rule 21). */
+export function said(failure: Failure | null, at: Failure["at"]): string | undefined {
+  if (!failure || failure.at !== at) return undefined;
+  return failure.remedy ? `${failure.message} ${failure.remedy}` : failure.message;
 }

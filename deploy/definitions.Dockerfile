@@ -1,5 +1,5 @@
 # The definitions service (`engine/definitions`): one bare git repository per
-# organisation under DEFINITIONS_ROOT (a mounted volume), smart HTTP for the
+# organization under DEFINITIONS_ROOT (a mounted volume), smart HTTP for the
 # CLI, pre-/post-receive hooks over a unix socket on the same host.
 # Built from the repository root: `docker build -f deploy/definitions.Dockerfile .`
 FROM node:22-slim

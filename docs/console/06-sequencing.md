@@ -14,7 +14,7 @@ engine's **M**. K-M*n* never requires engine M*n+1*.
 | Console | Needs engine | Lands | Deletes |
 | --- | --- | --- | --- |
 | **K-M0** Foundations | M0 | shell, tokens, library, one data path, the generated-types pipeline, lint rules, test rig | `jade`/`leather`, `NEXT_PUBLIC_HARNESS_API_URL`, `lib/supabase.ts`, the duplicate components; prototype routes hidden from robots |
-| **K-M1** The tree and the index | M2 | Harnesses (cards, repository, files), Organisation assets, People & teams (read), How this works | `admin.tsx` asset/harness panels; `org-preview` |
+| **K-M1** The tree and the index | M2 | Harnesses (cards, repository, files), Organization assets, People & teams (read), How this works | `admin.tsx` asset/harness panels; `org-preview` |
 | **K-M2** Policy | M2 | Security groups, Boundaries, Providers, Key vaults, Logs (permission/provider/people) | remaining `admin.tsx` panels; `admin.tsx` itself; `lib/types.ts` |
 | **K-M3** Sessions — and the **personal cut** (07 §5) | M3 | Sessions list and detail: slots, `resolved from`, evidence, the preflight report whole, endpoints tally; Logs (harness) | `team-preview`, `user-preview` |
 | **K-M4** The fence, seen | M4 | refusals in Endpoints; reach table shows *enforced* (**done in W5** — engine D133, see K-M3); sandbox facts on the session | "not enforced yet" labels (**gone**) |
@@ -69,7 +69,7 @@ plane git and the index derived; this milestone lets the founder walk it.
 `/people/{id}`, `/teams`, `/edges`, `/how`, `/search` (03 §4); the screens Harnesses cards, Harness
 repository (Files and History views; Requests view reads empty until K-M5),
 File (owner line, content, history from both copies, the two-column compare
-for a conflict), Organisation assets with `EdgeWalk`, People and teams
+for a conflict), Organization assets with `EdgeWalk`, People and teams
 (read), How this works (05), the Account screen's teams and honesty line
 (04 §17; its logins card fills at K-M3).
 
@@ -82,7 +82,7 @@ for a conflict), Organisation assets with `EdgeWalk`, People and teams
 | Switch **Your version · Team version · Differences** and watch the editor column follow | one work tree, three views | `editor_column_follows_version` |
 | Push a change with the CLI, refresh, and see it under *Your version* and in *Differences*, not in *Team version* | the user branch is real and separate | `cli_push_appears_as_yours_only` (V4) |
 | Open a file and read its history from both copies, labelled | `definitions` log through `api` (D8) | `history_from_both_copies_labelled` |
-| Open an organisation asset and read *what rests on this* / *what this rests on* | the index stores edges | `asset_edge_walk_directed` |
+| Open an organization asset and read *what rests on this* / *what this rests on* | the index stores edges | `asset_edge_walk_directed` |
 | As a team admin, pick a member's branch in the compare control and see the `?as` banner; as a member, be refused | `readable` refs; `?as` authorisation | `as_member_requires_admin`, `as_banner_names_member` |
 | Click any tag and land on its scale in *How this works* | K4 | `every_scale_tag_links_to_how` |
 | Open Account and read who can see their versions, by name | admin sight is stated to the member (PRD §18) | `account_honesty_line_names_admin_and_team` |
@@ -91,7 +91,7 @@ for a conflict), Organisation assets with `EdgeWalk`, People and teams
 `harness-*.tsx`, `scope.tsx`; `org-preview/` in full (its fixtures move to
 `web/test/fixtures/`).
 
-**Done.** 04's Harnesses, File, Organisation assets, People (read), How and
+**Done.** 04's Harnesses, File, Organization assets, People (read), How and
 Account sections' DoD; 03's endpoints for them with their authorisation tests;
 `cli_push_appears_as_yours_only` green in CI against a real CLI.
 

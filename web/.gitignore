@@ -43,3 +43,7 @@ next-env.d.ts
 test/components/.cache/
 test-results/
 playwright-report/
+
+# Copied by `npm run prebuild` from ../scripts/install.sh, which stays the one
+# source; this is the build artefact the console serves at /install.sh (W7-D6).
+/public/install.sh

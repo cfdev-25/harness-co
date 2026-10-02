@@ -35,8 +35,8 @@ Contracts used: `ScaleId`, `ScaleTag`, `ScaleRegistry`, `Tone` (console 00
 | R6 | **A blocker's `message` and `remedy` are the engine's, verbatim.** | The console adds only the `link` as a button. It never rewrites, softens or summarises an engine sentence. |
 | R7 | **First-run guidance is the empty state's one sentence with a verb.** | No tour, no checklist, no modal. The admin's setup order emerges from which screens are empty (§12). |
 | R8 | **Every UI string lives in `web/content/`.** | A string literal rendered to a person from anywhere else fails lint (`02` carries the rule as `content/no-inline-copy`; this document owns the rule's meaning). |
-| R9 | **British spelling; complete sentences; one idea per sentence.** | Headings and table cells may be fragments. Nothing else may. |
-| R10 | **Examples use the fixture organisation.** | Acme · Marketing · Marketing interns · Jo Adeyemi (member) · Rae Lindqvist (Marketing admin) · Dana Okafor (org admin). Never a real customer, never a placeholder like *Foo*. |
+| R9 | **British spelling, with one exception: *organization* (the American form) everywhere, by decision on 2 Oct 2026; complete sentences; one idea per sentence.** | Headings and table cells may be fragments. Nothing else may. The content test's denylist carries *organisation* as the forbidden form. |
+| R10 | **Examples use the fixture organization.** | Acme · Marketing · Marketing interns · Jo Adeyemi (member) · Rae Lindqvist (Marketing admin) · Dana Okafor (org admin). Never a real customer, never a placeholder like *Foo*. |
 
 ## 3. The content source
 
@@ -173,7 +173,7 @@ Thirteen scales, thirty-five values. The thirteenth is `providerStatus`
 states, because *needs a key* and *did not answer* send a person to two
 different places and one boolean said neither. W7-D2 (04 D103) added its
 fourth value, `sign-in`, for the same reason one more time — a keyless
-provider the organisation's own runtime logs itself in to sends a person
+provider the organization's own runtime logs itself in to sends a person
 nowhere, because it already works — and it is `accent`, not `warn`, because
 nothing is wrong with it. The registry is the whole list; a fourteenth
 *scale* is a PRD change first — 04 D41 and D89 have each refused one.
@@ -194,7 +194,7 @@ Each entry: the word · one sentence for anyone · one sentence more · PRD.
 | Word | Short | More | PRD |
 | --- | --- | --- | --- |
 | harness | The set of things an AI assistant is given for a job: instructions, skills, tools, and the rules around them. | A named list of asset ids on a branch, with a description and a drawing; it filters what a session loads and never adds a permission. | §17 |
-| harness provider | The program the assistant runs in — Pi, Claude Code. | The runtime the engine launches inside a sandbox; approved, beta or not approved per organisation. | §9.1 |
+| harness provider | The program the assistant runs in — Pi, Claude Code. | The runtime the engine launches inside a sandbox; approved, beta or not approved per organization. | §9.1 |
 | model provider | Where the model itself comes from — Anthropic, a gateway your company runs. | An endpoint per wire format, a list of models, and the credential alias it is reached with. | §9.2 |
 | skill | A packaged way of doing one kind of task that the assistant can pick up when it fits. | A directory the runtime discovers; loaded when the harness includes it. | §17.1 |
 | memory | Something the assistant should always keep in mind. | Standing context appended to the instructions file on every turn. | §17.1 |
@@ -206,7 +206,7 @@ Each entry: the word · one sentence for anyone · one sentence more · PRD.
 | grant | A security group handed to a team, or reach handed to a team. | A scoped instance of a group or of outside endpoints; a differently scoped grant is a different grant. | §6.4, §8 |
 | boundary | Something the assistant may never do, however it is running. | A deny — endpoint, command, filesystem or capability — that compounds by union down the tree and only tightens. | §7 |
 | outside endpoints | Whether the assistant may reach anything beyond what it was given. | A grant whose payload is reach; derived on the harness, never stored; boundaries still apply. | §8 |
-| chain | The line from your organisation, through your teams, to you. | The ordered refs composed by precedence to produce your effective harness. | §2 |
+| chain | The line from your organization, through your teams, to you. | The ordered refs composed by precedence to produce your effective harness. | §2 |
 | your version | Your copy of a file, which is what runs for you. | The work tree, backed by your own branch. | §17.2 |
 | team version | The copy everyone on the team receives. | The team branch, moved only by promote. | §17.2 |
 | differences | Where your copy and the team's disagree. | A comparison of the two; the only view in which a conflict exists. | §17.2 |
@@ -262,7 +262,7 @@ Rows, grouped as the sheet is; `run` uses the fixture harness
 | | See every runtime and its approval | `harness providers` | |
 | | Turn a runtime on | `harness providers approve pi` | org admin; `--teams` narrows who may run it |
 | | Turn a runtime off | `harness providers decline claude --reason "…"` | |
-| | Connect a model key | `harness keys add openrouter` | prompts for the key; sets it as the organisation's default |
+| | Connect a model key | `harness keys add openrouter` | prompts for the key; sets it as the organization's default |
 | | Make a harness for a team | `harness new "Weekly newsletter" --team marketing` | `--org` for every team; without a flag it is yours alone |
 | Sign in | Sign in to the platform | `harness login` | |
 | | Sign in to a runtime with your own account | `harness auth claude` | outside the sandbox; native mode |
@@ -278,13 +278,13 @@ Each sentence names who decides and where the ask goes. Rendered by
 | `accept_request.member` | Accepting a request publishes it to everyone on Marketing, so a Marketing admin decides it. | — (the request is already in their queue) |
 | `narrow_group.member` | Narrowing a security group hands part of it to a sub-team, so a Marketing admin does it. | *Ask Rae Lindqvist* → opens a message with the group named |
 | `add_boundary.member` | A boundary applies to everyone in Marketing and below, so a Marketing admin adds it. | *Ask Rae Lindqvist* |
-| `approve_provider.team_admin` | Approving a runtime decides whose program holds credentials for the whole organisation, so an organisation admin decides it. | *Ask Dana Okafor* → the request appears in the org's People screen |
-| `appoint_admin.team_admin` | Team admin is granted from above, so an organisation admin appoints one. Anyone may ask. | *Ask to be an admin* → the request appears in Marketing's People screen marked with the admin it waits on |
-| `lift_org_boundary.any` | An organisation boundary only tightens on the way down. Nobody below the organisation can lift it; an organisation admin can remove it there. | *Ask Dana Okafor* |
+| `approve_provider.team_admin` | Approving a runtime decides whose program holds credentials for the whole organization, so an organization admin decides it. | *Ask Dana Okafor* → the request appears in the org's People screen |
+| `appoint_admin.team_admin` | Team admin is granted from above, so an organization admin appoints one. Anyone may ask. | *Ask to be an admin* → the request appears in Marketing's People screen marked with the admin it waits on |
+| `lift_org_boundary.any` | An organization boundary only tightens on the way down. Nobody below the organization can lift it; an organization admin can remove it there. | *Ask Dana Okafor* |
 | `read_member_branch.member` | Another member's versions are theirs. A Marketing admin can read them; you can read yours and the team's. | — |
-| `revoke_session.other` | This session is Jo Adeyemi's. Their team's admin, or an organisation admin, can end it. | *Ask Rae Lindqvist* |
-| `create_group.team_admin` | A security group names a secret and who may mint it, so an organisation admin creates one. Narrowing what Marketing already holds covers most of what people ask for. | *Ask Dana Okafor* |
-| `change_sources.team_admin` | Which sources a group accepts is the rule that stops it resolving from somebody's laptop, so an organisation admin changes it. | *Ask Dana Okafor* |
+| `revoke_session.other` | This session is Jo Adeyemi's. Their team's admin, or an organization admin, can end it. | *Ask Rae Lindqvist* |
+| `create_group.team_admin` | A security group names a secret and who may mint it, so an organization admin creates one. Narrowing what Marketing already holds covers most of what people ask for. | *Ask Dana Okafor* |
+| `change_sources.team_admin` | Which sources a group accepts is the rule that stops it resolving from somebody's laptop, so an organization admin changes it. | *Ask Dana Okafor* |
 
 Names are substituted from the viewer's chain at render (`{teamAdmin}`,
 `{orgAdmin}`, `{team}`, `{owner}`); the fixture names above are the
@@ -303,17 +303,17 @@ examples the content is authored against (R10).
 | sessions | No sessions yet. `harness run` starts one, and it appears here within a few seconds. | `harness run pi` |
 | session · endpoints | This session has not reached anything yet. | |
 | groups (org) | No security groups yet. A group is a named set of credentials a team can be given. | *Create a group* |
-| groups (team) | Marketing holds no security groups yet. An organisation admin grants one. | — |
+| groups (team) | Marketing holds no security groups yet. An organization admin grants one. | — |
 | grants | Nothing is granted to this team yet. | *Grant a group* |
-| boundaries (org) | No boundaries yet. Nothing is restricted beyond the organisation's runtime approvals. | *Add a boundary* |
-| boundaries (team) | Marketing adds no boundaries of its own. The organisation's apply. | *Add a boundary* |
+| boundaries (org) | No boundaries yet. Nothing is restricted beyond the organization's runtime approvals. | *Add a boundary* |
+| boundaries (team) | Marketing adds no boundaries of its own. The organization's apply. | *Add a boundary* |
 | providers | No runtime is approved yet, so nobody can start a session. | *Approve a runtime* |
 | providers · model | No model provider yet, so a session has nowhere to send a request. | *Add a model provider* |
 | vaults | No key vault is connected. The one we host is ready to use. | *Connect a vault* |
 | vault · secrets | We cannot list what is inside this vault; it shows what an admin declared. | — |
-| assets (org) | No organisation assets yet. Anything here reaches every team. | *Add an asset* |
-| assets (team) | Nothing on this team's branch yet. What the organisation holds still reaches you. | — |
-| assets (me) | Nothing on your own branch yet. What your team and your organisation hold still reaches you. | — |
+| assets (org) | No organization assets yet. Anything here reaches every team. | *Add an asset* |
+| assets (team) | Nothing on this team's branch yet. What the organization holds still reaches you. | — |
+| assets (me) | Nothing on your own branch yet. What your team and your organization hold still reaches you. | — |
 | logs | Nothing recorded yet in this category. | |
 | endpoints | No harness has reached an endpoint yet. | |
 | people | Just you. Adding someone to a team is the grant. | *Invite* |
@@ -324,30 +324,38 @@ Hidden views (P10 — the list is replaced by the note, never shortened):
 
 | View | Note |
 | --- | --- |
-| boundaries | Your organisation has chosen not to show boundaries to members. A refusal you meet will still say which boundary it was. |
-| logs | Your organisation has chosen not to show members their own logs. |
+| boundaries | Your organization has chosen not to show boundaries to members. A refusal you meet will still say which boundary it was. |
+| logs | Your organization has chosen not to show members their own logs. |
 
 ## 9. *How this works*
 
-Route `/console/how` — outside `[scope]` (console 00 §5, 04 §16). Structure:
+Two routes, both outside `[scope]` (console 00 §5, 04 §16), drawn as two tabs
+of one screen: *Set up* at `/console/how/setup` and *Reference* at
+`/console/how`. The reference keeps the bare URL because every
+`ScaleRegistry.href` anchor points at it.
 
-1. *Set up* (04 §16.1, D105), above everything: the three commands a person
-   pastes to install the CLI and sign it in, with a **Generate a token**
-   button that writes a token into the second one. The one part of this page
-   that is per viewer and dynamic; everything below it is the reference.
-2. A search box filtering by word, with nothing between it and *Set up*.
-3. One section per scale in registry order, `id` = the `ScaleId` so
+*Set up* (04 §16.1, D105) is the five numbered cards a person works through
+once per machine — open a terminal, install, sign in, register the
+`harness://` link, then open a harness — with a **Generate a token** button
+that writes a token into the third one. It is the one part of this screen
+that is per viewer and dynamic; the other tab is the reference. Structure of
+*Reference*:
+
+1. A search box filtering by word, first on the tab.
+2. One section per scale in registry order, `id` = the `ScaleId` so
    `ScaleRegistry.href` anchors resolve. Each section: the scale's label as
    the heading; each value rendered as its `ScaleTag` followed by its
    meaning; no introduction.
-4. Then *Words*, alphabetical, each entry: the word, `short`, `more` set
+3. Then *Words*, alphabetical, each entry: the word, `short`, `more` set
    smaller, the PRD reference as a `Mono` link to the section.
-5. Then *Commands*: the sheet (§6), same component as the modal.
+4. Then *Commands*: the sheet (§6), same component as the modal.
 
-No prose between the reference sections (2–5). The page is the reference the
+No prose between the reference sections (1–4). The page is the reference the
 hovers point at; it explains nothing twice. *Set up* is the exception D54
-allows and names: instructions **above** the reference, not prose inside it,
-and the only place the console prints the lines that install the CLI.
+allows and names — instructions, not prose inside the reference — and it is
+now a tab rather than a section above one, so there is one copy of it and
+the account page's rows link straight at it. It stays the only place the
+console prints the lines that install the CLI.
 
 ## 10. Mechanics
 
@@ -399,7 +407,7 @@ harness.
 
 ## 12. Admin first run
 
-There is no wizard. An organisation admin who signs in for the first time
+There is no wizard. An organization admin who signs in for the first time
 sees the shell with every screen empty, and each empty state's verb is the
 next step. Read in the sidebar's order the sequence is:
 
@@ -407,7 +415,7 @@ next step. Read in the sidebar's order the sequence is:
 2. *Security groups* — *No security groups yet…* → **Create a group**
 3. *Security groups · grants* — *Nothing is granted to this team yet.* → **Grant a group**
 4. *Providers* — every known runtime is already a row, none approved (engine D30h); the first-run notice reads *No runtime is approved yet, so nobody can start a session. Turn one on below.* → the approval switch in the row
-5. *Providers · model* — the presets are already rows, none with a key; *No key is connected yet…* → **Set up** on one row (paste the key, pick a model); the grant to all teams and the organisation-wide default are part of that one write
+5. *Providers · model* — the presets are already rows, none with a key; *No key is connected yet…* → **Set up** on one row (paste the key, pick a model); the grant to all teams and the organization-wide default are part of that one write
 
 After step 5 a member can `harness run` — and steps 1–3 are optional for
 that: the key's group and grant are made by step 5. This replaces any
@@ -441,7 +449,7 @@ reads every changed sentence aloud before approving — if it cannot be said
 to a colleague, it is not done. No marketing voice: no *powerful*, *simple*,
 *seamless*. One idea per sentence. The verb is the person's, never the
 product's (*Offer it to the team*, not *Harness lets you offer*). Numbers
-and names come from the fixture organisation (R10). A sentence that explains
+and names come from the fixture organization (R10). A sentence that explains
 the screen rather than a word is deleted on review (R2).
 
 ## 14. Decisions

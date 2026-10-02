@@ -1,6 +1,6 @@
 # Engine Plan — 02 · The definitions service
 
-The definition plane's server: bare git repositories, one per organisation,
+The definition plane's server: bare git repositories, one per organization,
 served over smart-HTTP with **per-ref authorisation**, validated on every
 push, and mirrored into a **derived index** in Postgres that the console and
 the broker read. It is the one stateful service we own, and it is the source
@@ -434,7 +434,7 @@ Two hops are joins on this table; the console never walks a repo.
 `reach` was a rel and is not one now: 01 D132 retired the grant it came off.
 Reach is `policy/reach.json`, read into `idx_policy` by the same walk over
 `policy/` as every other file — per node, like `boundaries.json`, so a team's
-row sits beside the organisation's and `api` narrows the two the way
+row sits beside the organization's and `api` narrows the two the way
 `compose()` does (`console_index.narrow_reach`, one rule in two languages).
 
 ### 8.3 Indexing a push
@@ -523,17 +523,17 @@ narrowing push succeeded. There is no window in which a revoked grant mints.
 | `definitions.not_fast_forward` | history rewrite | `Your version's history has diverged from what the server holds. Run \`harness pull\` and try again.` | `harness pull` |
 | `definitions.sidecar_missing` | dir without asset.json | `<kind>/<name> has no asset.json. \`harness adopt <path>\` creates one.` | `harness adopt` |
 | `definitions.sidecar_invalid` | bad id/kind | `<kind>/<name>/asset.json: <reason>.` | fix the file |
-| `definitions.unknown_kind` | not in kinds.json | `"<kind>" is not a kind this organisation uses. Kinds: <list>.` | ask an org admin |
+| `definitions.unknown_kind` | not in kinds.json | `"<kind>" is not a kind this organization uses. Kinds: <list>.` | ask an org admin |
 | `definitions.duplicate_id` | id twice on a branch | `Two directories carry the same id <id>: <a> and <b>. One of them needs a new one — \`harness adopt --new-id <path>\`.` | |
 | `definitions.secret_in_tree` | secret pattern | `<path> looks like it contains a secret. Definitions never hold secret values; put it in a key vault and reference it from a security group.` | |
 | `definitions.id_conflict` | step 9 | `<kind>/<name> already exists on <node> with a different id. To override the team's, keep its id (\`harness reset <kind>/<name>\` then edit); to add a new thing, give it a new name.` | |
-| `definitions.policy_on_user_branch` | step 10 | `Policy files belong to teams and the organisation, not to a personal version.` | |
+| `definitions.policy_on_user_branch` | step 10 | `Policy files belong to teams and the organization, not to a personal version.` | |
 | `definitions.policy_invalid` | step 11 | `policy/<file>: <field> <reason>.` — e.g. `policy/groups.json: entries[2].upstream "https://api.stripe.com/v1" has a path; give the origin only.` | |
 | `definitions.grant_widens` | step 12 | `The grant "<name>" would give <sub-team> "<alias>", which <team> does not hold. A narrowed grant can only remove entries.` | |
 | `definitions.grant_outside_subtree` | step 12/13 | `"<scope>" is not inside <team>. A team admin may only grant or bound within their own team.` | |
 | `definitions.reach_widens` | step 12 (01 D131) | `The reach at <node> would give more than it inherits: <why>. Reach only ever narrows on the way down.` | set it at the node above |
 | `definitions.reach_grant_retired` | step 12 (01 D132) | `The grant "<id>" gives outside endpoints, which is no longer how reach is set. Remove it and set reach on Boundaries → Reach; it writes policy/reach.json.` | remove the grant |
-| `definitions.quota` | step 15 | `This organisation's definitions exceed <n> GiB. Remove large files, or ask us to raise the limit.` | |
+| `definitions.quota` | step 15 | `This organization's definitions exceed <n> GiB. Remove large files, or ask us to raise the limit.` | |
 | `definitions.head_moved` | `/internal/commit` CAS | `The branch moved while this change waited.` (409 with `{ head }`; `api` re-reads and retries or reports *stale* on the request — prd-v2 §17.3) | |
 | `definitions.index_failed` | §8.3 step 6 | `remote: index failed; an operator has been paged. Your push is saved; the console will catch up.` | reconciler |
 
@@ -593,7 +593,7 @@ A one-shot exporter, `backend/app/migration/` (it reads Postgres, so it lives wi
 | Quotas | `receive.maxInputSize` per push and §7 step 15 per repo |
 | `api` internal endpoints this service calls | `GET /v1/internal/principal` (§5.2), `POST /v1/internal/index` (§8.3), `POST /v1/internal/policy-changed` (§8.3 step 5b), `POST /v1/internal/audit` (below). All four are in `00 §4.10` |
 | Audit | `definitions` posts authoritative events to `api` `POST /v1/internal/audit`: `definitions.push` (ref, old, new, actor, paths), `definitions.commit` (+ reason, request), `definitions.refused` (code), `definitions.reindex`. One writer of the chain (C34) |
-| Locks | one push at a time per repo — an in-process mutex per repo held from `git-receive-pack` to response close (one instance per shard, §12; not `flock`); a second push waits ≤ 30 s then `definitions.busy`: *Another change to this organisation is being saved. Try again in a moment.* |
+| Locks | one push at a time per repo — an in-process mutex per repo held from `git-receive-pack` to response close (one instance per shard, §12; not `flock`); a second push waits ≤ 30 s then `definitions.busy`: *Another change to this organization is being saved. Try again in a moment.* |
 | Health | `GET /health` checks the socket, the root is writable, and `api` answers |
 
 ---
@@ -638,7 +638,7 @@ A one-shot exporter, `backend/app/migration/` (it reads Postgres, so it lives wi
 
 ## 15. Out of scope
 
-Cross-organisation publishing (prd-v2 §22 Later); `git merge` server-side
+Cross-organization publishing (prd-v2 §22 Later); `git merge` server-side
 (never); mTLS; multi-region; a web UI for the repos (the console is it).
 
 ## 16. Definition of done

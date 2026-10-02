@@ -7,7 +7,7 @@ import { repoRoot } from "../../paths.js";
  * The commit and version this CLI was built from (D90). Pi is vendored: the
  * CLI and `pi/packages/coding-agent/dist/bundle/cli.js` are one artefact, so
  * there is nothing on the machine to go looking for — the pin is a build
- * constant and an organisation approving a different commit is told to
+ * constant and an organization approving a different commit is told to
  * update the CLI, not to install something.
  */
 export const PI_PIN = { commit: "60e7e76bd7ea25cad1dd6f3f1ce0d18814a42759", version: "0.85.1" } as const;
@@ -30,7 +30,7 @@ export async function locate(pin: HarnessProvider["pin"]): Promise<Located> {
 	if (pin.commit !== PI_PIN.commit) {
 		throw {
 			code: "adapter.pin_mismatch",
-			message: `This CLI ships Pi at ${PI_PIN.commit.slice(0, 8)}; your organisation approved ${pin.commit.slice(0, 8)}.`,
+			message: `This CLI ships Pi at ${PI_PIN.commit.slice(0, 8)}; your organization approved ${pin.commit.slice(0, 8)}.`,
 			remedy: "Update the CLI.",
 		} satisfies Blocker;
 	}

@@ -48,6 +48,11 @@ export const COMMAND_SHEET: CommandGroup[] = [
         "what": "Bring in an existing provider setup",
         "run": "harness import claude",
         "note": "prints what was carried, partial or dropped; nothing is pushed until you review it"
+      },
+      {
+        "what": "Bring in a Pi setup instead",
+        "run": "harness import pi",
+        "note": "the same, reading ~/.pi; the console's Import dialog prints whichever you pick"
       }
     ]
   },
@@ -151,7 +156,7 @@ export const COMMAND_SHEET: CommandGroup[] = [
       {
         "what": "Connect a model key",
         "run": "harness keys add openrouter",
-        "note": "prompts for the key; sets it as the organisation's default"
+        "note": "prompts for the key; sets it as the organization's default"
       },
       {
         "what": "Make a harness for a team",

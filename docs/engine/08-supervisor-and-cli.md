@@ -260,9 +260,9 @@ Each tick, in order:
 4. **Validity.** The heartbeat's answer, or `GET /v1/sessions/{id}` →
    - `retired: string[]` non-empty → for each alias `proxy.retire(alias)`;
      print once per alias: *The `<alias>` credential was retired by your
-     organisation; requests using it will be refused from now.*
+     organization; requests using it will be refused from now.*
    - `status: "revoked"` → `proxy.close()`; `SIGTERM` the child; after 10 s
-     `SIGKILL`; print *This session was ended by your organisation: <reason>.*
+     `SIGKILL`; print *This session was ended by your organization: <reason>.*
      (C33). Exit code 1.
    - `status: "closed"` (closed elsewhere) → same as revoked, message *This
      session was closed from the console.*
@@ -332,7 +332,7 @@ change to marketing-deck?*) and it is the only prompt `run` ever makes.
    one refspec.
 4c. **Keeping a removal** (D130) deletes the person's own copy from their
    branch when the delivered copy was theirs (`PushSource.kind: "absent"`);
-   a copy the team or organisation holds is not theirs to delete. Then 5b.
+   a copy the team or organization holds is not theirs to delete. Then 5b.
 5a. **Kept assets join the session's harness** (D118, D119). The review never
    asks which: the person ran *in* a harness — the one they switched to, or
    the one `--<name>` named — and what they kept is their version of it.
@@ -487,7 +487,7 @@ description and four facts — for a given width, and two things show it:
   once (W5-D12).
 - **model** is `modelBrief(choices)`: `provider · model`, or *your own
   sign-in · not metered* for a native session (C22). The one-line
-  `Using your organisation's model…` summary `run` used to print above the
+  `Using your organization's model…` summary `run` used to print above the
   frame is gone; the frame says it.
 - **reach** is `reachBrief(plan.reach)`: *off* · *allow-list, n hosts* ·
   *on* · *on, n hosts denied*. The long form the preflight report prints is
@@ -501,7 +501,7 @@ description and four facts — for a given width, and two things show it:
   once (W5-D12).
 - **model** is `modelBrief(choices)`: `provider · model`, or *your own
   sign-in · not metered* for a native session (C22). The one-line
-  `Using your organisation's model…` summary `run` used to print above the
+  `Using your organization's model…` summary `run` used to print above the
   frame is gone; the frame says it.
 - **reach** is `reachBrief(plan.reach)`: *off* · *allow-list, n hosts* ·
   *on* · *on, n hosts denied*. The long form the preflight report prints is
@@ -669,7 +669,7 @@ Prints the card, then one landing line in every case:
 ```
 Created on your branch. Only you have it.  (`--team marketing` would make it Marketing's.)
 Created on Marketing's branch. Everyone on Marketing inherits it.
-Created on the organisation's branch. Every team inherits it.
+Created on the organization's branch. Every team inherits it.
 ```
 
 then *`harness switch <name>` to pick it up* (for `--team`/`--org`: *`harness
@@ -742,7 +742,7 @@ directories are removed from the work tree. `--harness` as for `push`
 (D118). Prints *Deleted `<key>` from your branch.* per own copy and
 *Removed from <harness> (your version): <keys>.*
 
-A key on the organisation's `required` list (W5-D10) is refused
+A key on the organization's `required` list (W5-D10) is refused
 `cli.asset_required` **before anything is deleted**: it is in every session's
 load set (03 §5.3), so removing it from a harness would be a decision the
 next boot undoes. The same guard sits inside `leaveHarness`, which both this
@@ -768,7 +768,7 @@ typo prints the rows. The key is **prompted, never a flag or an argument**:
 a key on the command line lands in shell history and `ps`. Non-TTY reads it
 from stdin. Calls `POST /v1/providers/model/{id}/setup { key, model }` (00
 §4.10) and prints what the one commit did, from its payload: *openrouter ·
-key stored in the bundled vault · default for the organisation · commit
+key stored in the bundled vault · default for the organization · commit
 abc1234*. Personal and enterprise are the same command; on a personal
 account the words are the same because they are true.
 
@@ -863,7 +863,7 @@ no separate flag for it.
 2. A `Blocker` renders as three lines: the message; `→ ` the remedy; the link
    if any. Colour from `style.ts`; none when not a TTY.
 3. Never a stack trace to a person. An unhandled error prints *Something went
-   wrong in harness itself (not your organisation's policy). Run with
+   wrong in harness itself (not your organization's policy). Run with
    `HARNESS_DEBUG=1` for the trace.* and exits 1.
 4. `--json` on `status` and `preflight` prints the object and nothing else.
 5. Exit codes: `0` ok · `1` blocker · `2` usage · `130` interrupted · child's
@@ -878,30 +878,30 @@ no separate flag for it.
 | `preflight.api_unreachable` | fetch failed before a session — 03's code, raised by `fetchChain` so one situation has one code | Could not reach the Harness API at `<url>`. | Is it running? `harness preflight identity`. |
 | `cli.provider_unknown` | `run <word>` not in the registry | "`<word>`" is not a provider this CLI knows. You have: pi, claude. | `harness run pi` |
 | `cli.provider_ambiguous` | several adapters, no word | Say which provider: pi, claude. | — |
-| `cli.as_not_admin` | `--as` and fetch did not advertise the ref | You are not an admin of a team `<member>` is in, so their version is not yours to open. | Ask an organisation admin. |
+| `cli.as_not_admin` | `--as` and fetch did not advertise the ref | You are not an admin of a team `<member>` is in, so their version is not yours to open. | Ask an organization admin. |
 | `cli.read_only_as` | `push`/`offer` under `--as` | You are reading `<member>`'s version; changes cannot be pushed from here. | Promote from the console instead. |
 | `cli.offer_refused` | server refused the request | The team declined to receive this: `<reason>`. | — |
 | `cli.reset_needs_yes` | non-TTY, no `--yes` | This discards your changes to `<key>`. | Re-run with `--yes`. |
 | `cli.key_unknown` | `diff`/`log`/`reset` on an unknown key | Nothing called `<key>` has been delivered to you. | `harness status` lists what you have. |
-| `cli.kind_unknown` | `adopt` with a kind not in `kinds.json` | "`<kind>`" is not a kind your organisation uses. Kinds: … | — |
+| `cli.kind_unknown` | `adopt` with a kind not in `kinds.json` | "`<kind>`" is not a kind your organization uses. Kinds: … | — |
 | `cli.harness_name_taken` | `new` duplicate | You already have a harness called "`<name>`". | Pick another name, or `harness switch <name>`. |
 | `cli.team_ambiguous` | `new --team <segment>` matches several teams on the chain | `<segment>` names more than one team you are on: `<paths>`. | `harness new "…" --team <first path>` |
 | `cli.reason_required` | `providers decline` without `--reason` | Declining a runtime needs a reason: everyone who tries to run it is shown it. | `harness providers decline <id> --reason "…"` |
 | `cli.key_required` | `keys add` given an empty key | No key was given, so nothing was stored. | `harness keys add <provider>` |
 | `cli.no_harness_target` | `push` with no selection and no `--harness` | Every push lands in a harness, and none is selected. | `harness switch <name>` picks one for every push; `--harness <name>` names one for this push. |
 | `cli.no_harness` | `run` with no selection and no `--<name>` | Every session runs in a harness, and none is selected. | `harness switch <name>`, or `harness run <provider> --<name>`; `harness new "<name>"` makes one. |
-| `cli.asset_required` | `remove`, or the exit review, naming a key on the organisation's `required` list (W5-D10) | `<keys>` is required: every session loads it, so it cannot be removed from a harness. | An organisation admin decides what is required, on the organisation's Assets screen. |
+| `cli.asset_required` | `remove`, or the exit review, naming a key on the organization's `required` list (W5-D10) | `<keys>` is required: every session loads it, so it cannot be removed from a harness. | An organization admin decides what is required, on the organization's Assets screen. |
 | `cli.import_unknown_provider` | `import <word>` with no importer | No importer for `<word>`. Harness reads Claude Code and Pi setups itself; for anything else the assistant can do it. | `harness run pi`, then: *Extract my `<word>` setup into this harness.* |
 | `cli.offline_no_refs` | `--offline` with no prior fetch | Nothing has been fetched on this machine yet, so there is nothing to run offline. | `harness pull` when you are online. |
 | `cli.id_collision` | `adopt` of a directory whose sidecar id already exists on the chain | `<path>` carries the id of `<kind>/<name>`, which already exists. | `harness adopt --new-id <path>` |
 | `cli.withdraw_refused` | not the author, or not open | That request is not yours to withdraw, or is already closed. | — |
 | `cli.link_malformed` | `open` given anything but `harness://run?harness=&provider=`, or a relative `workspace` | "`<url>`" is not a link this CLI understands. | A harness link looks like `harness://run?harness=<harness id>&provider=<provider id>`. |
-| `cli.provider_not_listed` | `open`'s provider is a real adapter the organisation does not list | Your organisation does not list "`<id>`" as a runtime, so this link cannot start a session. | Runtimes you have: … |
+| `cli.provider_not_listed` | `open`'s provider is a real adapter the organization does not list | Your organization does not list "`<id>`" as a runtime, so this link cannot start a session. | Runtimes you have: … |
 | `cli.workspace_gone` | `open` given a `workspace` that is not a folder on this machine | There is no folder at `<path>` on this machine any more. | Use the card's own button, which asks where to run. |
 | `cli.no_picker` | `open` with no `workspace` on a Linux machine with neither `zenity` nor `kdialog` | This machine has no folder picker (`zenity` or `kdialog`), so the folder cannot be asked for. | In the folder you want, run: `harness run <provider> --harness <id>` |
 | `cli.spawn_failed` | binary gone at spawn | Could not start `<path>`. | `harness preflight provider` |
-| `supervise.retired` | alias retired mid-session | The `<alias>` credential was retired by your organisation; requests using it will be refused from now. | — |
-| `supervise.revoked` | session revoked | This session was ended by your organisation: `<reason>`. | `harness run` starts a new one under the current policy. |
+| `supervise.retired` | alias retired mid-session | The `<alias>` credential was retired by your organization; requests using it will be refused from now. | — |
+| `supervise.revoked` | session revoked | This session was ended by your organization: `<reason>`. | `harness run` starts a new one under the current policy. |
 | `supervise.unreachable` | TTL exceeded | The Harness API was unreachable for 15 minutes, so this session has ended. | `harness run` when it is back. |
 | `supervise.close_deferred` | close failed at exit | This session could not be closed; it will be closed the next time you run `harness`. | — |
 

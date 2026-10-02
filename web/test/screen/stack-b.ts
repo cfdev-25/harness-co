@@ -26,7 +26,7 @@ export const STACK = {
 
 /**
  * The scope segments D2 gives: `org`, `me`, and a dotted team path. The one
- * organisation in the scratch database is `test-org-1` and its one team is
+ * organization in the scratch database is `test-org-1` and its one team is
  * `test-org-1.marketing`, which is what the team segment spells.
  */
 export const ORG = "org";

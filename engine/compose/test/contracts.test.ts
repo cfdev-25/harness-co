@@ -68,7 +68,7 @@ describe("a harness provider carries its own name", () => {
 		expect(((read as { value: HarnessProvider[] }).value)[0].name).toBe("Pi");
 	});
 
-	it("accepts a row without one: every organisation seeded before W6-D3 holds those", () => {
+	it("accepts a row without one: every organization seeded before W6-D3 holds those", () => {
 		expect(readJson(bytes(row({})), spec, "harness-providers.json")).not.toHaveProperty("why");
 	});
 

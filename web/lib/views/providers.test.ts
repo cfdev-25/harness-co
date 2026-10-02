@@ -146,7 +146,7 @@ describe("providers", () => {
     expect(noneApproved([{ ...runtime, approval: "not_approved" }])).toBe(true);
     expect(noneApproved([{ ...runtime, approval: "beta" }])).toBe(true);
     expect(noneApproved([runtime, { ...runtime, id: "claude-code" }])).toBe(false);
-    // An organisation with no rows at all reads its empty state, not a notice.
+    // An organization with no rows at all reads its empty state, not a notice.
     expect(noneApproved([])).toBe(false);
     expect(noneConnected([{ ...model, credential: null }])).toBe(true);
     expect(noneConnected([model])).toBe(false);

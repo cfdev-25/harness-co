@@ -30,7 +30,7 @@ export const messages = {
 	"definitions.sidecar_missing": (path: string) => `${path} has no asset.json. \`harness adopt ${path}\` creates one.`,
 	"definitions.sidecar_invalid": (path: string, reason: string) => `${path}/asset.json: ${reason}.`,
 	"definitions.unknown_kind": (kind: string, kinds: string) =>
-		`"${kind}" is not a kind this organisation uses. Kinds: ${kinds}.`,
+		`"${kind}" is not a kind this organization uses. Kinds: ${kinds}.`,
 	"definitions.duplicate_id": (id: string, a: string, b: string) =>
 		`Two directories carry the same id ${id}: ${a} and ${b}. One of them needs a new one — \`harness adopt --new-id ${a}\`.`,
 	"definitions.secret_in_tree": (path: string) =>
@@ -38,7 +38,7 @@ export const messages = {
 	"definitions.id_conflict": (path: string, node: string) =>
 		`${path} already exists on ${node} with a different id. To override the team's, keep its id (\`harness reset ${path}\` then edit); to add a new thing, give it a new name.`,
 	"definitions.policy_on_user_branch": () =>
-		"Policy files belong to teams and the organisation, not to a personal version.",
+		"Policy files belong to teams and the organization, not to a personal version.",
 	// The path already carries its `policy/` or `harnesses/` prefix, so the
 	// rendered sentence is §10's `policy/<file>: <field> <reason>.` verbatim.
 	"definitions.policy_invalid": (path: string, reason: string) => `${path}: ${reason}.`,
@@ -57,11 +57,11 @@ export const messages = {
 	"definitions.reach_grant_retired": (grant: string) =>
 		`The grant "${grant}" gives outside endpoints, which is no longer how reach is set. Remove it and set reach on Boundaries → Reach; it writes policy/reach.json.`,
 	"definitions.quota": (gib: string) =>
-		`This organisation's definitions exceed ${gib} GiB. Remove large files, or ask us to raise the limit.`,
+		`This organization's definitions exceed ${gib} GiB. Remove large files, or ask us to raise the limit.`,
 	"definitions.head_moved": () => "The branch moved while this change waited.",
 	"definitions.index_failed": () =>
 		"remote: index failed; an operator has been paged. Your push is saved; the console will catch up.",
 	// 02 §12 names `definitions.busy` under Locks but gives no sentence; this is
 	// the one it needs, and belongs in §10's table.
-	"definitions.busy": () => "Another change to this organisation is being saved. Try again in a moment.",
+	"definitions.busy": () => "Another change to this organization is being saved. Try again in a moment.",
 } as Record<string, (...parts: string[]) => string>;

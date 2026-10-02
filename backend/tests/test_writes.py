@@ -196,7 +196,7 @@ async def _person(connection, team, name, email):
 
 @asynccontextmanager
 async def world():
-    """One organisation, two teams, three people — an organisation admin, a
+    """One organization, two teams, three people — an organization admin, a
     team admin of `marketing`, and a member — with the index `definitions`
     would have written for them."""
     async with scratch_db(_all_migrations()) as connection:
@@ -241,7 +241,7 @@ async def world():
                                for name, body in ORG_POLICY.items()],
                 "idx_assets": [{"node_path": ORG, "id": asset_id, "kind": "skill",
                                 "name": "triage", "tree": "t1", "sidecar": {"id": asset_id}}],
-                # What compose gives each person: the organisation's copy wins
+                # What compose gives each person: the organization's copy wins
                 # for all three. The store reads this set (W5-D15).
                 "idx_effective": [
                     {"user_id": str(who), "asset_id": asset_id, "from_path": ORG,
@@ -299,7 +299,7 @@ async def world():
 
 @asynccontextmanager
 async def personal_world():
-    """prd-v2 §12.1: one organisation, one person, **no team node** — which is
+    """prd-v2 §12.1: one organization, one person, **no team node** — which is
     what makes the edition personal (`console._facts` derives it the same way).
     Small on purpose: W7-D3 is about what one write does here, and a second
     team would make it an enterprise."""
@@ -507,7 +507,7 @@ async def test_narrow_is_subset_or_refused():
 
 
 @requires_postgres
-async def test_a_grant_is_the_organisations_and_a_narrowed_one_is_the_teams():
+async def test_a_grant_is_the_organizations_and_a_narrowed_one_is_the_teams():
     async with world() as w, fake_definitions(_files()) as fake:
         connection = w["connection"]
         await routes_writes.create_grant(
@@ -542,7 +542,7 @@ async def test_a_grant_is_the_organisations_and_a_narrowed_one_is_the_teams():
         with pytest.raises(ApiError) as caught:
             await routes_writes.remove_grant("g-marketing", _request(connection), w["rae"])
         assert caught.value.status_code == 403
-        assert "organisation admin" in caught.value.message
+        assert "organization admin" in caught.value.message
         await routes_writes.remove_grant("g-n", _request(connection), w["rae"])
         assert fake.changed(2) == []
         assert await _actions(connection) == ["grant.create", "grant.narrow", "grant.remove"]
@@ -554,14 +554,14 @@ async def test_a_grant_is_the_organisations_and_a_narrowed_one_is_the_teams():
 @requires_postgres
 async def test_boundary_cannot_be_lifted_below_where_set():
     """04 §9 and engine 01 §6 step 7: union is the only operation, so nothing
-    below the organisation can take an organisation boundary away."""
+    below the organization can take an organization boundary away."""
     async with world() as w, fake_definitions(_files()) as fake:
         connection = w["connection"]
         with pytest.raises(ApiError) as caught:
             await routes_writes.remove_boundary(f"{ORG}/b-org", _request(connection), w["rae"])
         assert caught.value.status_code == 403
         assert caught.value.message == (
-            "Lifting an organisation boundary is nobody's decision below the organisation. "
+            "Lifting an organization boundary is nobody's decision below the organization. "
             "Boundaries only ever tighten on the way down."
         )
         assert fake.commits == []
@@ -581,7 +581,7 @@ async def test_boundary_cannot_be_lifted_below_where_set():
         await routes_writes.remove_boundary(f"{TEAM}/b-team", _request(connection), w["rae"])
         assert fake.commits[0]["ref"] == TEAM_REF
         assert fake.changed() == []
-        # And the organisation admin may lift the organisation's.
+        # And the organization admin may lift the organization's.
         await routes_writes.remove_boundary(f"{ORG}/b-org", _request(connection), w["ana"])
         assert await _actions(connection) == ["boundary.remove", "boundary.remove"]
 
@@ -590,7 +590,7 @@ async def test_boundary_cannot_be_lifted_below_where_set():
 async def test_a_team_may_add_a_command_boundary_and_not_lift_the_orgs():
     """W6-D150. A boundary of kind `command` is an ordinary boundary under
     C32's direction: a team admin adds one for their own subtree, and the
-    organisation's stays where it was set. The new part is `holds` — a command
+    organization's stays where it was set. The new part is `holds` — a command
     is refused by the runtime, never by the fence, so `intercepted` is the only
     word for it and `enforced` is a claim the product cannot keep."""
     async with world() as w, fake_definitions(_files()) as fake:
@@ -613,7 +613,7 @@ async def test_a_team_may_add_a_command_boundary_and_not_lift_the_orgs():
         }
         assert await _actions(connection) == ["boundary.set"]
 
-        # And the organisation's command boundary is still nobody's to lift
+        # And the organization's command boundary is still nobody's to lift
         # from a team: the kind changes nothing about where a boundary is set.
         with pytest.raises(ApiError) as caught:
             await routes_writes.remove_boundary(f"{ORG}/b-org", _request(connection), w["rae"])
@@ -920,7 +920,7 @@ async def test_routing_default_is_the_teams_only_within_approved_for():
                 routes_writes.RoutingIn(**unapproved), _request(connection), w["rae"]
             )
         assert caught.value.code == "routing.not_approved"
-        # The organisation's own cell is not a team admin's, even though the
+        # The organization's own cell is not a team admin's, even though the
         # org path is on their chain.
         with pytest.raises(ApiError) as caught:
             await routes_writes.put_routing(
@@ -1341,7 +1341,7 @@ async def test_the_first_harness_modal_writes_reach_on_the_harness_and_one_grant
 
         # The grant, on the org branch — appended, never replacing what is
         # there — and scoped to this harness alone, which is the whole of what
-        # the modal added to the organisation.
+        # the modal added to the organization.
         assert fake.commits[1]["ref"] == ORG_REF
         assert fake.commits[1]["changes"][0]["path"] == "policy/grants.json"
         grants = fake.changed(1)
@@ -1480,7 +1480,7 @@ async def test_add_to_harness_writes_the_persons_own_version():
 
 @requires_postgres
 async def test_add_to_harness_copies_a_preset_in_the_same_commit():
-    """A bundled asset the organisation does not hold is copied onto the
+    """A bundled asset the organization does not hold is copied onto the
     person's branch *in the same commit* as the harness file: a harness naming
     an id nothing answers is an unanswered row."""
     async with world() as w, fake_definitions({
@@ -1753,14 +1753,14 @@ async def test_role_requests_listable():
         mine = await routes_writes.list_requests(_request(connection), w["dana"])
         assert len(mine["items"]) == 2
 
-        # D43: appointing is the organisation's decision, even for the team's
+        # D43: appointing is the organization's decision, even for the team's
         # own admin.
         with pytest.raises(ApiError) as caught:
             await routes_requests.accept_request(
                 uuid.UUID(opened["id"]), routes_requests.Decision(),
                 _request(connection), w["rae"],
             )
-        assert caught.value.message.startswith("Appointing a team admin is an organisation")
+        assert caught.value.message.startswith("Appointing a team admin is an organization")
         await routes_requests.accept_request(
             uuid.UUID(opened["id"]), routes_requests.Decision(), _request(connection), w["ana"]
         )
@@ -2035,7 +2035,7 @@ def _wrote(fake, index: int, path: str) -> object:
 
 @requires_postgres
 async def test_setting_up_a_model_key_is_one_commit_over_four_files():
-    """The vault entry, the group, its grant and the organisation's routing
+    """The vault entry, the group, its grant and the organization's routing
     default in one write, with the key in none of them."""
     async with world() as w, fake_definitions(_files()) as fake:
         connection = w["connection"]
@@ -2104,7 +2104,7 @@ async def test_a_setup_key_never_reaches_the_commit_or_the_log():
 
 @requires_postgres
 async def test_a_second_provider_does_not_take_the_default():
-    """D30i: the organisation's line is written once. The second key is
+    """D30i: the organization's line is written once. The second key is
     approved for everyone and changes nobody's default."""
     async with world() as w, fake_definitions(_files()) as fake:
         connection = w["connection"]
@@ -2137,7 +2137,7 @@ async def test_on_a_personal_account_set_up_is_the_whole_model_story():
     """W7-D3: one *Set up* leaves nothing else to do. The same commit carries
     the key's group entry, the grant that reaches the person (`teams: "all"`,
     which is the only scope a chain with no team node can be covered by), the
-    provider's credential, and the organisation's default **and** approval —
+    provider's credential, and the organization's default **and** approval —
     so the Account list's *a model* row is ticked and the first-harness modal
     has something to name."""
     async with personal_world() as w, fake_definitions(_files()) as fake:
@@ -2163,7 +2163,7 @@ async def test_on_a_personal_account_set_up_is_the_whole_model_story():
 
 @requires_postgres
 async def test_a_personal_second_key_becomes_the_default():
-    """W7-D3 against D30i, side by side. D30i protects an organisation's
+    """W7-D3 against D30i, side by side. D30i protects an organization's
     standing choice from the next admin who pastes a key; a personal account
     has one person and nowhere else to set a default, so *Set up* **is** that
     choice being made and the newest key wins."""
@@ -2186,7 +2186,7 @@ async def test_a_personal_second_key_becomes_the_default():
 
 
 @requires_postgres
-async def test_setting_up_a_provider_the_organisation_does_not_hold_is_a_404():
+async def test_setting_up_a_provider_the_organization_does_not_hold_is_a_404():
     async with world() as w, fake_definitions(_files()) as fake:
         with pytest.raises(ApiError) as caught:
             await routes_writes.set_up_model_provider(

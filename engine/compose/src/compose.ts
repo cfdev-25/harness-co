@@ -39,7 +39,7 @@ const byKey = <T>(rows: T[], key: (row: T) => string): Record<string, T> =>
 /** 01 §6 step 1. */
 function chainFault(chain: Chain): string | null {
 	if (chain.length === 0) return "it is empty";
-	if (chain[0].kind !== "org") return `it starts at a ${chain[0].kind}, not an organisation`;
+	if (chain[0].kind !== "org") return `it starts at a ${chain[0].kind}, not an organization`;
 	const last = chain[chain.length - 1];
 	if (last.kind !== "user") return `it ends at a ${last.kind}, not a person`;
 	for (let at = 1; at < chain.length; at++) {
@@ -112,7 +112,7 @@ export async function compose(chain: Chain, reader: Reader): Promise<Composed> {
 	const boundaries: Boundary[] = [];
 	const grants: Grant[] = [];
 	// 10a (D131). The chain's reach, narrowed one node at a time. `off` until a
-	// node says otherwise, set by the organisation — the node that can turn it on.
+	// node says otherwise, set by the organization — the node that can turn it on.
 	let reach: EffectiveReach = noReach(org.path);
 	const harnesses: HarnessDef[] = [];
 	/** Which node each harness's winning definition came off, for 10b's conflict. */
@@ -137,7 +137,7 @@ export async function compose(chain: Chain, reader: Reader): Promise<Composed> {
 					why:
 						node.kind === "user"
 							? "a person's branch holds no policy"
-							: `only the organisation branch holds policy/${entry.name}`,
+							: `only the organization branch holds policy/${entry.name}`,
 				});
 			}
 
@@ -146,11 +146,11 @@ export async function compose(chain: Chain, reader: Reader): Promise<Composed> {
 			for (const boundary of (await policyFile<Boundary[]>(node, "boundaries.json")) ?? [])
 				boundaries.push({ ...boundary, id: `${node.path}/${boundary.id}` });
 			// 10a (D131). Reach, narrowed: a step that widens is reported and the
-			// parent stands, so nothing below the organisation can reach further.
+			// parent stands, so nothing below the organization can reach further.
 			const step = await policyFile<Reach>(node, "reach.json");
 			if (step) {
 				const said = { mode: step.mode, hosts: step.hosts ?? [] };
-				// The organisation is the top of the walk: its file *is* the start,
+				// The organization is the top of the walk: its file *is* the start,
 				// and only what is below it can widen anything.
 				if (node.kind === "org") reach = { ...said, hosts: said.mode === "off" ? [] : said.hosts, setBy: node.path };
 				else {
@@ -263,16 +263,16 @@ export async function compose(chain: Chain, reader: Reader): Promise<Composed> {
 	const resolved = resolveByIdAndPath(placements);
 	for (const conflict of resolved.conflicts) report(conflict);
 
-	// 12. Required and recommended: the winning copy must be the organisation's
+	// 12. Required and recommended: the winning copy must be the organization's
 	// own, for both lists — a recommended id a new harness would copy has to
-	// name an asset every member of the organisation already holds.
+	// name an asset every member of the organization already holds.
 	const ours = (id: string) => {
 		if (resolved.assets.some((asset) => asset.id === id && asset.from.kind === "org")) return true;
 		report({
 			kind: "malformed",
 			path: "policy/always-loaded.json",
 			from: org,
-			why: `${id} is not an organisation asset`,
+			why: `${id} is not an organization asset`,
 		});
 		return false;
 	};

@@ -9,10 +9,11 @@ import { Related } from "../../../ui/related";
 import { Launch } from "./_launch";
 
 /**
- * One card of the grid (04 §4). A server component, extracted from `page.tsx`
- * so the whole card — overlay link, team cell and W5-D13's launch row — can be
- * mounted and pressed in a component test: the one thing worth proving here is
- * that the overlay does not swallow a runtime button.
+ * One card of the grid (04 §4). Three rows and no more (D107): the title row
+ * — mark, name, description — then one meta row of facts, then one action
+ * row. A server component, extracted from `page.tsx` so the whole card can be
+ * mounted and pressed in a component test: the one thing worth proving here
+ * is that the overlay does not swallow a runtime button.
  *
  * The card is the link, but its team cell is a link too, and an anchor may not
  * nest: the name carries an overlay link instead, the same way `ui/table` does,
@@ -33,7 +34,11 @@ export function Card({ card, scope }: { card: HarnessCard; scope: Scope }) {
           <span className="line-clamp-2 text-base text-muted">{card.description}</span>
         </span>
       </div>
-      <div className="relative z-10 flex items-center justify-between gap-3">
+      {/* D107: one meta row. Team, file count and — W5-D9 — the same id read
+          at the other levels of the chain, which is the same harness and not
+          a second card. Three facts on one line read as facts; on three
+          lines they read as three sections of a card that has none. */}
+      <div className="relative z-10 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
         <Related
           value={{
             unit: "teams",
@@ -49,20 +54,17 @@ export function Card({ card, scope }: { card: HarnessCard; scope: Scope }) {
         <Mono>
           {card.fileCount} {card.fileCount === 1 ? WORDS.fileOne : WORDS.files}
         </Mono>
+        {(card.alsoAt ?? []).length > 0 && (
+          <span className="flex flex-wrap items-center gap-2">
+            <span>{WORDS.alsoAt}</span>
+            {(card.alsoAt ?? []).map((also) => (
+              <Link key={also.href} href={also.href} className="text-accent-text hover:underline">
+                {alsoAtWord(also)}
+              </Link>
+            ))}
+          </span>
+        )}
       </div>
-      {/* W5-D9: the same id on another node of the chain is the same harness
-          read at that level, not a second card. The nearest copy is this
-          card; these are the rest. */}
-      {(card.alsoAt ?? []).length > 0 && (
-        <div className="relative z-10 flex flex-wrap items-baseline gap-2 text-xs text-muted">
-          <span>{WORDS.alsoAt}</span>
-          {(card.alsoAt ?? []).map((also) => (
-            <Link key={also.href} href={also.href} className="text-accent-text hover:underline">
-              {alsoAtWord(also)}
-            </Link>
-          ))}
-        </div>
-      )}
       <Launch card={card} />
     </div>
   );

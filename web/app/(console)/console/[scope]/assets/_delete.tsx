@@ -12,7 +12,7 @@ import { Notice } from "../../../ui/notice";
 export interface DeleteAssetProps {
   assetId: string;
   /** What the asset would leave: the row's *used by*, or every harness when
-   *  the organisation loads it into all of them (PRD §15). */
+   *  the organization loads it into all of them (PRD §15). */
   leaves: { all: boolean; labels: string[] };
   scope: string;
 }

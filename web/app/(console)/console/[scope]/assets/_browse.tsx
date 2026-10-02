@@ -48,7 +48,7 @@ interface Row {
 /**
  * The store — 04 §12, W5-D15. Everything the viewer can use in one list: the
  * winning copy of every asset on their chain and the bundled presets the
- * organisation does not hold yet. The server decides what is in it
+ * organization does not hold yet. The server decides what is in it
  * (`console.browse_rows`); this screen ticks, filters and asks.
  *
  * The kind filter here is a quieter thing than the screen's kind tabs,

@@ -22,14 +22,14 @@ test("no_per_person_permission_list", async ({ page }) => {
 test("not_yours_to_change_lists_four", async ({ page }) => {
   await open(page, `/console/${TEAM}/people`);
   const card = page.locator("section", { has: page.getByRole("heading", { name: "Not yours to change" }) });
-  await expect(card.getByText("an organisation admin decides")).toHaveCount(4);
+  await expect(card.getByText("an organization admin decides")).toHaveCount(4);
 });
 
 test("role_request_waits_on_named_admin", async ({ page }) => {
   await open(page, `/console/${ORG}/people`);
-  await expect(page.getByRole("heading", { name: "Waiting on an organisation admin" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Waiting on an organization admin" })).toBeVisible();
   // The card names who decides whether anything is waiting or not; it never
-  // disappears, because an empty queue is a fact about the organisation.
+  // disappears, because an empty queue is a fact about the organization.
   await expect(
     page.getByText(/Nothing is waiting\.|requests? (are|is) waiting/),
   ).toBeVisible();
@@ -47,14 +47,14 @@ test("sub_team_dialog_three_fields_and_notice", async ({ page }) => {
 });
 
 test("member_sees_who_decides", async ({ page }) => {
-  // K-M5's UI half (P13). The viewer here is the organisation admin, so no
+  // K-M5's UI half (P13). The viewer here is the organization admin, so no
   // refusal is drawn — what a team admin reads instead is *Not yours to
   // change*, which names the decider for each of PRD §12's four items.
   await open(page, `/console/${TEAM}/people`);
   const card = page.locator("section", {
     has: page.getByRole("heading", { name: "Not yours to change" }),
   });
-  expect(await card.getByText("an organisation admin decides").count()).toBe(4);
+  expect(await card.getByText("an organization admin decides").count()).toBe(4);
 });
 
 test("visibility_switch_org_only", async ({ page }) => {
@@ -94,7 +94,7 @@ test.fixme("org_admin_accepts_role_request", async () => {
 });
 
 test.fixme("team_admin_appoint_not_cleared", async () => {
-  // Needs a team-admin principal; the scratch organisation has one org admin.
+  // Needs a team-admin principal; the scratch organization has one org admin.
 });
 
 test.fixme("member_invite_not_cleared", async () => {

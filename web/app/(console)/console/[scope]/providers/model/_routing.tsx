@@ -31,7 +31,7 @@ export interface RoutingVerbProps {
   verb: "default" | "approve";
   /** At a team scope the one subject a team admin may write: their own team,
    *  and only to a provider already approved for it (D42 — a select limited to
-   *  what is allowed is not a refusal). `null` at the organisation. */
+   *  what is allowed is not a refusal). `null` at the organization. */
   only?: string | null;
 }
 

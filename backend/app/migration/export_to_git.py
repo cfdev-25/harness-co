@@ -1,4 +1,4 @@
-"""Postgres → bare git repos, one per organisation (02 §11.1's table).
+"""Postgres → bare git repos, one per organization (02 §11.1's table).
 
 Nothing here writes to the database: the connection is opened read-only at
 the transaction level as well as by intent, so a mistake is refused by
@@ -149,7 +149,7 @@ async def head_version(connection: asyncpg.Connection, asset_id: UUID) -> asyncp
 async def export_org(
     connection: asyncpg.Connection, org: asyncpg.Record, out: Path, report: list[dict[str, Any]]
 ) -> dict[str, Any]:
-    """One organisation → one bare repo. Returns what the acceptance test needs."""
+    """One organization → one bare repo. Returns what the acceptance test needs."""
     org_id = org["id"]
     repo = str(out / f"{org_id}.git")
     subprocess.run(["git", "init", "--bare", "--quiet", repo], check=True)
@@ -347,10 +347,10 @@ async def export_org(
     if "system_prompt" not in kinds:
         record("kind_seeded", kind="system_prompt")
     await export_policy(connection, by_id, branches, org_branch, report, record)
-    # D30h, last: a migrated organisation gets the same catalogue a created one
+    # D30h, last: a migrated organization gets the same catalogue a created one
     # does, **filled by id** over what the records already said. The old schema
     # knew nothing of harness providers — approval was not a concept — so they
-    # arrive `approved`: the organisation was already running Pi, and seeding
+    # arrive `approved`: the organization was already running Pi, and seeding
     # them refused would stop every session after cutover.
     existing = {
         **{path: json.loads(body) for path, body in org_branch.files.items()
@@ -360,7 +360,7 @@ async def export_org(
     seeded = seed.seed_policy("enterprise", existing=existing, approval="approved")
     for path, body in seeded.items():
         org_branch.add_json(path, body)
-    # D30j ships as data, so a migrated organisation gains the directory too —
+    # D30j ships as data, so a migrated organization gains the directory too —
     # unless it already placed one there, which the sidecars above declare.
     for path, file in seed.seed_assets(existing)[0].items():
         org_branch.add(path, file)
@@ -583,8 +583,8 @@ async def export_policy(
             record("model_source_none", unit=by_id[model_unit]["path"])
         else:
             # D30i: `defaultFor.teams` is keyed by a team path **or the
-            # organisation's**, and preflight takes the nearest key on the
-            # chain. An organisation-owned connection is therefore one line
+            # organization's**, and preflight takes the nearest key on the
+            # chain. An organization-owned connection is therefore one line
             # under the org path — the default for everybody, overridable by a
             # team's own line — and not a copy onto every team.
             owner = by_id[model_unit]

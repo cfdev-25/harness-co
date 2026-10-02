@@ -126,6 +126,8 @@ export function Table<Row>(props: TableProps<Row>) {
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLTableRowElement>, index: number) {
+    // A control inside a cell (a row being edited in place) keeps its own keys.
+    if (event.target !== event.currentTarget) return;
     if (event.key === "ArrowDown") focus(index + 1);
     else if (event.key === "ArrowUp") focus(index - 1);
     else if (event.key === "Home") focus(0);

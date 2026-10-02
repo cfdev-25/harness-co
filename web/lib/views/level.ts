@@ -53,10 +53,10 @@ export interface LevelRow {
 
 /**
  * The one selector (01 §4.3): *You*, then each team with its sub-teams
- * indented under it, then *Organisation*. A sub-team's depth is its path's
+ * indented under it, then *Organization*. A sub-team's depth is its path's
  * depth below the shallowest team the viewer is on, because the chain always
  * carries a team's ancestors — so the tree is complete without assuming the
- * organisation's path is one segment.
+ * organization's path is one segment.
  */
 export function levelRows(scope: Scope, viewer: Viewer): LevelRow[] {
   const teams = [...viewer.teams].sort((a, b) => a.path.localeCompare(b.path));

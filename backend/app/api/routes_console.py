@@ -11,7 +11,7 @@ are worth stating because a fourth route will be added by someone else:
   `domain/console_models.py`, which is where to read the contract.
 * **One envelope.** Lists are `{ items, next }`; every response may carry
   `stale` (the index is behind — flagged, never refused, 03 D38) and `hidden`
-  (an organisation admin has turned this view off, P10).
+  (an organization admin has turned this view off, P10).
 """
 
 from collections.abc import AsyncIterator
@@ -104,13 +104,24 @@ def _by(field: str) -> Any:
 async def read_viewer(ctx: Ctx) -> dict:
     # `id` is the `org_units` row: the sidebar links by path (00 D2) and the
     # write routes of 00 §4.11 take the id, so the viewer carries both.
-    ids = {row["path"]: str(row["id"]) for row in await ctx.pool.fetch(
-        "select id, path from org_units where path = any($1::text[])",
-        [node["path"] for node in ctx.chain])}
-    teams = [{"id": ids.get(node["path"]), "path": node["path"],
-              "name": console.node_label(node["path"]),
-              "admin": ctx.role["at"] is not None and node["path"].startswith(ctx.role["at"])}
-             for node in ctx.chain if node["kind"] == "team"]
+    # The teams the switcher lists: a member's are the chain's; an organization
+    # admin administers every team, including one they just created from a
+    # personal account (07 §1 rule 4) and sit on no chain of — so theirs are
+    # every team node the organization holds, root first.
+    if ctx.role["level"] == "org-admin":
+        rows = await ctx.pool.fetch(
+            """select id, path from org_units
+                where role='team' and (path = $1 or path like $1 || '.%') order by path""",
+            ctx.org_path)
+    else:
+        rows = await ctx.pool.fetch(
+            """select id, path from org_units
+                where role='team' and path = any($1::text[]) order by 2""",
+            [node["path"] for node in ctx.chain if node["kind"] == "team"])
+    teams = [{"id": str(row["id"]), "path": row["path"],
+              "name": console.node_label(row["path"]),
+              "admin": ctx.role["at"] is not None and row["path"].startswith(ctx.role["at"])}
+             for row in rows]
     return {
         "user": {"id": str(ctx.viewer), "email": ctx.viewer_email, "name": ctx.viewer_email},
         "chain": ctx.chain, "role": ctx.role, "edition": ctx.edition, "staff": ctx.staff,
@@ -294,7 +305,7 @@ async def read_secrets(ctx: Ctx, vault_id: str, cursor: Cursor = None,
 
 @router.get("/assets", response_model=AssetsPage)
 async def read_assets(ctx: Ctx, cursor: Cursor = None, limit: Limit = 50) -> dict:
-    """W5-D9: this level's own copies, with the organisation's kind vocabulary
+    """W5-D9: this level's own copies, with the organization's kind vocabulary
     beside them — the screen's tabs are the kinds, empty ones included."""
     built = await console.policy(ctx)
     return listing(ctx, await console.asset_rows(ctx), cursor, limit, _by("name")) | {
@@ -304,7 +315,7 @@ async def read_assets(ctx: Ctx, cursor: Cursor = None, limit: Limit = 50) -> dic
 @router.get("/assets/browse", response_model=Page[BrowseRow])
 async def read_browse(ctx: Ctx, cursor: Cursor = None, limit: Limit = 200) -> dict:
     """W5-D15, the store: everything the viewer can use — the winning copy of
-    every asset on their chain, and the bundled presets the organisation does
+    every asset on their chain, and the bundled presets the organization does
     not hold yet. Declared **before** `/assets/{asset_id}`, which would
     otherwise read `browse` as an id.
 

@@ -35,7 +35,7 @@ export function scopeSegment(scope: Scope): string {
 
 /** The scope's own word, for the switcher and the trail. */
 export function scopeLabel(scope: Scope, teamName?: string): string {
-  if (scope.kind === "org") return "Organisation";
+  if (scope.kind === "org") return "Organization";
   if (scope.kind === "me") return "Me";
   if (scope.kind === "platform") return "Platform";
   return teamName ?? scope.path.split(".").slice(-1)[0];

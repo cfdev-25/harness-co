@@ -26,15 +26,15 @@ import { Browse } from "./_browse";
 
 /**
  * Assets — 04 §12, W5-D9. One screen at every level: at *You* the person's
- * own copies, at a team the team's, at the organisation the organisation's.
- * The tabs are the organisation's kinds and the current one is `?kind=`
+ * own copies, at a team the team's, at the organization the organization's.
+ * The tabs are the organization's kinds and the current one is `?kind=`
  * (a filter inside one screen, so a query and not a route — 02 rule 16).
  * The verbs are the level admin's; at *You* that is always the person, which
  * is why the personal edition has the screen too.
  *
  * W5-D15 adds one more tab, `?tab=browse`: the store. It is the same screen —
  * one directory, one set of verbs — asking the other question, *what could I
- * use*, where the kinds answer *what is on this branch*. An organisation that
+ * use*, where the kinds answer *what is on this branch*. An organization that
  * sets `visibility.store: false` has no such tab and the route answers the
  * note in its place (P10).
  */
@@ -114,6 +114,7 @@ export default async function Page({
             empty={empty.sentence}
             hrefFor={base}
             canEdit={level.canEdit}
+            orgAdmin={viewer.role.level === "org-admin"}
             scope={scopeQuery(scope)}
           />
         )}

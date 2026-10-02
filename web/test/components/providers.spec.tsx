@@ -60,7 +60,7 @@ test("providers_decline_requires_reason_inline", async ({ mount, page }) => {
 });
 
 test("providers_first_run_notice_when_none_approved", async ({ mount }) => {
-  // The dev organisation is migrated and has both runtimes approved, so the
+  // The dev organization is migrated and has both runtimes approved, so the
   // notice is proved here rather than on a screen (04 §10 States, 05 §12).
   const none = await mount(<HarnessProviders />);
   await expect(none.getByText(PROVIDERS_TEXT.firstRun.harness)).toBeVisible();

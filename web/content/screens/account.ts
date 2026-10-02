@@ -16,7 +16,7 @@ export const ACCOUNT: ScreenContent<AccountColumn, AccountVerb, "account.logins"
     createIt: { heading: "Create it", help: "The exact command that signs this runtime in." },
   },
   verbs: {
-    askToBeAdmin: { label: "Ask to be an admin", explain: "Opens a request an organisation admin decides." },
+    askToBeAdmin: { label: "Ask to be an admin", explain: "Opens a request an organization admin decides." },
     createToken: {
       label: "Create an access token",
       explain: "The token harness login asks for. Shown once; name it after the machine.",
@@ -90,9 +90,9 @@ export const ACCOUNT_TEXT = {
   askTitle: "Ask",
   askLabel: "Ask to be a {team} admin",
   askReason: "Why",
-  askReasonHint: "An organisation admin reads this and decides.",
+  askReasonHint: "An organization admin reads this and decides.",
   askSubmit: "Send the request",
-  askSent: "Your request is open and waiting on an organisation admin.",
+  askSent: "Your request is open and waiting on an organization admin.",
   cancel: "Cancel",
   tokenTitle: "Command-line access",
   tokenName: "Name",
@@ -105,7 +105,7 @@ export const ACCOUNT_TEXT = {
   sessionsLink: "Your sessions",
   createTeamTitle: "Create a team",
   createTeamNote:
-    "A team turns this account into an organisation: people, roles and requests appear. Nothing you already have is migrated or moved.",
+    "A team turns this account into an organization: people, roles and requests appear. Nothing you already have is migrated or moved.",
   createTeamName: "Team name",
   createTeamSubmit: "Create the team",
   signOut: "Sign out",

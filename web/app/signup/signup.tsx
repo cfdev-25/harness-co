@@ -17,7 +17,7 @@ type Step = 1 | 2 | 3;
 /**
  * Step 1's answer, under one key, because step 3 runs in whatever tab the
  * person clicked the link in and the server holds nothing to ask: the
- * account the link made has no organisation yet, and which kind it will be
+ * account the link made has no organization yet, and which kind it will be
  * is the one fact that has to survive the round trip. `localStorage`, not a
  * cookie — nothing on the server reads it — and its absence is a state the
  * page handles rather than an error (step 3 asks again).
@@ -123,16 +123,16 @@ function Choose({ chosen, onPick }: { chosen: Edition | null; onPick: (edition: 
  * code on one form.
  *
  * The code is **not** checked here; it travels with `POST /v1/orgs`, the one
- * route that creates the organisation, and a wrong one comes back as
+ * route that creates the organization, and a wrong one comes back as
  * `signup.code_wrong` with the server's own words beside the field that
  * caused it.
  *
  * `signedIn` is the session the server component already read, so a person
- * sent here by `AuthApp` (signed in, no organisation) opens at step 3
+ * sent here by `AuthApp` (signed in, no organization) opens at step 3
  * without a flash of step 1. The client's own `getSession` is what decides,
  * though — see the effect.
  */
-/** Polls the viewer until the new organisation's index answers (a few seconds at most). */
+/** Polls the viewer until the new organization's index answers (a few seconds at most). */
 async function workspaceReady(token: string | null): Promise<void> {
   for (let attempt = 0; attempt < 30; attempt++) {
     try {
@@ -186,7 +186,7 @@ export function SignUp({
           if (finish) setDead(true);
           return;
         }
-        // Someone who already has an organisation has nothing to finish: the
+        // Someone who already has an organization has nothing to finish: the
         // console is where they belong, not this form (a member here is the
         // console bouncing back a second too early, or a bookmark).
         void getToken()
@@ -246,7 +246,7 @@ export function SignUp({
         // `same_password` is not a failure here: a wrong code brings the
         // person back to this form with the password already set, and so
         // would a second visit to `/signup` by someone who finished. The
-        // password is theirs either way; the organisation is the thing this
+        // password is theirs either way; the organization is the thing this
         // form is still trying to make.
         if (cause && cause.code !== "same_password") {
           setError(cause.message);
@@ -265,7 +265,7 @@ export function SignUp({
         // A member who found their way back here is already done.
         if (!(cause instanceof ApiError && cause.code === "already_member")) throw cause;
       }
-      // The organisation is written to git first and indexed a moment later;
+      // The organization is written to git first and indexed a moment later;
       // the console reads the index. Leaving before it answers lands on the
       // console's "no workspace" branch, which sends the person straight back
       // here. So: wait for the index, then go.
@@ -370,7 +370,7 @@ export function SignUp({
               ) : (
                 // Another browser, cleared storage, or a sign-in that came
                 // back here: nothing was remembered, so ask the one question
-                // again rather than guess at an organisation's shape.
+                // again rather than guess at an organization's shape.
                 <>
                   <p className="text-[13px] text-muted">{SIGNUP.choose}</p>
                   <Choose chosen={edition} onPick={setEdition} />

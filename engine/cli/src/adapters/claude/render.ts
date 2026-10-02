@@ -145,7 +145,7 @@ export async function render(ctx: RenderContext): Promise<RenderReport> {
 			// self-update half is `DISABLE_AUTOUPDATER=1` in `launch`, which is
 			// enforced and needs no cooperation from a settings schema; no value the
 			// schema accepts would have turned updates off anyway (D7, D14).
-			// The floor the organisation set, not what happens to be installed (D7, D14).
+			// The floor the organization set, not what happens to be installed (D7, D14).
 			minimumVersion: "binary" in choices.provider.pin ? choices.provider.pin.minVersion : choices.located.version,
 			claudeMdExcludes: [join(workspace, "CLAUDE.md")],
 		}),

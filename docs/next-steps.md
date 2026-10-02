@@ -25,7 +25,7 @@ definitions 39 · CLI 237 · web 147 unit + 50 component · `next build` clean.
 | Console K-M6 vaults | bundled vault only |
 | Personal edition | seeded, routed, sign-up proven; never run as one person end to end |
 
-**28 Sep, the seam (D30j):** every session now opens with where harness assets live, a built-in `harness-authoring` skill is seeded into every organisation, and a real session extracted a Codex setup into five assets without carrying its key — `build-log.md`, second-to-last row. Kept assets now join the selected harness at the exit review (step 5a). `harness run claude` has now run live too (skills listed and separated from Claude Code's own).
+**28 Sep, the seam (D30j):** every session now opens with where harness assets live, a built-in `harness-authoring` skill is seeded into every organization, and a real session extracted a Codex setup into five assets without carrying its key — `build-log.md`, second-to-last row. Kept assets now join the selected harness at the exit review (step 5a). `harness run claude` has now run live too (skills listed and separated from Claude Code's own).
 
 **28 Sep, after the first hands-on run:** four defects that no suite had
 caught (stale Pi extension build, missing prompts directory, `NO_PROXY`
@@ -68,12 +68,12 @@ Four things are the person's, not the code's:
 4. **Throwaway accounts to discard**: `w7-personal-dana`, `w7-personal-sam`
    (holds a harness *First*), `w7-team-acme`, `w7h-1790964023` (a hand-edited
    fixture with a dud `openai` key in `model-keys`), the two WSD
-   organisations in a second definitions root, and W7-D1a's auth users. Six
-   hold **no** organisation and are only addresses the auth provider now
+   organizations in a second definitions root, and W7-D1a's auth users. Six
+   hold **no** organization and are only addresses the auth provider now
    knows (`generate_link` creates the user when it is missing):
    `w7d1-probe-…` and `w7d1-1790971898777@harnessmanager.dev`, and
    `w7d1-pkce-…`, `w7d1-1790972186…`, `w7d1-link-…`, `w7d1-ratelimit-…` at
-   `@mailinator.com`. Two hold a personal organisation made with the code and
+   `@mailinator.com`. Two hold a personal organization made with the code and
    are the live proof: `w7d1-resume-1790972358575@mailinator.com` ·
    `w7d1-resume-1790972420028@mailinator.com`. None is the dev org.
 
@@ -111,7 +111,7 @@ user branch or through a temporary second instance because of it.
   advisory vocabulary.
 - One live run printed *Something on this machine tried the proxy without
   the session secret.* Find what.
-- **The dev organisation's two runtimes have no `name` yet.** W6-D3 put
+- **The dev organization's two runtimes have no `name` yet.** W6-D3 put
   `HarnessProvider.name` on the contract, in the preset and in the seed, and
   the console reads it (`console.RUNNER_NAMES` is deleted); re-seeding the dev
   org through `PUT /v1/providers/harness` is refused
@@ -230,7 +230,7 @@ user branch or through a temporary second instance because of it.
   array nobody can find — is not a default, it is a thing the people it ships
   to cannot change. Each entry says how it is **managed** (`required`, which
   nobody may remove and 01 §4.4 justifies in one sentence; `recommended`,
-  seeded and then wholly the organisation's, with every verb on the screen;
+  seeded and then wholly the organization's, with every verb on the screen;
   `suggested`, never seeded and offered as one-click adds) and which console
   screen manages it. `python3 scripts/check-defaults.py` runs beside the plan
   checker and stays at 0 findings: it proves the manifest and the directory are

@@ -15,7 +15,7 @@ export const metadata: Metadata = {
  * would make the whole page need a Suspense boundary (02 rule 11).
  *
  * `signedIn` is the resume path — someone sent back by `AuthApp` with an
- * account and no organisation opens at the last step without a flash of the
+ * account and no organization opens at the last step without a flash of the
  * first. `finish` is the email link's landing, where the session is not in
  * the cookie yet (it is in the URL the auth provider redirected to, and the
  * browser client is what reads it), so it only tells the page that a session

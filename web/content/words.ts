@@ -27,7 +27,7 @@ export const WORDS = {
   },
   "harness provider": {
     short: "The program the assistant runs in — Pi, Claude Code.",
-    more: "The runtime the engine launches inside a sandbox; approved, beta or not approved per organisation.",
+    more: "The runtime the engine launches inside a sandbox; approved, beta or not approved per organization.",
     prd: "§9.1",
   },
   "model provider": {
@@ -86,7 +86,7 @@ export const WORDS = {
     prd: "§8",
   },
   chain: {
-    short: "The line from your organisation, through your teams, to you.",
+    short: "The line from your organization, through your teams, to you.",
     more: "The ordered refs composed by precedence to produce your effective harness.",
     prd: "§2",
   },

@@ -15,7 +15,7 @@ export interface SuggestCommandsProps {
   view: SuggestedCommands;
   /** The node the add is written at: this level, never wider. */
   scopePath: string;
-  /** The organisation's path: at the top the scope is `"all"` (`scopeFor`). */
+  /** The organization's path: at the top the scope is `"all"` (`scopeFor`). */
   orgPath: string;
 }
 
@@ -24,7 +24,7 @@ export interface SuggestCommandsProps {
  *
  * `presets/command-boundaries.json` is `managed: suggested`, which means it is
  * **never seeded**: a default that denies something is a decision and the
- * organisation makes it. So each entry is a button, with the reason it ships
+ * organization makes it. So each entry is a button, with the reason it ships
  * with, and one that is already held says so rather than being offered twice —
  * the same arrangement Reach's starter hosts have (04 §9.1).
  *

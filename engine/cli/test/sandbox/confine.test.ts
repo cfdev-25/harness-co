@@ -28,7 +28,7 @@ it("windows_refuses_plainly", () => {
 		"The harness confines the agent with a sandbox, and there is no native sandbox for Windows yet. It will not start a session it cannot confine.",
 	);
 	expect(blockerOf(thrown).remedy).toBe(
-		"Run it inside WSL2 (`harness setup windows` installs what is needed, §9a W1), or on macOS or Linux. If your organisation has approved unfenced Windows sessions, `harness preflight` will say so instead of this.",
+		"Run it inside WSL2 (`harness setup windows` installs what is needed, §9a W1), or on macOS or Linux. If your organization has approved unfenced Windows sessions, `harness preflight` will say so instead of this.",
 	);
 	expect(process.platform).not.toBe("win32");
 });

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The local stack for the harness-family and Sessions screens (console 02
 # rule 30, V3/D22): the real `api` over a real `definitions` over the scratch
-# Postgres that carries the exported development organisation. No mock of
+# Postgres that carries the exported development organization. No mock of
 # `api` exists anywhere in it, because a console that passes against a mock
 # proves nothing about the backbone it exists to test.
 #
@@ -135,7 +135,7 @@ stop() {
 # the records are the tables `api` writes. Nothing is a console fixture (K7);
 # the console never sees any of it except through `/v1/console/*`.
 
-# `definitions` reindexes the organisation, exactly as the cutover does. Rows
+# `definitions` reindexes the organization, exactly as the cutover does. Rows
 # keyed by a node path that moved are deleted first (cutover §5.3).
 reindex() {
   psql "$STACK_A_DSN" -q -c "delete from idx_assets where org='$1'" \

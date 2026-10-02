@@ -24,7 +24,7 @@ it("choose_refuses_not_approved", () => {
 	const blocker = refusal(() => choose(one, {}, { harness_id: "h1" }, ME));
 	expect(blocker.code).toBe("preflight.provider_not_approved");
 	expect(blocker.message).toBe("claude is not approved for use: the security review is open.");
-	expect(blocker.remedy).toBe("Ask an organisation admin to approve it.");
+	expect(blocker.remedy).toBe("Ask an organization admin to approve it.");
 	expect(blocker.link).toBe("/console/org/providers");
 });
 
@@ -45,7 +45,7 @@ it("choose_refuses_an_unknown_or_ambiguous_provider_word", () => {
 	two.pi = { id: "pi", approval: "approved", scope: { teams: "all" }, pin: { repo: "pi", commit: "abc" }, speaks: ["anthropic-messages"] };
 	const unknown = refusal(() => choose(composed(), { provider: "cursor" }, SEL, ME));
 	expect(unknown.code).toBe("preflight.provider_unknown");
-	expect(unknown.message).toBe("`cursor` is not a runtime your organisation has listed. Listed: claude.");
+	expect(unknown.message).toBe("`cursor` is not a runtime your organization has listed. Listed: claude.");
 	expect(unknown.remedy).toBe("harness run claude");
 	const ambiguous = refusal(() => choose(composed({ policy: policy({ harnessProviders: two }) }), {}, SEL, ME));
 	expect(ambiguous.code).toBe("preflight.provider_ambiguous");
@@ -59,7 +59,7 @@ it("choose_refuses_a_provider_out_of_scope", () => {
 	const blocker = refusal(() => choose(composed({ policy: policy({ harnessProviders: providers }) }), {}, SEL, ME));
 	expect(blocker.code).toBe("preflight.provider_out_of_scope");
 	expect(blocker.message).toBe("claude is approved for acme.engineering, not for acme.marketing.interns.");
-	expect(blocker.remedy).toBe("Ask an organisation admin to widen its approval scope.");
+	expect(blocker.remedy).toBe("Ask an organization admin to widen its approval scope.");
 	expect(blocker.link).toBe("/console/org/providers");
 });
 
@@ -113,17 +113,17 @@ it("choose_refuses_when_routing_has_no_approval_or_no_default", () => {
 	expect(refusal(() => choose(composed({ policy: none }), {}, SEL, ME))).toMatchObject({
 		code: "preflight.model_none_approved",
 		message: "No model provider is approved for acme.marketing.interns.",
-		remedy: "Ask an organisation admin to approve one.",
+		remedy: "Ask an organization admin to approve one.",
 	});
 	expect(refusal(() => choose(composed({ policy: approvedOnly }), {}, SEL, ME))).toMatchObject({
 		code: "preflight.model_no_default",
 		message: "No model provider is the default for Support/claude/acme.marketing.interns.",
-		remedy: "Ask an organisation admin to set one.",
+		remedy: "Ask an organization admin to set one.",
 	});
 	expect(refusal(() => choose(composed({ policy: wrongDefault }), {}, SEL, ME))).toMatchObject({
 		code: "preflight.model_default_not_approved",
 		message: "openrouter is the default here but is not approved for acme.marketing.interns.",
-		remedy: "Ask an organisation admin to approve it, or to change the default.",
+		remedy: "Ask an organization admin to approve it, or to change the default.",
 	});
 });
 
@@ -168,7 +168,7 @@ it("native_when_no_grant_covers_the_model_credential", () => {
 it("a_provider_with_no_credential_at_all_is_native_too", () => {
 	// W7-D2 retires *gateway mode is never native*: W6-D6 already retired the
 	// keyless gateway provider, so a row that names no alias is not an
-	// organisation model — it is a key that reaches nobody, which is the same
+	// organization model — it is a key that reaches nobody, which is the same
 	// fact the broker reads (`broker.needs_key`). `preflight.ts` is what then
 	// asks whether this runtime actually signs in to it.
 	const providers = { ...policy().modelProviders, anthropic: { ...policy().modelProviders.anthropic, credential: undefined } };

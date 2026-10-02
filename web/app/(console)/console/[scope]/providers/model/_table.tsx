@@ -31,7 +31,7 @@ import { SetUp } from "./_set-up";
 
 export interface ModelProviderTableProps {
   rows: ModelProviderRow[];
-  /** 04 §10: *Set up*, *Approve for…* and *Delete* are an organisation admin's;
+  /** 04 §10: *Set up*, *Approve for…* and *Delete* are an organization admin's;
    *  for anyone else the row without a key is simply a row without a key (P13). */
   orgAdmin: boolean;
   /** W6-D5: *Set default…* is `adminHere` — at a team that is the team admin,

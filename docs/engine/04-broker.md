@@ -1,7 +1,7 @@
 # Engine Plan — 04 · Broker
 
 The broker is the part of `api` that turns a security group into a credential
-for one session, and refuses when the organisation's rules say so. It is the
+for one session, and refuses when the organization's rules say so. It is the
 enforcement point behind every decision preflight makes about credentials
 (`00` I4): preflight predicts, the broker decides, the proxy applies.
 
@@ -173,7 +173,7 @@ written in its own transaction.
    **native**: `native := needs_key(…) and signs_in(…)`, it is allowed, it is
    recorded `native: true` on `session.open` and it is **not metered** (C22) —
    the request leaves the machine on the person's own login, not on a key this
-   organisation minted. Otherwise, keyless → `403
+   organization minted. Otherwise, keyless → `403
    broker.provider_needs_key`. It is checked before approval, because a
    provider nobody holds a key for and no runtime can sign in to can serve
    nobody and approving it would change nothing; it is the same pair of
@@ -409,21 +409,21 @@ chain's growth for no query anyone asks.
 | Code | HTTP | Message | Remedy |
 | --- | --- | --- | --- |
 | `broker.rate_limited` | 429 | You started more than ten sessions in a minute. | Wait a moment and run again. |
-| `broker.index_stale` | 409 | Your organisation's definitions are being re-read after a failed update; sessions cannot start until that finishes. | Run again in a minute; if it persists an operator has been paged (02 §8.4). |
-| `broker.index_behind` | 409 | The server has not finished reading the latest change to your organisation. | Run again in a few seconds. |
+| `broker.index_stale` | 409 | Your organization's definitions are being re-read after a failed update; sessions cannot start until that finishes. | Run again in a minute; if it persists an operator has been paged (02 §8.4). |
+| `broker.index_behind` | 409 | The server has not finished reading the latest change to your organization. | Run again in a few seconds. |
 | `broker.harness_not_found` | 404 | That harness is not one you can see. | `harness switch` to pick another. |
-| `broker.provider_unknown` | 403 | `{provider}` is not a harness provider your organisation has listed. | An organisation admin adds it under Providers. |
-| `broker.provider_not_approved` | 403 | `{provider}` is not approved: {reason}. | An organisation admin can approve it under Providers. |
-| `broker.provider_not_in_scope` | 403 | `{provider}` is approved, but not for your team. | Ask an organisation admin to widen its scope. |
+| `broker.provider_unknown` | 403 | `{provider}` is not a harness provider your organization has listed. | An organization admin adds it under Providers. |
+| `broker.provider_not_approved` | 403 | `{provider}` is not approved: {reason}. | An organization admin can approve it under Providers. |
+| `broker.provider_not_in_scope` | 403 | `{provider}` is approved, but not for your team. | Ask an organization admin to widen its scope. |
 | `broker.provider_beta_admins_only` | 403 | `{provider}` is in beta, so only admins are handed credentials with it. | Run with an approved provider, or ask an admin to approve it. |
-| `broker.provider_below_pin` | 403 | Your `{provider}` is version {v}; your organisation requires {min}. | Update it and run again. |
+| `broker.provider_below_pin` | 403 | Your `{provider}` is version {v}; your organization requires {min}. | Update it and run again. |
 | `broker.model_unknown` | 403 | `{model}` is not a model `{provider}` lists. | Choose one from `harness preflight model`. |
-| `broker.model_not_approved` | 403 | `{model_provider}` is not approved for this harness, provider or team. | An organisation admin sets *approved for* under Model providers. |
-| `broker.provider_needs_key` | 403 | `{model_provider}` needs a key: no security group holds a credential for it. | An organisation admin connects one with *Set up* under Model providers. Not raised when the session's runtime signs in to that provider itself (W7-D2, D156): that is native mode, not a missing key. |
+| `broker.model_not_approved` | 403 | `{model_provider}` is not approved for this harness, provider or team. | An organization admin sets *approved for* under Model providers. |
+| `broker.provider_needs_key` | 403 | `{model_provider}` needs a key: no security group holds a credential for it. | An organization admin connects one with *Set up* under Model providers. Not raised when the session's runtime signs in to that provider itself (W7-D2, D156): that is native mode, not a missing key. |
 | `broker.model_credential_missing` | 403 | Nothing you hold has a credential for `{alias}`, which `{model_provider}` needs. | Ask a team admin to narrow a group with `{alias}` into your team. |
 | `broker.no_grant_for_alias` | slot | No group granted to your team has an entry for `{alias}`. | Ask a team admin to narrow one into your team. |
 | `broker.ambiguous_alias` | slot | Two grants give `{alias}` different secrets at the same scope. | An admin narrows one of them to a harness, or removes one. |
-| `broker.vault_unknown` | slot | `{vault}` is named by a group but is not connected. | An organisation admin connects it under Key vaults. |
+| `broker.vault_unknown` | slot | `{vault}` is named by a group but is not connected. | An organization admin connects it under Key vaults. |
 | `broker.vault_unavailable` | slot | `{vault}` could not supply `{alias}`, and this group does not allow a local login instead. | Check the vault's row under Key vaults; the session cannot use your own login for this. |
 | `broker.session_not_active` | 409 | This session is {status}. | Start a new one with `harness run`. |
 
@@ -464,7 +464,7 @@ chain's growth for no query anyone asks.
 | D65 | `policy-changed` revokes every active session on a changed policy ref, without re-deriving. | per-session re-derivation |
 | D66 | `index_behind` is checked as `idx_refs.commit != commits[ref]` — `api` holds no ancestry, so "older" is undecidable and a client whose fetch predates an indexed push is also refused, fail-closed with a retry remedy. Sending the previous commit in `/internal/index` would let it be one-way; Later. | also refusing older client commits — would refuse every session opened during a push |
 | D152 | **A model provider with no key held is refused at step 5, not at step 6** (W6-D6). `broker.needs_key(groups, provider)` — no `credential.alias`, or an alias no entry in a connected vault holds — is one function, read by the broker, by `console.speaks_routed` (and so by `canRun`, `runners_for` and the harness cards), and by `PUT /v1/routing`, so a provider the console keeps out of routing is exactly the session the broker refuses, with the same code and the same remedy. It retires 00 §4.3's keyless gateway row: a `ModelProvider` without a credential is now *needs a key*, because every wire format the proxy speaks attaches one and a row nobody can authenticate to was a row that failed at the first request instead of at the screen. | a `needs_key` check in the console only, which is a guess about the server; or keeping the keyless gateway and letting the proxy fail at request time |
-| D156 | **A model provider no key reaches is the person's *sign-in* where the runtime has one, and `needs-key` where it does not** (W7-D2; amends D152, which refused every keyless provider). `needs_key` was one rule read in four places and it is still that rule — what changed is that it is now read beside a second, `broker.signs_in(runtime, model_provider)`, and the refusal is `needs_key ∧ ¬signs_in`. The pair is read in the same four places (step 5, `console._status`, `console.speaks_routed` → `canRun`/`runners_for`/the cards, `PUT /v1/routing`) plus the viewer's `setup.model`, so *your sign-in* on a screen is exactly a session the broker opens. `signs_in` is the runtime's `modelNative` list — the provider ids its adapter ships an OAuth flow for, 07 §6 — which lives in `engine/compose/presets/harness-providers.json` and is **stripped when the seed writes**, like `attach`: it is a fact about the runtime we ship, so an admin editing a branch can neither grant a sign-in the adapter lacks nor take one away. Absent is `False`, which is why every organisation that supplies keys and every runtime we ship no list for keeps D152 unchanged. Step 6 then does not ask for the model alias in a native session: no group holds it, so requiring it would refuse at step 6 the session step 5 allowed. | one `needs_key` with the native case bolted on as an exception inside it, which hides that two different facts are being read; or carrying `native` in the session-open body, which is a claim by the client about policy (B3) |
+| D156 | **A model provider no key reaches is the person's *sign-in* where the runtime has one, and `needs-key` where it does not** (W7-D2; amends D152, which refused every keyless provider). `needs_key` was one rule read in four places and it is still that rule — what changed is that it is now read beside a second, `broker.signs_in(runtime, model_provider)`, and the refusal is `needs_key ∧ ¬signs_in`. The pair is read in the same four places (step 5, `console._status`, `console.speaks_routed` → `canRun`/`runners_for`/the cards, `PUT /v1/routing`) plus the viewer's `setup.model`, so *your sign-in* on a screen is exactly a session the broker opens. `signs_in` is the runtime's `modelNative` list — the provider ids its adapter ships an OAuth flow for, 07 §6 — which lives in `engine/compose/presets/harness-providers.json` and is **stripped when the seed writes**, like `attach`: it is a fact about the runtime we ship, so an admin editing a branch can neither grant a sign-in the adapter lacks nor take one away. Absent is `False`, which is why every organization that supplies keys and every runtime we ship no list for keeps D152 unchanged. Step 6 then does not ask for the model alias in a native session: no group holds it, so requiring it would refuse at step 6 the session step 5 allowed. | one `needs_key` with the native case bolted on as an exception inside it, which hides that two different facts are being read; or carrying `native` in the session-open body, which is a claim by the client about policy (B3) |
 | D67 | The bundled vault's `verified` means "exists and decrypts", stated on the vault row. | calling it `declared` — understates what we did check |
 | D68 | AWS: temporary keys used server-side to fetch the value, not handed out. | handing the temporary keys to the supervisor and having the proxy SigV4-sign — a large surface for one provider; revisit if a customer needs AWS-API reach rather than a secret value |
 

@@ -41,7 +41,7 @@ export interface RunArgv {
 /**
  * Row 0, zero I/O. A typo'd provider word is the one failure this command must
  * not have, so it is never passed through (§13 `cli.provider_unknown`).
- * With no word, `listed` narrows the registry to what the organisation actually
+ * With no word, `listed` narrows the registry to what the organization actually
  * lists, so a machine with two adapters installed and one approved runtime is
  * not ambiguous — 03 §5.2 step 1 makes the same choice from the same set.
  */
@@ -64,7 +64,7 @@ export function selectAdapter(word: string | undefined, listed?: readonly string
  */
 export async function run(argv: RunArgv, spawn: boolean): Promise<number> {
 	// A word is checked against the registry before anything else runs; with no
-	// word the choice needs the organisation's list, so it waits for row 2.
+	// word the choice needs the organization's list, so it waits for row 2.
 	if (argv.provider !== undefined) selectAdapter(argv.provider);
 	// 08 §11.1: the loading pixels, from the first moment to the landing.
 	const starting = loading("starting", stdout);

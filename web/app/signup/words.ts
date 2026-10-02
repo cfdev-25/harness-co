@@ -11,13 +11,13 @@ export const SIGNUP = {
   steps: ["Team or Personal", "Your email", "Finish"],
   team: {
     label: "Team",
-    sentence: "An organisation you invite people into, with teams, keys and boundaries.",
+    sentence: "An organization you invite people into, with teams, keys and boundaries.",
   },
   personal: {
     label: "Personal",
     sentence: "Just you: your own harnesses, your own keys, nobody to ask.",
   },
-  orgName: "Organisation name",
+  orgName: "Organization name",
   email: "Email",
   sendLink: "Email me the link",
   sent: "Check your email — the link brings you back here.",

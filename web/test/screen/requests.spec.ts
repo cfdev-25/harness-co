@@ -83,7 +83,7 @@ test("request_decline_requires_reason", async ({ page }) => {
 });
 
 test("member_sees_permission_not_cleared_with_withdraw", async ({ page }) => {
-  // The signed-in person is the organisation admin and the request's author,
+  // The signed-in person is the organization admin and the request's author,
   // so `verbs` carries accept, decline and withdraw and no refusal is drawn.
   // The refusal's own rendering is `refusesDecision`'s, V1-tested.
   await panel(page);

@@ -10,7 +10,7 @@ export const SHELL = {
   /** 01 §4.3: the levels, as the switcher's tree and the chip name them. */
   levels: {
     me: "You",
-    org: "Organisation",
+    org: "Organization",
     platform: "Platform",
   },
   /** 01 §7.5: the chip under every page title says where you are and whether

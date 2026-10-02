@@ -65,7 +65,7 @@ describe("the composed answer, in words", () => {
 
 describe("setBy is a level's own word, never a path", () => {
   it("names the level, the team, and a harness by its name", () => {
-    expect(setByLabel("acme", VIEWER)).toBe("Organisation");
+    expect(setByLabel("acme", VIEWER)).toBe("Organization");
     expect(setByLabel("acme.marketing", VIEWER)).toBe("Marketing");
     // A team the viewer is not on still reads as its last segment, never the
     // dotted path (`levelLabel`'s fallback).
@@ -84,7 +84,7 @@ describe("setBy is a level's own word, never a path", () => {
 describe("the Reach section's three parts", () => {
   it("puts inherited above, one line per node that holds a file", () => {
     expect(inheritedLines(view(), VIEWER)).toEqual([
-      { node: "acme", text: "Organisation: on, except 1 host" },
+      { node: "acme", text: "Organization: on, except 1 host" },
     ]);
   });
 

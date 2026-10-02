@@ -1,7 +1,7 @@
 # Product Requirements v2 — The Management Framework
 
 How capability, access, and policy are structured, managed, and inherited
-across an organisation.
+across an organization.
 
 **This document supersedes [`prd.md`](prd.md).** Where the two disagree, this
 one wins. **Part I and Part II are normative: if code and this document
@@ -684,9 +684,9 @@ appears in the team's People screen, marked with the org admin it waits on.
 
 ### 12.1 Editions: personal and enterprise
 
-**One model, two shapes.** A personal account is an organisation with no
+**One model, two shapes.** A personal account is an organization with no
 teams: the root and the person's own node are the two nodes of the chain,
-and the person is the org admin of their own organisation. Nothing in Part I
+and the person is the org admin of their own organization. Nothing in Part I
 changes — composition, groups, boundaries, the broker, the fence, providers
 and preflight run identically — because the enterprise rules were written
 for *n* team layers and *n* = 0 is a value, not a special case.
@@ -704,7 +704,7 @@ What differs is what has meaning, and the console shows only that:
 | Logs | the person's own | per category, per team |
 | Sign-up | self-serve | by invitation |
 
-**Upgrading is adding a team.** A personal organisation becomes an
+**Upgrading is adding a team.** A personal organization becomes an
 enterprise one the day its admin creates a team and invites someone; no
 migration, no export, no second account. **Importing is the first act**: a
 person arrives with a Claude Code or Pi setup and `harness import` makes it
@@ -719,19 +719,19 @@ seeds into the session and never meters. Both work on macOS and Linux from
 the first release that runs sessions (engine 09 M3); neither waits on
 anything (engine D11).
 
-### 12.2 The platform, above the organisations
+### 12.2 The platform, above the organizations
 
 An internal staff surface — every account, its shape, its providers and
-usage; and the ability to publish assets *to* organisations — is not built
+usage; and the ability to publish assets *to* organizations — is not built
 now, and its surface is reserved so it is not a retrofit:
 
 - **A fourth scope, `platform`**, for a `staff` role that is not an org role.
-  Staff read the index across organisations; every staff read of a customer
-  organisation is an authoritative audit event in *both* trails (§24.3).
+  Staff read the index across organizations; every staff read of a customer
+  organization is an authoritative audit event in *both* trails (§24.3).
 - **Publishing is the publisher of §22 Later**: a platform repository that
   holds assets and no policy. Nothing from it composes into any
-  organisation by itself. Pushing a tool to an organisation opens a
-  *request* (§13) in that organisation with subject `publish`; its admin
+  organization by itself. Pushing a tool to an organization opens a
+  *request* (§13) in that organization with subject `publish`; its admin
   accepts or declines like any other. The platform never writes to a
   customer's branch directly.
 - Reserved now: the `platform` scope in the console's route and type
@@ -752,7 +752,7 @@ row is this*.
 | **Scoping** | applies org-wide, to named teams, or to named harnesses; a differently-scoped instance is a different instance | security groups (§6.3), boundaries (§7), outside endpoints (§8), approval scope (§9.1), routing defaults and approvals (§9.2) |
 | **Composition** | resolve a chain of branches by precedence into one effective set | preflight (§10.2), the console's effective view of any harness (§15), *what it may reach* (§7) |
 | **Narrowing** | issue a subset of a scoped thing to a scope inside your own; records who and from what | a security group into a sub-team (§6.4), approval scope (§9.1), *approved for* routing (§9.2) |
-| **Request** | ask for something decided above you: subject, reasoning, one decision, recorded with reason; withdrawable by the author; open or closed | promotion of paths (§17.3), team-admin role (§12), a platform publication into an organisation (§12.2) |
+| **Request** | ask for something decided above you: subject, reasoning, one decision, recorded with reason; withdrawable by the author; open or closed | promotion of paths (§17.3), team-admin role (§12), a platform publication into an organization (§12.2) |
 | **Decision record** | who, when, what, reason — for a yes *and* a no | requests, provider approval and refusal (§9.1), boundaries (§7) |
 | **Resolver** | `resolve()` / `probe()` | every vault, the bundled one, the person's machine (§6.1) |
 | **Evidence level** | verified / harness-reported / declared, never rounded up | preflight, exit, every *observed* cell in the console (§6.6, §14) |
@@ -782,7 +782,7 @@ Decided, stated once. Prototypes on fixtures: `/org-preview`, `/team-preview`,
 | 9 | **Plain words, git on demand** | *your version*, *the team's*, *offer to the team*; *view as git* on any diff shows the commit, the ref and the hunk. The two views must never disagree |
 
 **Navigation is grouped by what an admin is doing:** Assets · Permissions ·
-Logs · People (plus Providers at the org). A harness sits with organisation
+Logs · People (plus Providers at the org). A harness sits with organization
 assets because it is a rolled-up distribution of assets.
 
 ## 15. Objects
@@ -798,7 +798,7 @@ What an org admin sets up, each a commit on the org branch:
 | **Boundaries** | the deny list, each declaring how it holds | 7 |
 | **Harness providers** | which runtimes and forks may run, at what approval, for whom | 9.1 |
 | **Model providers** | where models come from; default for and approved for across teams, harnesses, runtimes | 9.2 |
-| **Organisation assets** | skills, tools, prompts, memories for every harness; each *always loaded* or *when chosen* | 5.2 |
+| **Organization assets** | skills, tools, prompts, memories for every harness; each *always loaded* or *when chosen* | 5.2 |
 
 **A harness is the unit an audit is about**, so its row carries everything
 the other screens decide: assets, security groups, boundaries naming it or
@@ -806,7 +806,7 @@ its teams, model provider, `canRunOn`, team, outside endpoints, preflight.
 Org-wide boundaries are not repeated per row; the harness's *what it may
 reach* table shows the full union with the source of each line.
 
-**Organisation assets carry the reverse view** — which harnesses include
+**Organization assets carry the reverse view** — which harnesses include
 them, which teams they reach, which groups they need to work. *Always loaded*
 shows *all harnesses* rather than every row.
 
@@ -848,9 +848,9 @@ outside endpoints, file count — in a **two-by-three grid** to the right, all
 three blocks one height. Below, a **flat file list**, one row per file:
 **type · name · last editor · their note · when**. Type is a column with the
 hover explainer; per-file state is not a column. **Every file has an owner —
-organisation, team, or you — which is the branch it comes from, and the file's
-page states it with what it permits**: an organisation file cannot be changed
-below the organisation, a team file can be offered changes, a file of yours is
+organization, team, or you — which is the branch it comes from, and the file's
+page states it with what it permits**: an organization file cannot be changed
+below the organization, a team file can be offered changes, a file of yours is
 on your branch only. That label is the inheritance model made visible at the
 one place it matters, the file someone is about to edit. Security groups and
 boundaries are not repository content — they do not diff — so they sit in the
@@ -885,7 +885,7 @@ view.
   its short reference as a chip. A file's own page carries its history from
   both copies, labelled. *Differences* is hidden in History — a difference is
   a state, not an event.
-- **For an organisation file all three views are the same file**, and the
+- **For an organization file all three views are the same file**, and the
   control says so.
 - **No merge button.** A member offers and an admin accepts.
 - **A member sees their copy and the team's, and no other member's.** A
@@ -1071,7 +1071,7 @@ each engine milestone.
 | 11 | **Boundaries — enforced layer**: endpoint, filesystem and capability denials on the org branch, union computed on the harness, team may add and never lift (§7) | 5 |
 | 12 | **Outside endpoints** as a scoped grant read by the fence (§8) | 5 |
 | 13 | **Provider registry**: three states, scope, pinned forks with provenance; **model routing**; **`canRunOn`** (§9) | 5 |
-| 14 | **Organisation assets**: always loaded / when chosen (§5.2) | 3 |
+| 14 | **Organization assets**: always loaded / when chosen (§5.2) | 3 |
 | 15 | **People**: invitations, three roles, deactivation, offboarding view; **the request primitive** for promotion and roles (§12, §13) | 5 |
 | 16 | **Logs**: four change logs from git; endpoints reached from the fence (§19) | 7 |
 | 17 | **Console** as in Part II, on the primitives of §13 | — |

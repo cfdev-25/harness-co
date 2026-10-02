@@ -6,7 +6,7 @@
 -- be refused while a group still names it.
 --
 -- `id` is the id a group writes, not a uuid: `bundled`, `aws-prod`. It is
--- unique per organisation because the groups that name it are.
+-- unique per organization because the groups that name it are.
 create table vaults (
   org_unit_id uuid not null references org_units(id),
   id text not null,

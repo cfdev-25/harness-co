@@ -3234,7 +3234,7 @@
           "writes"
         ],
         "summary": "List Requests",
-        "description": "Requests the viewer authored, plus every request in a unit they\nadminister. `?subject=role&state=open` is the People screen's list of role\nrequests waiting on an organisation admin (04 §15, D43).",
+        "description": "Requests the viewer authored, plus every request in a unit they\nadminister. `?subject=role&state=open` is the People screen's list of role\nrequests waiting on an organization admin (04 §15, D43).",
         "operationId": "list_requests_v1_requests_get",
         "parameters": [
           {
@@ -5802,7 +5802,7 @@
           "console"
         ],
         "summary": "Read Assets",
-        "description": "W5-D9: this level's own copies, with the organisation's kind vocabulary\nbeside them — the screen's tabs are the kinds, empty ones included.",
+        "description": "W5-D9: this level's own copies, with the organization's kind vocabulary\nbeside them — the screen's tabs are the kinds, empty ones included.",
         "operationId": "read_assets_v1_console_assets_get",
         "parameters": [
           {
@@ -5913,7 +5913,7 @@
           "console"
         ],
         "summary": "Read Browse",
-        "description": "W5-D15, the store: everything the viewer can use — the winning copy of\nevery asset on their chain, and the bundled presets the organisation does\nnot hold yet. Declared **before** `/assets/{asset_id}`, which would\notherwise read `browse` as an id.\n\n`visibility.store: false` answers `hidden` in place of the list (P10): a\nclosed view says so and is never a shorter one.",
+        "description": "W5-D15, the store: everything the viewer can use — the winning copy of\nevery asset on their chain, and the bundled presets the organization does\nnot hold yet. Declared **before** `/assets/{asset_id}`, which would\notherwise read `browse` as an id.\n\n`visibility.store: false` answers `hidden` in place of the list (P10): a\nclosed view says so and is never a shorter one.",
         "operationId": "read_browse_v1_console_assets_browse_get",
         "parameters": [
           {
@@ -7778,7 +7778,7 @@
           "writes"
         ],
         "summary": "Delete Model Provider",
-        "description": "W6-D5: a model provider is `recommended`, not `required` — the\norganisation's to remove (W6-D1). The file is on the org branch, so `scope`\nonly ever names the organisation and the authority is an org admin's.\n\nRefused `provider.in_use` while anything still points at it: a routing cell\n(a team, a harness or a runtime) or a security group entry attached to its\ncredential. Deleting those for the admin would be the console making a\ndecision it was not asked for — the refusal names them instead, and the two\nscreens that own them are where they go.",
+        "description": "W6-D5: a model provider is `recommended`, not `required` — the\norganization's to remove (W6-D1). The file is on the org branch, so `scope`\nonly ever names the organization and the authority is an org admin's.\n\nRefused `provider.in_use` while anything still points at it: a routing cell\n(a team, a harness or a runtime) or a security group entry attached to its\ncredential. Deleting those for the admin would be the console making a\ndecision it was not asked for — the refusal names them instead, and the two\nscreens that own them are where they go.",
         "operationId": "delete_model_provider_v1_providers_model__provider_id__delete",
         "parameters": [
           {
@@ -7853,7 +7853,7 @@
           "writes"
         ],
         "summary": "Set Up Model Provider",
-        "description": "00 §4.10's *connect a key*, and the one place four policy files move\ntogether (console 04 §10, 07 §2): the value into the bundled vault, then\n**one** commit carrying the group entry, its grant, the provider's\ncredential and — only when nothing is set there — the organisation's\nrouting default (D30i). The key is never in the commit, the payload or a\nrefusal; what is written is a reference to it.",
+        "description": "00 §4.10's *connect a key*, and the one place four policy files move\ntogether (console 04 §10, 07 §2): the value into the bundled vault, then\n**one** commit carrying the group entry, its grant, the provider's\ncredential and — only when nothing is set there — the organization's\nrouting default (D30i). The key is never in the commit, the payload or a\nrefusal; what is written is a reference to it.",
         "operationId": "set_up_model_provider_v1_providers_model__provider_id__setup_post",
         "parameters": [
           {
@@ -8611,7 +8611,7 @@
           "writes"
         ],
         "summary": "Appoint Admin",
-        "description": "04 §15: appointing a team admin is an organisation admin's decision.",
+        "description": "04 §15: appointing a team admin is an organization admin's decision.",
         "operationId": "appoint_admin_v1_org_units__id_or_path__admins__person_id__put",
         "parameters": [
           {
@@ -8751,7 +8751,7 @@
           "writes"
         ],
         "summary": "Set Visibility",
-        "description": "PRD §16: an organisation admin may turn the boundaries or the logs view\noff for a node. The console renders `HiddenView` naming the decision.",
+        "description": "PRD §16: an organization admin may turn the boundaries or the logs view\noff for a node. The console renders `HiddenView` naming the decision.",
         "operationId": "set_visibility_v1_org_units__id_or_path__visibility_patch",
         "parameters": [
           {
@@ -9319,7 +9319,7 @@
           "items"
         ],
         "title": "AssetsPage",
-        "description": "W5-D9: the kinds the screen's tabs are, in `policy/kinds.json` order —\nthe organisation's vocabulary, not the kinds that happen to have a row, so\na kind with nothing in it is a tab reading zero rather than a tab that\nappears the day someone adds one."
+        "description": "W5-D9: the kinds the screen's tabs are, in `policy/kinds.json` order —\nthe organization's vocabulary, not the kinds that happen to have a row, so\na kind with nothing in it is a tab reading zero rather than a tab that\nappears the day someone adds one."
       },
       "Attach": {
         "properties": {
@@ -16348,7 +16348,7 @@
           "default"
         ],
         "title": "SetupResult",
-        "description": "Whether this key became the organisation's default (D30i) — the modal\nsays so, so the browser is generated with the field and not `unknown`."
+        "description": "Whether this key became the organization's default (D30i) — the modal\nsays so, so the browser is generated with the field and not `unknown`."
       },
       "SuggestedCommand": {
         "properties": {

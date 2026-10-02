@@ -165,7 +165,7 @@ exporter, the seed and the CLI are three consumers of one list. The default is
 the monorepo layout, `<repo>/engine/compose/presets`; **a split deploy that
 ships `api` without the checkout sets `HARNESS_PRESETS_DIR`**. A missing
 directory is `503 presets_unconfigured` — fail closed, like
-`definitions_unconfigured`, because an organisation seeded with nothing is one
+`definitions_unconfigured`, because an organization seeded with nothing is one
 nobody can start a session in.
 
 ## 2026-09-28 · the Supabase direct host is IPv6-only
