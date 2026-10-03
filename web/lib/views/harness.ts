@@ -163,6 +163,38 @@ export interface BoundaryRow {
   scope?: { harnesses?: string[] | null } | null;
 }
 
+/** W7-D8: the harnesses a boundary row names, or `null` where it names none
+ *  — which is every harness the teams own, not an empty list (engine 03 §5.1).
+ *  `lib/views/boundaries.ts` reads the same field for the table; this is the
+ *  harness family's reading of its own narrower row declaration. */
+export function boundTo(row: BoundaryRow): string[] | null {
+  const list = row.scope?.harnesses;
+  return Array.isArray(list) ? list : null;
+}
+
+/**
+ * The two lists *Applies here* draws from the chain's boundaries (04 §5,
+ * W7-D8): the ones that reach **this** harness, and the harness-scoped ones it
+ * could be bound to.
+ *
+ * `HarnessView.boundaries` is every boundary on the chain, so without this a
+ * boundary bound to one harness would be listed, unbindable, on the page of
+ * every other harness — a deny the page claims and the engine does not hold.
+ */
+export function boundaryLists(
+  rows: BoundaryRow[],
+  harnessId: string,
+): { here: BoundaryRow[]; bindable: BoundaryRow[] } {
+  const here: BoundaryRow[] = [];
+  const bindable: BoundaryRow[] = [];
+  for (const row of rows) {
+    const list = boundTo(row);
+    if (list === null || list.includes(harnessId)) here.push(row);
+    else bindable.push(row);
+  }
+  return { here, bindable };
+}
+
 export interface FileView {
   row: HarnessFileRow;
   content: { mine: string | null; team: string | null };

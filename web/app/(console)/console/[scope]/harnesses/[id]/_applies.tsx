@@ -1,5 +1,7 @@
 import type { HarnessView } from "@/lib/views/harness";
+import { boundTo, boundaryLists } from "@/lib/views/harness";
 import { scopeHref } from "@/lib/scope";
+import { mayRemove } from "@/lib/views/boundaries";
 import { fill } from "@/lib/views/refusals";
 import { type EffectiveReach, reachSaid, reachSetByNote } from "@/lib/views/reach";
 import type { Scope, Viewer } from "@/lib/views/types";
@@ -11,6 +13,7 @@ import { HiddenView } from "../../../../ui/hidden-view";
 import { Line } from "../../../../ui/line";
 import { ScaleTag } from "../../../../ui/scale-tag";
 import { SectionLabel } from "../../../../ui/section-label";
+import { BindBoundary, UnbindBoundary } from "./_bind";
 import { Commands } from "./_commands";
 
 export interface AppliesHereProps {
@@ -64,6 +67,17 @@ export function AppliesHere({ view, scope, viewer, reach }: AppliesHereProps) {
   const hidden = view.hidden?.boundaries;
   const has = new Set(navFor(scope, viewer).flatMap((group) => group.items.map((i) => i.key)));
   const boundariesHref = has.has("boundaries") ? scopeHref(scope, "/boundaries") : undefined;
+  // W7-D8: `HarnessView.boundaries` is every boundary on the chain, so the
+  // rows that reach this harness are separated from the harness-scoped ones it
+  // could be bound to. The verbs go only to a viewer the api would let write
+  // the row — the rule *Remove* on Boundaries already follows, asked again
+  // here, because binding edits the row where it was set.
+  const { here, bindable } = boundaryLists(view.boundaries, view.def.id);
+  const mayWrite = (boundary: (typeof here)[number]) =>
+    mayRemove(boundary, scope, viewer.role.level);
+  const choices = bindable
+    .filter(mayWrite)
+    .map((boundary) => ({ id: boundary.id, value: boundary.value, kind: boundary.kind }));
   return (
     <div className="grid content-start gap-6 border-l border-hairline px-4 py-5">
       <h2 className="text-md font-bold tracking-[-0.01em]">{WORDS.aside.title}</h2>
@@ -72,18 +86,32 @@ export function AppliesHere({ view, scope, viewer, reach }: AppliesHereProps) {
         <SectionLabel>{WORDS.aside.boundaries}</SectionLabel>
         {hidden ? (
           <HiddenView view="boundaries" note={HIDDEN.boundaries} />
-        ) : view.boundaries.length === 0 ? (
+        ) : here.length === 0 ? (
           <p className="text-base text-muted">{WORDS.aside.noBoundaries}</p>
         ) : (
-          view.boundaries.map((boundary) => (
+          here.map((boundary) => (
             <Line
               key={boundary.id}
               name={boundary.value}
               note={boundary.setBy?.path ?? boundary.reason}
               href={boundariesHref}
-              aside={<ScaleTag scale="holds" value={boundary.holds} size="sm" />}
+              aside={
+                <span className="flex items-center gap-2">
+                  <ScaleTag scale="holds" value={boundary.holds} size="sm" />
+                  {/* Only a row this level bound to this harness: one that
+                      applies to every harness is not this page's to change. */}
+                  {boundTo(boundary) !== null && mayWrite(boundary) && (
+                    <UnbindBoundary harnessId={view.def.id} boundaryId={boundary.id} />
+                  )}
+                </span>
+              }
             />
           ))
+        )}
+        {!hidden && choices.length > 0 && (
+          <div className="justify-self-start">
+            <BindBoundary harnessId={view.def.id} choices={choices} />
+          </div>
         )}
       </section>
       <section className="grid gap-2">

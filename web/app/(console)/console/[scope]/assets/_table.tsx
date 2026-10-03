@@ -127,7 +127,7 @@ export function AssetTable(props: AssetTableProps) {
       draft.loads === "required" || harnesses.length === 0 ? (
         <Related value={assetRelated(row).harnesses} />
       ) : (
-        <span className="grid gap-1">
+        <span role="group" aria-label={ASSETS_TEXT.editIncluded} className="grid gap-1">
           {harnesses.map((harness) => (
             <Checkbox
               key={harness.id}

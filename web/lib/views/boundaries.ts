@@ -62,8 +62,12 @@ function kindOf(key: (typeof COLUMN_KEYS)[number]): Column<BoundaryDisplay>["kin
 }
 
 /** The node that set a row, as its own path (`BoundaryRow.setBy` is a
- *  `ChainNode`; only `kind` and `path` are filled by `api` today). */
-export function setByPath(row: BoundaryRow): string {
+ *  `ChainNode`; only `kind` and `path` are filled by `api` today).
+ *
+ *  It takes the one field it reads rather than a whole `BoundaryRow`, because
+ *  `HarnessView.boundaries` carries the same rows under the harness family's
+ *  own narrower declaration (W7-D8) and one rule must serve both lists. */
+export function setByPath(row: { setBy?: unknown }): string {
   return str(record(row.setBy).path);
 }
 
@@ -234,8 +238,10 @@ export interface SuggestedCommands {
 }
 
 /** Who may remove a row: its own scope only, and the organization's nobody
- *  below the organization (04 §9's verb table). */
-export function mayRemove(row: BoundaryRow, scope: Scope, level: string): boolean {
+ *  below the organization (04 §9's verb table). W7-D8 asks it a second
+ *  question with the same answer — who may **unbind** a row from a harness —
+ *  because binding edits the row where it was set, exactly as lifting does. */
+export function mayRemove(row: { setBy?: unknown }, scope: Scope, level: string): boolean {
   if (level === "org-admin") return true;
   if (level !== "team-admin") return false;
   return scope.kind === "team" && setByPath(row) === scope.path;

@@ -1996,8 +1996,9 @@ async def create_harness_on_ref(body: HarnessIn, request: Request, principal: Wh
                 )
         # W7-D8: and the same for every boundary the modal ticked. A git commit
         # does not come back when the transaction rolls back, so the ids are
-        # read and refused here and the files are written below.
-        plan = await _boundary_plan(connection, who=who, ids=body.boundaries)
+        # refused here, before the harness exists. The plan itself is read
+        # again below rather than kept.
+        await _boundary_plan(connection, who=who, ids=body.boundaries)
         assets = list(body.assets)
         if body.from_ is not None:
             _, source = await writes.node_of_harness(connection, who.org_id, body.from_)
@@ -2045,9 +2046,19 @@ async def create_harness_on_ref(body: HarnessIn, request: Request, principal: Wh
         # W7-D8: the ticked boundaries now name this harness. One commit per
         # node that holds one of them, after the harness exists, so the id in
         # `scope.harnesses` always answers something.
-        if plan:
+        #
+        # The plan is read again here and not carried down from the check
+        # above, because the harness commit may have moved the head of a ref a
+        # ticked boundary lives on — a team harness and that team's own
+        # boundary are one ref — and a write against the head from before it
+        # would be refused for being stale.
+        if body.boundaries:
             await _write_boundary_plan(
-                connection, who=who, plan=plan, harness_id=harness_id, bind=True
+                connection,
+                who=who,
+                plan=await _boundary_plan(connection, who=who, ids=body.boundaries),
+                harness_id=harness_id,
+                bind=True,
             )
         if body.grant is None:
             return {**result, "id": harness_id}

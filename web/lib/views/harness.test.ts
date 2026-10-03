@@ -6,6 +6,7 @@ import {
   DIFFERENCES,
   allOrgOwned,
   asOf,
+  boundaryLists,
   compareOptions,
   defaultVersion,
   differencesRows,
@@ -359,5 +360,25 @@ describe("modelLine (W7-D4)", () => {
 
   it("reads a viewer with no `setup` as neither, which is the safe half", () => {
     expect(modelLine(undefined)).toEqual({ text: HARNESSES_WORDS.newModelNone, link: true });
+  });
+});
+
+describe("boundaryLists (W7-D8)", () => {
+  const row = (id: string, harnesses?: string[]) => ({
+    id, kind: "command", value: id, holds: "intercepted",
+    scope: harnesses === undefined ? {} : { harnesses },
+  });
+
+  it("keeps a harness-scoped boundary off every harness but the ones it names", () => {
+    // `HarnessView.boundaries` is every boundary on the chain, so the panel
+    // would otherwise claim a deny the engine does not hold here (`covers`).
+    const lists = boundaryLists(
+      [row("universal"), row("mine", ["h-1"]), row("theirs", ["h-2"]), row("waiting", [])],
+      "h-1",
+    );
+    expect(lists.here.map((one) => one.id)).toEqual(["universal", "mine"]);
+    // What is left is what this harness could be bound to — and a boundary
+    // bound to nothing yet is one of them.
+    expect(lists.bindable.map((one) => one.id)).toEqual(["theirs", "waiting"]);
   });
 });

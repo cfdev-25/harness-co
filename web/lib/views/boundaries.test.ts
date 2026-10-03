@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BOUNDARIES_TEXT } from "@/content/screens/boundaries";
 import type { BoundaryRow } from "./boundaries";
 import {
   addScopeOf,
@@ -107,5 +108,47 @@ describe("boundaries", () => {
     // boundary that is written, listed, and reaches nobody (engine 03 §5.1).
     expect(scopeFor("acme", "acme")).toEqual({ teams: "all" });
     expect(scopeFor("acme.marketing", "acme")).toEqual({ teams: ["acme.marketing"] });
+  });
+
+  /* W7-D8: a boundary scopes by harness like every other policy object, and
+     the three shapes of `scope.harnesses` are three different boundaries. */
+
+  it("reads the three harness shapes as three different boundaries (W7-D8)", () => {
+    const bound: BoundaryRow = {
+      ...org,
+      scope: { teams: "all", harnesses: ["h-1"] },
+      harnesses: {
+        unit: "harnesses",
+        items: [{ id: "h-1", label: "Drafts", href: "/console/org/harnesses/h-1" }],
+      },
+    };
+    const waiting: BoundaryRow = { ...org, scope: { teams: "all", harnesses: [] } };
+
+    // Absent: every harness the teams own, which is the row the screen has
+    // always had — *All teams*, and no narrowing to show.
+    expect(appliesTo(org)).toEqual({ unit: "teams", items: [], all: true, word: undefined });
+    expect(onlyFor(org)).toEqual({ unit: "harnesses", items: [] });
+
+    // Named: the server's names and links, never the uuids `scope` holds, and
+    // *All teams* would be the wrong answer about which harnesses it reaches.
+    expect(appliesTo(bound).word).toBe(BOUNDARIES_TEXT.appliesToBound);
+    expect(onlyFor(bound).items.map((item) => item.label)).toEqual(["Drafts"]);
+
+    // Empty: bound to no harness yet, which is not the same as not narrowed —
+    // a dash in both cells is how the two states become indistinguishable.
+    expect(appliesTo(waiting).word).toBe(BOUNDARIES_TEXT.appliesToBound);
+    expect(onlyFor(waiting)).toEqual({
+      unit: "harnesses",
+      items: [],
+      word: BOUNDARIES_TEXT.onlyForNone,
+    });
+  });
+
+  it("sends the harnesses half only when the form asked for one (W7-D8)", () => {
+    // `[]` is a boundary bound to no harness yet; no key at all is one that
+    // applies to every harness the teams own. The wire must tell them apart.
+    expect(scopeFor("acme", "acme", [])).toEqual({ teams: "all", harnesses: [] });
+    expect(scopeFor("acme", "acme", ["h-1"])).toEqual({ teams: "all", harnesses: ["h-1"] });
+    expect("harnesses" in scopeFor("acme", "acme")).toBe(false);
   });
 });

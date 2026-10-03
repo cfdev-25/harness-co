@@ -84,6 +84,18 @@ export const HARNESS_WORDS = {
      *  the header cell, the Boundaries screen and the session report all say
      *  it the same way (05 R8). */
     reachAs: "Reach: {what}",
+    /** W7-D8's two verbs. They are on the rows a level **bound** to this
+     *  harness and on nothing else: an inherited boundary that applies to
+     *  every harness has no verb here, because a verb that only refuses is
+     *  worse than none (P13). */
+    bind: "Bind a boundary",
+    bindExplain: "Applies that boundary to this harness and to no other.",
+    bindTitle: "Bind a boundary to this harness",
+    bindHint: "Only boundaries that were added for named harnesses are a choice; the rest apply to every harness already.",
+    bindSubmit: "Bind",
+    bindCancel: "Cancel",
+    unbind: "Unbind",
+    unbindExplain: "Stops this boundary applying to this harness. It keeps applying to every other harness it is bound to.",
   },
   differs: {
     "yours-only": "yours only",

@@ -163,6 +163,7 @@ it walks. At `org` the scope reads one node, so there is nothing to name.
 | --- | --- | --- | --- | --- |
 | New harness (empty, or *start from a copy* — one button, a select inside; the drawing is made in it, D108) | yes, on own branch | yes, on team or own | yes, on org, team or own | `POST /v1/harnesses { name, description, icon?, from? , scope }` |
 | — and, for a personal viewer, **Web access** and **Outside keys** inside the same dialog (W7-D4) | yes, on own branch | n/a | n/a | the same `POST`, `+ reach?`, `+ grant?` |
+| — and **Boundaries**, a checklist of the chain's harness-scoped denies (W7-D8) | yes, on own branch | n/a | n/a | the same `POST`, `+ boundaries?` — the composed ids `<node path>/<id>` |
 | Import (a dialog printing `harness import claude` / `harness import pi`; only while the grid is empty) | yes | yes | yes | nothing — the command runs on the machine |
 | Open | yes | yes | yes | route |
 | Open in *<runtime>* (one per `runners`; only without `lastWorkspace`) | yes | yes | yes | `harness://run?harness=&provider=` — the machine, not the API |
@@ -216,11 +217,27 @@ description and *start from a copy*:
   something to do. `lib/views/harness.ts modelLine` is the one reading of
   those three states, and an absent `setup` reads as the last.
 
-An enterprise viewer sees neither control and the body carries neither field:
-their reach is the organization's and their keys are a grant an admin makes.
-The caller decides by passing `personal` — the groups come from a fetch and a
-dialog does not fetch (01 rule 2) — so the store's *New harness from
-selection*, which is this same dialog, asks the same two questions.
+* **Boundaries** (W7-D8) — a **checklist** beside *Outside keys*, of the
+  chain's **harness-scoped** boundaries: the rows whose `scope.harnesses` is
+  there, which are the only ones a harness can be bound to, because every
+  other boundary on the chain already applies to every harness the level
+  holds. Each row shows the deny itself with its kind under it, because that
+  is what a person recognises; what goes on the wire is the composed id
+  (`<node path>/<id>`). Ticking sends `boundaries: [ids]` and the route
+  appends this harness to each one's `scope.harnesses`; **nothing ticked sends
+  no key at all**, because an empty list and no list are the same new harness.
+  With nothing to choose it is one muted sentence — *Every boundary you have
+  applies to every harness already, so there is nothing to choose* — and no
+  control, because an empty checklist is furniture (P8). The choices arrive in
+  the same `personal` prop (`loadPersonalChoices`), narrowed there.
+
+An enterprise viewer sees none of these controls and the body carries none of
+these fields: their reach is the organization's, their keys are a grant an
+admin makes, and the boundaries that reach them are a decision at a level
+above. The caller decides by passing `personal` — the groups and the
+boundaries come from a fetch and a dialog does not fetch (01 rule 2) — so the
+store's *New harness from selection*, which is this same dialog, asks the same
+questions.
 
 **States.** Loading: six card skeletons. Empty: *No harnesses reach you yet.
 `New harness` starts one; it inherits everything you already hold.* Error:
@@ -243,7 +260,10 @@ no readiness. Those are inside.
 `new_harness_skipped_or_untouched_sends_no_icon` ·
 `new_harness_asks_web_access_and_outside_keys_on_a_personal_account` ·
 `new_harness_on_a_personal_account_writes_nothing_for_the_defaults` ·
-`new_harness_asks_an_enterprise_viewer_neither`.
+`new_harness_asks_an_enterprise_viewer_neither` ·
+`new_harness_binds_the_boundaries_that_were_ticked` ·
+`new_harness_with_nothing_ticked_sends_no_boundaries_key` ·
+`new_harness_says_so_when_there_is_no_boundary_to_choose`.
 
 ---
 
@@ -290,6 +310,21 @@ the screen that sets it for a viewer with `Viewer.adminHere` and plain text
 for everyone else, because a link that can only refuse is worse than plain
 text (P13). Then the **Commands** button. Content: the flat file table.
 
+**The boundaries block lists what reaches *this* harness, and binds more**
+(W7-D8). `HarnessView.boundaries` is every boundary on the chain, so the
+block splits them by `scope.harnesses` (`lib/views/harness.ts
+boundaryLists`): a row with no `harnesses` reaches every harness the teams
+own and is listed; a row that names this harness is listed; a row that names
+others is **not**, because a deny the panel claims and `covers()` does not
+hold is worse than no list at all. What is left is what this harness can be
+bound to, and it is offered under the list as **Bind a boundary** — a small
+dialog with that checklist. A row this level **bound** to this harness also
+carries **Unbind**. Both verbs are drawn only for a viewer who may write the
+node that set the row — the rule `mayRemove` already answers for *Remove* on
+§9, asked again here because binding edits the row where it was set — and a
+universal row carries no verb at all, because a verb that only refuses is
+worse than none (P13).
+
 **Columns (`HarnessFileRow`).**
 
 | Heading | Type | Sort |
@@ -315,6 +350,8 @@ whose history. *Differences* is hidden in History (PRD §17.2).
 | Promote a file (reading `as` a member) | — | yes | yes | `POST /v1/requests { …, as }` then `POST /v1/requests/{id}/accept` — one flow (00 §4.11) |
 | Edit name / description / drawing | own harnesses | team's and own | any | `PATCH /v1/harnesses/{id}` |
 | Delete | own | team's and own — confirm: *This removes the harness and nothing in it: N files keep their history* | any | `DELETE /v1/harnesses/{id}` |
+| Bind a boundary (W7-D8; only harness-scoped rows this harness is not bound to, and only for an admin of the node that set them) | — | this team's rows | any row on the chain | `POST /v1/harnesses/{id}/boundaries { ids }` |
+| Unbind (W7-D8; only on a row whose scope names this harness) | — | this team's rows | any row on the chain | `DELETE /v1/harnesses/{id}/boundaries/{<node path>/<id>, encoded}` |
 
 `PermissionNotCleared` for edit/delete on a harness the viewer does not own:
 *Changing a team harness is a team admin's decision.*
@@ -343,7 +380,10 @@ sidebar list, once — PRD §15).
 `harness_view_reach_is_the_chain_narrowed_by_the_harness` (backend) ·
 `boundaries_hidden_view_names_decision` · `org_file_all_versions_identical_note` ·
 `edit_refused_names_team_admin` · `delete_confirm_states_file_count` ·
-`commands_button_opens_sheet` · `repository_empty_state_links_sheet`.
+`commands_button_opens_sheet` · `repository_empty_state_links_sheet` ·
+`keeps_a_harness_scoped_boundary_off_every_harness_but_the_ones_it_names` ·
+`bind_a_boundary_posts_the_ids_it_was_given` ·
+`unbind_sends_the_delete_with_the_id_encoded`.
 
 ---
 
@@ -589,7 +629,7 @@ a refusal nobody measured.
 | Kind | text: endpoint · command · filesystem · capability | yes |
 | Value | `Mono` | default |
 | Holds | `ScaleTag holds`, plus *by …* on a command row | yes |
-| Applies to | `Related{teams}` / *All teams*; Only for `Related{harnesses}` | no |
+| Applies to | `Related{teams}` / *All teams*, or *Only the harnesses it is bound to* on a harness-scoped row; Only for `Related{harnesses}` by **name**, or *No harness yet*, or a dash where the row names none | no |
 | Set by | text: the node's name, link | yes |
 | Reason | text | no |
 | When | date | yes |
@@ -598,9 +638,11 @@ a refusal nobody measured.
 
 | Verb | Member | Team admin | Org admin | Endpoint |
 | --- | --- | --- | --- | --- |
-| Add (form: kind — the tab's own — value, holds, scope within own subtree, reason required) | — | yes | yes | `POST /v1/boundaries` |
+| Add (form: kind — the tab's own — value, holds, *Set at* within own subtree, reason required, and **Applies to**) | — | yes | yes | `POST /v1/boundaries` |
 | Add a suggested command (one click, the preset's reason travels with it) | — | yes | yes | `POST /v1/boundaries` |
 | Remove | — | own team's only | org's and any | `DELETE /v1/boundaries/{id}` |
+| Bind a harness to a row (the harness page's verb, W7-D8) | — | own team's only | org's and any | `POST /v1/harnesses/{id}/boundaries { ids }` |
+| Unbind one | — | own team's only | org's and any | `DELETE /v1/harnesses/{id}/boundaries/{<node path>/<id>}` |
 | Set the reach mode | — | own node's | own node's | `PUT /v1/reach?scope=` |
 | Add a host (typed, or one click from *Suggested*) | — | own node's | own node's | `POST /v1/reach/hosts?scope=` |
 | Remove a host | — | own node's | own node's | `DELETE /v1/reach/hosts/{host}?scope=` |
@@ -608,6 +650,23 @@ a refusal nobody measured.
 A member reads the Reach section and sets nothing: `ReachView.canEdit` is the
 server's answer and the console never computes it from a role name (P13).
 `viewer.adminHere` is the same answer for the two blocks.
+
+**A boundary binds to harnesses, and a harness-scoped one is a state of its
+own** (W7-D8). The scope every policy object carries is
+`{ teams, harnesses? }`, and `covers()` reads an absent `harnesses` as every
+harness the teams own and a present one as only those (engine 03 §5.1) — so
+`{ teams, harnesses: [] }` is a boundary that applies to **no harness until
+one is bound**. The add form's **Applies to** is that choice: *Every harness
+at this level*, which sends no `harnesses` key at all, or *Only harnesses I
+choose*, which sends the ticked ids and sends `[]` when nothing is ticked,
+because a boundary can be written first and bound later. The checklist is the
+level's own harnesses, by name, handed to the dialog as a prop from
+`_screen.tsx` (01 rule 2) and fetched only for the viewer who has the form.
+The table says which state a row is in rather than drawing a dash for two of
+them, and the binding itself is done on the harness page (§5): a boundary
+reaches a harness, so the list of harnesses it reaches belongs beside the
+harness. At `me` on a personal account the add still writes at the
+organization node, because `policy/` is refused on a `users/…` branch.
 
 On the add form, `holds` is **not** a choice for a command: the field is read
 only and says *intercepted — the runtime refuses the call as it is made*,
@@ -650,7 +709,18 @@ stay: *An organization admin has turned off your view of boundaries. Ask
 `reach_removes_a_host_at_the_scope` ·
 `reach_widening_shows_the_servers_sentence_in_place` ·
 `reach_is_read_only_without_canEdit` · `reach_not_set_here_offers_the_modes_and_no_list`
-(V2, at the network) · `reach_line_says_the_mode_and_who_set_it` (V1).
+(V2, at the network) · `reach_line_says_the_mode_and_who_set_it` (V1) ·
+`add_a_boundary_for_only_the_harnesses_i_choose_posts_them` ·
+`add_a_boundary_for_every_harness_sends_no_harnesses_key` ·
+`reads_the_three_harness_shapes_as_three_different_boundaries` (V1) ·
+`sends_the_harnesses_half_only_when_the_form_asked_for_one` (V1) ·
+`a_harness_scoped_boundary_names_its_harnesses_and_says_when_it_has_none`
+(backend) · `a_new_harness_binds_every_boundary_the_modal_ticked` ·
+`a_universal_boundary_cannot_be_bound_and_nothing_is_committed` ·
+`a_boundary_off_the_caller_s_chain_is_refused` ·
+`binding_appends_the_harness_and_binding_twice_is_one_commit` ·
+`unbinding_empties_the_list_and_never_makes_it_universal` ·
+`binding_is_refused_for_anyone_who_does_not_administer_the_node` (backend).
 
 **Budget.** The three tabs are three route directories over one `_screen.tsx`
 (the fetch, the header, the tab strip) and one `_blocks.tsx` (the two
@@ -1644,6 +1714,7 @@ it takes with it, computed server-side (`RemovalPreview`,
 | D108 | **The pet is drawn when the harness is made** (§4). `ui/pixel-editor` moves into the *New harness* dialog under *Name* — the same component, palette and keyboard path as the harness page's **Edit** (01 §7.13), because a second editor would drift the first time either changed; the empty grid that *Clear* leaves and that both dialogs open with is the editor's own `blankIcon()`, which was written out by hand in two places before this. Skipping is a choice with its consequence shown — *Skip, I'll draw it later* leaves the grey square and says so — and not a field left blank. `icon` is posted only when the grid has a colour in it, so an untouched editor and a skipped one send the same body; `create_harness` already reads an absent icon as *none*. | an *Add an icon* step after creation — which is a second screen for a thing nobody returns to, and it is why every harness is a grey square today |
 | D109 | **An asset is edited in its row** (§12). The Edit dialog asked for the name and the description and could not ask how the asset loads — that was a control on the asset page, so the one thing the person wanted to change from the list sent them to a second screen. Now Edit turns the row's three cells into controls, *Save* sends only what changed (`PATCH` for the words, then `PUT …/loads`), a refusal lands under Name for the words or under Loads for loads, with the row still open, and moving to *required* keeps its confirmation. The loads select appears exactly where the route would take the write: an organization admin, on the organization's row; a team's copy keeps the word. `ui/field` gains `labelHidden` for a control whose column heading already names it, as `ui/select` had, and `ui/table` stops handling keys that start inside a cell's control. | a loads field in the dialog — which keeps the second screen for a one-word change, and a dialog over a table for a value the table already shows |
 | D110 | **The *Used by* column is *Included in*, and on an editing row it is a checklist** (§12; extends D109). *Used by* read as if the harnesses used the asset of their own accord; what the column actually holds is the harnesses whose definition **lists** it, which is a decision somebody made and can unmake — so the heading says so, and the cell is where it is unmade. The checklist is the harnesses the viewer may write at this level (`GET /v1/console/harnesses?scope=`, read by `page.tsx`, because a table does not fetch — 01 rule 2), ticked from the row's own `Related{harnesses}`; *Save* sends the words, then the memberships, then loads, and **only the differences**, so a harness that stayed ticked is never written to and nothing changed is no write. Adding is the store's write (D93) — it copies a preset and brings a tool's environment, and at *You* writes the person's version. Removing has no route of its own, because a definition's `assets` is written whole: the harness is read at save time and `PATCH`ed with the list it holds now minus this id, under that route's own authority. A **required** row — or a draft moved to required — reads *all harnesses* and offers no checklist, the same condition in the cell and in the save, so the control and the rule it states cannot disagree. | a *harnesses* multi-select in a dialog — which is the second screen D109 removed; or a *remove one asset* route invented for the console, which the CLI would not use and the definition does not need |
+| D111 | **A boundary binds to harnesses, and *bound to none yet* is a state the screens have words for** (§4, §5, §9, 07 §3; W7-D8). The scope every policy object carries is `{ teams, harnesses? }` and `covers()` has always read an absent `harnesses` as every harness the teams own and a present one as only those (engine 03 §5.1) — so the model already held *this deny, for these harnesses* and only the console never said it. Four consequences. *First*, `{ teams, harnesses: [] }` is a boundary that applies to **no harness until one is bound**, so the add form's **Applies to** sends no key for *Every harness at this level* and sends `[]` for *Only harnesses I choose* with nothing ticked, and the table says *Only the harnesses it is bound to* / *No harness yet* rather than drawing a dash for two different rows. *Second*, **the binding lives beside the harness**: `POST /v1/harnesses/{id}/boundaries { ids }` and `DELETE /v1/harnesses/{id}/boundaries/{<node path>/<id>}` append this harness to each named row's `scope.harnesses` or take it out again, one commit per node, and an unbind that empties the list leaves it empty — the row is never deleted and the key is never taken off the scope, which would turn one harness's deny into everyone's. *Third*, **the ids are refused before any commit**: an id off the caller's chain, a node they do not administer, and a boundary with no `harnesses` at all (it applies everywhere already, so there is nothing to bind) — checked in `create_harness` ahead of the harness commit for the reason W7-D4's grant is, because a commit `definitions` has made does not come back when the transaction rolls back. *Fourth*, `HarnessView.boundaries` is every boundary on the chain, so *Applies here* splits them and lists only what reaches **this** harness: a deny a panel claims and `covers()` does not hold is worse than no list. A row's harnesses are answered **by name** (`console.boundary_rows`), because a harness id is a uuid and no row shows one. | a *boundary group* object to pick from — rejected: a boundary is one deny row, and a second container would need its own scope, its own screen and its own composition rule; or an *Only for* multi-select on the Boundaries row, which puts the list of harnesses a deny reaches on the screen that is not about harnesses |
 | D45 | **The Account screen's logins come from the last session's slots**, labelled *as of*, because the console cannot probe a machine. | a browser-side probe — impossible |
 | D46 | **Boundaries' `intercepted` option is present but disabled with *not yet*** until command interception ships (engine 06 §13), so the scale is complete on the How page and honest on the form. | hiding the value |
 | D47 | **Not-approved providers are rows**, never filtered out by default. | a *show declined* toggle — rejected: PRD §9.1 |
