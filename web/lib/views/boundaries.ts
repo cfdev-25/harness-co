@@ -3,8 +3,19 @@ import { BOUNDARIES, BOUNDARIES_TEXT } from "@/content/screens/boundaries";
 import type { Column, Related, Scope } from "./types";
 import { type Cell, record, str } from "./cells";
 
-/** `GET /v1/console/boundaries` (00 §4.10); `BoundaryRow` is 00 §4.7's. */
-export type BoundaryRow = components["schemas"]["BoundaryRow"];
+/**
+ * `GET /v1/console/boundaries` (00 §4.10); `BoundaryRow` is 00 §4.7's.
+ *
+ * `harnesses` is hand-written beside the generated shape (W7-D8): the api
+ * answers the `scope.harnesses` ids as a `Related` of **names**, because a
+ * harness id is a uuid and a row never shows one, and `api.generated.ts` is
+ * regenerated once per wave by the coordinator.
+ */
+export type BoundaryRow = components["schemas"]["BoundaryRow"] & {
+  /** Absent where the scope names no harnesses, which is every harness the
+   *  teams own; present and empty where it names none yet. */
+  harnesses?: Related | null;
+};
 
 /** What `ui/table` is handed. `value` and `setBy` are `Cell`s because a `Mono`
  *  and a link are not column kinds the library has (see `cells.ts`). */
@@ -60,25 +71,53 @@ export function setByKind(row: BoundaryRow): string {
   return str(record(row.setBy).kind) || "org";
 }
 
+/**
+ * W7-D8: whether this row is **harness-scoped** — `scope.harnesses` is there,
+ * so the boundary reaches only the harnesses it names, and an empty list is a
+ * boundary that reaches none of them yet. An absent list is every harness the
+ * teams own (engine 03 §5.1, `covers`), which is a different row and not an
+ * empty one.
+ */
+export function boundHarnesses(row: BoundaryRow): string[] | null {
+  const harnesses = record(row.scope).harnesses;
+  if (!Array.isArray(harnesses)) return null;
+  return harnesses.filter((item): item is string => typeof item === "string");
+}
+
 /** The teams and harnesses a boundary is scoped to (prd-v2 §7: org-wide,
  *  named teams, named harnesses — one scoping model for every policy object). */
 export function appliesTo(row: BoundaryRow): Related {
   const teams = record(row.scope).teams;
-  if (teams === "all" || teams === undefined) return { unit: "teams", items: [], all: true };
+  // *All teams* is true of a harness-scoped row and says the wrong thing
+  // about it, so the cell says which harnesses decide instead (W7-D8).
+  const word = boundHarnesses(row) === null ? undefined : BOUNDARIES_TEXT.appliesToBound;
+  if (teams === "all" || teams === undefined) return { unit: "teams", items: [], all: true, word };
   const list = Array.isArray(teams) ? teams.filter((item) => typeof item === "string") : [];
   return {
     unit: "teams",
     items: list.map((path) => ({ id: path, label: leaf(path), href: `/console/${path}` })),
+    word,
   };
 }
 
+/**
+ * The *Only for* cell: the harnesses this boundary is narrowed to, by name.
+ *
+ * The names and the links are the server's (`console.boundary_rows`), because
+ * only it can turn a uuid into a harness's name; the ids are the fallback for
+ * a response written before that field landed. A row with no narrowing gets
+ * the dash it always had, and one narrowed to nothing yet says so.
+ */
 export function onlyFor(row: BoundaryRow): Related {
-  const harnesses = record(row.scope).harnesses;
-  const list = Array.isArray(harnesses) ? harnesses.filter((item) => typeof item === "string") : [];
-  return {
-    unit: "harnesses",
-    items: list.map((id) => ({ id, label: id, href: `/console/org/harnesses/${id}` })),
-  };
+  const list = boundHarnesses(row);
+  if (list === null) return { unit: "harnesses", items: [] };
+  if (list.length === 0) return { unit: "harnesses", items: [], word: BOUNDARIES_TEXT.onlyForNone };
+  return (
+    row.harnesses ?? {
+      unit: "harnesses",
+      items: list.map((id) => ({ id, label: id, href: `/console/org/harnesses/${id}` })),
+    }
+  );
 }
 
 export function leaf(path: string): string {
@@ -216,9 +255,20 @@ export function addScopeOf(scope: Scope, orgPath: string): string {
  * node is not one of them — so `{ teams: ["acme"] }` reaches nobody and the
  * boundary is written, listed, and inert. `"all"` is what *this level and
  * everything below it* means at the top (engine 03 §5.1).
+ *
+ * W7-D8's second half: `harnesses` is sent only when the form chose *Only
+ * harnesses I choose*, and an empty choice is still sent — `[]` is a boundary
+ * bound to no harness yet, while no key at all is one that applies to every
+ * harness the teams own. They are different boundaries, so the absent half is
+ * absent and never an empty list.
  */
-export function scopeFor(here: string, orgPath: string): { teams: string[] | "all" } {
-  return here === orgPath ? { teams: "all" } : { teams: [here] };
+export function scopeFor(
+  here: string,
+  orgPath: string,
+  harnesses?: string[],
+): { teams: string[] | "all"; harnesses?: string[] } {
+  const teams: string[] | "all" = here === orgPath ? "all" : [here];
+  return harnesses === undefined ? { teams } : { teams, harnesses };
 }
 
 /** 04 §9's three tabs, as the bar's rows (01 §7.5, W6-D8). They are routes

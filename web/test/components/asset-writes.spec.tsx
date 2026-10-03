@@ -20,11 +20,28 @@ const ROW: OrgAssetRow = {
   at: "2026-10-01T09:00:00Z",
 };
 
-function table(rows: OrgAssetRow[], scope: string, orgAdmin: boolean) {
+/** The two facts the row's controls turn on default to the enterprise answer,
+ *  so the tests that are not about them mount unchanged. */
+function table(
+  rows: OrgAssetRow[],
+  scope: string,
+  orgAdmin: boolean,
+  also: { personal?: boolean; harnesses?: Array<{ id: string; name: string }> } = {},
+) {
   return (
-    <AssetTable rows={rows} query="" empty="Nothing here" hrefFor="/console/org/assets" canEdit orgAdmin={orgAdmin} scope={scope} />
+    <AssetTable rows={rows} query="" empty="Nothing here" hrefFor="/console/org/assets" canEdit
+      orgAdmin={orgAdmin} personal={also.personal ?? false} harnesses={also.harnesses ?? []}
+      scope={scope} />
   );
 }
+
+const SUPPORT = "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa";
+const NEWSLETTER = "bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb";
+const OTHER_ASSET = "cccccccc-3333-4333-8333-cccccccccccc";
+const TWO_HARNESSES = [
+  { id: SUPPORT, name: "Support" },
+  { id: NEWSLETTER, name: "Weekly newsletter" },
+];
 
 test("edit_asset_patches_only_what_changed_at_the_scope", async ({ mount, page }) => {
   const sent = await records(page);
@@ -70,6 +87,64 @@ test("edit_asset_sets_how_it_loads_in_the_row", async ({ mount, page }) => {
   await expect.poll(() => sent.at(-1)).toEqual({
     method: "PUT", path: `/v1/assets/${ASSET}/loads`, body: { loads: "required" },
   });
+});
+
+test("included_in_is_a_checklist_posting_only_the_differences", async ({ mount, page }) => {
+  const sent = await records(page);
+  // There is no *remove one asset* route: the definition's `assets` is written
+  // whole, so the harness being left is read at save time and the PATCH
+  // carries the list it holds now, minus this id.
+  await page.route(`**/v1/console/harnesses/${SUPPORT}**`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ def: { id: SUPPORT, name: "Support", assets: [ASSET, OTHER_ASSET] } }),
+    }));
+  const included = {
+    unit: "harnesses",
+    items: [{ id: SUPPORT, label: "Support", href: `/console/org/harnesses/${SUPPORT}` }],
+  };
+  await mount(table([{ ...ROW, harnesses: included }], "org", true, { harnesses: TWO_HARNESSES }));
+
+  await page.getByRole("button", { name: ASSETS.verbs.edit.label }).click();
+  // The checklist opens on what the row says, so a tick is a change and not a
+  // restatement.
+  await expect(page.getByRole("checkbox", { name: "Support" })).toBeChecked();
+  await page.getByRole("checkbox", { name: "Weekly newsletter" }).check();
+  await page.getByRole("checkbox", { name: "Support" }).uncheck();
+  await page.getByRole("button", { name: ASSETS_TEXT.editSubmit }).click();
+
+  // Only the two differences leave, memberships before loads, and the harness
+  // that stayed ticked is not written to at all.
+  await expect.poll(() => sent).toEqual([
+    { method: "POST", path: `/v1/harnesses/${NEWSLETTER}/assets?scope=org`, body: { ids: [ASSET] } },
+    { method: "PATCH", path: `/v1/harnesses/${SUPPORT}`, body: { assets: [OTHER_ASSET] } },
+  ]);
+});
+
+test("a_required_asset_reads_all_harnesses_and_offers_no_checklist", async ({ mount, page }) => {
+  await records(page);
+  await mount(table([{
+    ...ROW,
+    loads: { scale: "loads", value: "required" },
+    harnesses: { unit: "harnesses", items: [], all: true },
+  }], "org", true, { harnesses: TWO_HARNESSES }));
+
+  await page.getByRole("button", { name: ASSETS.verbs.edit.label }).click();
+  // Every session loads it, so there is nothing to tick: the cell and the rule
+  // it states cannot disagree. The word is `ui/related`'s own.
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+  await expect(page.locator("tbody")).toContainText("All harnesses");
+});
+
+test("loads_is_offered_on_a_personal_accounts_own_row", async ({ mount, page }) => {
+  await records(page);
+  // D157: on a personal account the person's own copies may be required, so
+  // the select is on their row too — the edition is passed down, not guessed.
+  await mount(table([{ ...ROW, level: "me" }], "me", true, { personal: true }));
+
+  await page.getByRole("button", { name: ASSETS.verbs.edit.label }).click();
+  await expect(page.getByRole("combobox", { name: ASSETS_TEXT.loadsLabel })).toHaveCount(1);
 });
 
 test("edit_asset_shows_the_servers_refusal_under_the_cell", async ({ mount, page }) => {

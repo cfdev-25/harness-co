@@ -9,6 +9,7 @@ import { type HarnessCard, type PersonalChoices, modelLine } from "@/lib/views/h
 import type { PixelIcon, Scope } from "@/lib/views/types";
 import { HARNESSES, HARNESSES_WORDS as WORDS } from "@/content/screens/harnesses";
 import { Button } from "../../ui/button";
+import { Checkbox } from "../../ui/checkbox";
 import { LABEL } from "../../ui/control";
 import { Field } from "../../ui/field";
 import { Modal } from "../../ui/modal";
@@ -93,6 +94,10 @@ export function NewHarness({
   // every first harness wants.
   const [web, setWeb] = useState(true);
   const [group, setGroup] = useState("");
+  // W7-D8's third question: the harness-scoped boundaries this harness keeps.
+  // Nothing ticked sends no key at all, because an empty list and no list are
+  // the same new harness and the route binds neither.
+  const [denies, setDenies] = useState<string[]>([]);
   const model = modelLine(personal?.setup);
   const own = canEdit ? HARNESSES.verbs.newHarness : HARNESSES.verbs.newHarnessMine;
   const verb = { label: label ?? own.label, explain: explain ?? own.explain };
@@ -127,6 +132,11 @@ export function NewHarness({
           // turns its own reach down on Boundaries.
           ...(personal && !web ? { reach: { mode: "off", hosts: [] } } : {}),
           ...(personal && group ? { grant: { group } } : {}),
+          // W7-D8: the ticked boundaries, as the ids the console's rows carry
+          // (`<node path>/<id>`). The route appends this harness to each one's
+          // `scope.harnesses`; it creates no boundary, so an empty tick list
+          // has nothing to say and says nothing.
+          ...(personal && denies.length > 0 ? { boundaries: denies } : {}),
         }),
       });
       setOpen(false);
@@ -136,6 +146,7 @@ export function NewHarness({
       setDrawing(true);
       setWeb(true);
       setGroup("");
+      setDenies([]);
       router.refresh();
     } catch (failure) {
       const api = failure instanceof ApiError ? failure : null;
@@ -226,6 +237,34 @@ export function NewHarness({
                     </option>
                   ))}
                 </Select>
+                {/* W7-D8, beside the keys: what this harness may never do.
+                    With nothing to choose it is one muted sentence and no
+                    control — an empty checklist is furniture (P8). */}
+                <div className="grid gap-2">
+                  <span className={LABEL}>{WORDS.newBoundaries}</span>
+                  {personal.boundaries.length === 0 ? (
+                    <span className="text-base text-muted">{WORDS.newBoundariesNone}</span>
+                  ) : (
+                    <>
+                      {personal.boundaries.map((boundary) => (
+                        <Checkbox
+                          key={boundary.id}
+                          label={boundary.value}
+                          hint={boundary.kind}
+                          checked={denies.includes(boundary.id)}
+                          onChange={(event) =>
+                            setDenies((was) =>
+                              event.target.checked
+                                ? [...was, boundary.id]
+                                : was.filter((id) => id !== boundary.id),
+                            )
+                          }
+                        />
+                      ))}
+                      <span className="text-xs text-faint">{WORDS.newBoundariesHint}</span>
+                    </>
+                  )}
+                </div>
                 {/* Read-only: the model is set on Providers, and this line is
                     here so a first harness is not made in the dark. */}
                 <p className="text-base text-muted">

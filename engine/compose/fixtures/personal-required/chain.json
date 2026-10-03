@@ -1,0 +1,14 @@
+[
+	{
+		"kind": "org",
+		"path": "kit",
+		"ref": "refs/heads/org",
+		"commit": "org"
+	},
+	{
+		"kind": "user",
+		"path": "kit.sam",
+		"ref": "refs/heads/users/sam",
+		"commit": "u"
+	}
+]

@@ -23,6 +23,16 @@ test("header_is_one_breadcrumb_then_the_controls", async ({ mount, page }) => {
   }
 });
 
+test("header_has_no_level_switcher_on_a_personal_account", async ({ mount }) => {
+  // 07 §2: one person, one level — a menu offering *You* and *Organization*
+  // is a choice between two names for the same place.
+  const header = await mount(
+    <Header scope={{ kind: "me" }} viewer={{ ...ADMIN, edition: "personal", teams: [] }} />,
+  );
+  await expect(header.getByRole("button", { name: /^You/ })).toHaveCount(0);
+  await expect(header.getByRole("button", { name: /Jo Adeyemi|Account/ })).toBeVisible();
+});
+
 test("header_separates_the_brand_from_the_screen_with_a_muted_chevron", async ({ mount, page }) => {
   await mount(<Header scope={TEAM} viewer={ADMIN} />);
   // Decoration, so it is `aria-hidden` and the breadcrumb reads as two

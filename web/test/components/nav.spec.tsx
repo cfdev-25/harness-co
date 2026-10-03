@@ -48,7 +48,7 @@ test("nav_team_admin_adds_the_permission_screens_but_not_key_vaults", async ({ m
   await expect(admin.getByRole("link", { name: "Key vaults" })).toHaveCount(0);
 });
 
-test("nav_personal_has_boundaries_and_no_teams", async ({ mount }) => {
+test("nav_personal_has_boundaries_and_providers_and_no_teams", async ({ mount }) => {
   const personal = await mount(
     <Sidebar
       scope={{ kind: "org" }}
@@ -57,7 +57,7 @@ test("nav_personal_has_boundaries_and_no_teams", async ({ mount }) => {
     />,
   );
   await expect(personal.getByRole("link")).toHaveText([
-    /^Harnesses/, "Assets", "Boundaries", "Logs", "Account", "How this works",
+    /^Harnesses/, "Assets", "Boundaries", "Providers", "Logs", "Account", "How this works",
   ]);
 });
 

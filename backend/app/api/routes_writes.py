@@ -66,6 +66,12 @@ BOUNDARY_LIFT_IS_THEIRS = (
     "A boundary is lifted where it was set, so {team}'s admins decide this one. "
     "Boundaries only ever tighten on the way down."
 )
+# W7-D8: binding is an edit to the boundary's own row, so it is decided where
+# the row is, exactly as lifting it is.
+BOUNDARY_BIND_IS_THEIRS = (
+    "A boundary is bound to a harness where it was set, so {team}'s admins "
+    "decide this one."
+)
 PROVIDER_IS_ORG_ADMINS = (
     "Approving a runtime is an organization admin's decision: it decides whose "
     "program holds a credential in memory."
@@ -963,9 +969,7 @@ async def set_up_model_provider(
         # branch for it (routes_org_units, D30f). `idx_nodes` is the chain the
         # broker walks and `routing_paths` keys by, so this answer and the
         # routing key written below are the same fact.
-        personal = not await connection.fetchval(
-            "select exists(select 1 from idx_nodes where org=$1 and kind='team')", who.org_id
-        )
+        personal = await writes.is_personal(connection, who.org_id)
         routing = await read("policy/routing.json", {
             "defaultFor": {"teams": {}, "harnesses": {}, "providers": {}},
             "approvedFor": {"teams": {}, "harnesses": {}, "providers": {}},
@@ -1378,8 +1382,16 @@ async def set_asset_loads(
         )
         if asset is None:
             raise ApiError(404, "asset_not_found", "This asset could not be found.")
-        if asset["node_path"] != who.org_path:
-            # compose step 12: a listed id must win on the org node.
+        # compose step 12: a listed id must win on the org node — or, on a
+        # personal account (D157), on the caller's own branch. Everything a
+        # person writes from the CLI lands there, so without this a personal
+        # account could never make its own skill required, and there is nobody
+        # else on the chain for the decision to reach. The query runs only for
+        # a copy that is not the organization's, which is the rarer row.
+        if asset["node_path"] != who.org_path and not (
+            asset["node_path"] == who.user_path
+            and await writes.is_personal(connection, who.org_id)
+        ):
             raise writes.invalid(
                 "loads",
                 "Only an asset on the organization branch can be required or recommended.",
@@ -1718,6 +1730,11 @@ class HarnessIn(BaseModel):
     # `grant` is one security group, scoped to this harness and nothing else.
     reach: Json | None = None
     grant: HarnessGrantIn | None = None
+    # W7-D8, the modal's third question: the harness-scoped boundaries that
+    # apply to this harness, as the console's composed ids (`<node path>/<id>`,
+    # 01 §6 step 7). The boundaries already exist — creating one is a separate
+    # decision at a separate level — so this binds, and binds nothing else.
+    boundaries: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -1955,7 +1972,9 @@ async def create_harness_on_ref(body: HarnessIn, request: Request, principal: Wh
     filter over what the person already holds, never a new permission. The two
     optional fields W7-D4 adds are the exception and say so: `reach` narrows,
     which is always allowed; `grant` *is* a new permission, so it is refused
-    exactly where `POST /v1/grants` would refuse it.
+    exactly where `POST /v1/grants` would refuse it. W7-D8's `boundaries` is a
+    third: it edits a row at the level that set it, so it is read and refused
+    before the harness commit for the same reason the grant is.
     """
     async with transaction(get_pool(request)) as connection:
         who = await writes.authority(connection, principal)
@@ -1975,6 +1994,10 @@ async def create_harness_on_ref(body: HarnessIn, request: Request, principal: Wh
                 raise writes.invalid(
                     "grant.group", f"No security group is named {body.grant.group!r}."
                 )
+        # W7-D8: and the same for every boundary the modal ticked. A git commit
+        # does not come back when the transaction rolls back, so the ids are
+        # read and refused here and the files are written below.
+        plan = await _boundary_plan(connection, who=who, ids=body.boundaries)
         assets = list(body.assets)
         if body.from_ is not None:
             _, source = await writes.node_of_harness(connection, who.org_id, body.from_)
@@ -2019,6 +2042,13 @@ async def create_harness_on_ref(body: HarnessIn, request: Request, principal: Wh
             action="harness.create",
             payload={"name": body.name, "harness": harness_id},
         )
+        # W7-D8: the ticked boundaries now name this harness. One commit per
+        # node that holds one of them, after the harness exists, so the id in
+        # `scope.harnesses` always answers something.
+        if plan:
+            await _write_boundary_plan(
+                connection, who=who, plan=plan, harness_id=harness_id, bind=True
+            )
         if body.grant is None:
             return {**result, "id": harness_id}
         # W7-D4's *Outside keys*. Two commits, not one: a grant lives in
@@ -2047,6 +2077,162 @@ async def create_harness_on_ref(body: HarnessIn, request: Request, principal: Wh
             },
         )
         return {**result, "id": harness_id, "grant": grant["id"]}
+
+
+# --- a boundary bound to a harness (W7-D8) ----------------------------------
+#
+# A boundary scopes like every other policy object: `{ teams, harnesses? }`,
+# where an absent `harnesses` is every harness the teams own and a present one
+# is only those (engine 03 §5.1, `covers`). So `{ teams, harnesses: [] }` is a
+# boundary that applies to no harness until one is bound, and these two writes
+# are the whole of binding: the list gains this harness, or loses it. The row
+# is never removed here and the key is never taken off the scope — that would
+# turn one harness's deny into everyone's.
+
+
+BOUNDARY_NOT_ON_CHAIN = "No boundary with that id is on your chain."
+BOUNDARY_IS_UNIVERSAL = (
+    "{value} already applies to every harness at the level that set it, so "
+    "there is nothing to bind. A boundary is bound to harnesses only if it was "
+    "added that way."
+)
+
+
+async def _boundary_plan(
+    connection: Any, *, who: writes.Authority, ids: list[str]
+) -> dict[str, tuple[list[str], Any, str]]:
+    """Every boundary a binding names, read and refused **before** anything is
+    written: node path → (the ids on that node, its whole file, its head).
+
+    The refusals are checked here rather than at the write because a commit
+    `definitions` has made does not come back when this transaction rolls back
+    (the rule `create_harness` already follows for a grant). Three of them, in
+    the order a person meets them: an id that is not on the caller's chain, a
+    node they do not administer, and a boundary whose scope has no `harnesses`
+    — that one applies to every harness already, so binding it would be a
+    change nobody could see.
+    """
+    plan: dict[str, tuple[list[str], Any, str]] = {}
+    chain = writes.ancestors_of(who.user_path)
+    for composed in dict.fromkeys(ids):
+        node_path, own_id = composed.split("/", 1) if "/" in composed else ("", composed)
+        if node_path not in chain:
+            raise ApiError(404, "boundary_not_found", BOUNDARY_NOT_ON_CHAIN, {"id": composed})
+        if await who.administers(node_path) is None:
+            raise _forbidden(
+                BOUNDARY_BIND_IS_THEIRS.format(team=writes.name_of(node_path)),
+                "boundary.not_yours",
+                {"at": node_path},
+            )
+        if node_path not in plan:
+            plan[node_path] = ([], *await writes.edit_file(
+                connection, who=who, node_path=node_path,
+                path="policy/boundaries.json", default=[],
+            ))
+        own_ids, current, _ = plan[node_path]
+        boundary = next((entry for entry in current if entry.get("id") == own_id), None)
+        if boundary is None:
+            raise ApiError(404, "boundary_not_found", BOUNDARY_NOT_ON_CHAIN, {"id": composed})
+        if not isinstance((boundary.get("scope") or {}).get("harnesses"), list):
+            raise writes.invalid(
+                "boundaries", BOUNDARY_IS_UNIVERSAL.format(value=boundary.get("value"))
+            )
+        own_ids.append(own_id)
+    return plan
+
+
+async def _write_boundary_plan(
+    connection: Any,
+    *,
+    who: writes.Authority,
+    plan: dict[str, tuple[list[str], Any, str]],
+    harness_id: str,
+    bind: bool,
+) -> tuple[Json, list[str]]:
+    """The plan, committed: one commit per node, each file written back whole.
+
+    A row whose list already says what the caller asked for is left alone, so
+    binding twice is one commit and not two.
+    """
+    last: Json | None = None
+    touched: list[str] = []
+    for node_path, (own_ids, current, head) in plan.items():
+        body, changed = [], []
+        for entry in current:
+            if entry.get("id") in own_ids:
+                scope = entry.get("scope") or {}
+                have = list(scope.get("harnesses") or [])
+                want = (
+                    have if harness_id in have else [*have, harness_id]
+                ) if bind else [one for one in have if one != harness_id]
+                if want != have:
+                    entry = {**entry, "scope": {**scope, "harnesses": want}}
+                    changed.append(entry["id"])
+            body.append(entry)
+        if not changed:
+            continue
+        touched += [f"{node_path}/{one}" for one in changed]
+        last = await writes.write_file(
+            connection,
+            who=who,
+            expected_head=head,
+            node_path=node_path,
+            path="policy/boundaries.json",
+            body=body,
+            message=f"{'bind' if bind else 'unbind'} {len(changed)} boundaries "
+                    f"{'to' if bind else 'from'} harness {harness_id}",
+            reason_kind="admin-edit",
+            action="boundary.bind" if bind else "boundary.unbind",
+            payload={"harness": harness_id, "n": len(changed)},
+        )
+    if last is None:
+        # Nothing to do is not a commit (`add_assets_to_harness` answers the
+        # same way): the caller still gets the head they would have had.
+        node_path = next(iter(plan))
+        last = {"commit": plan[node_path][2], "ref": who.ref_for(node_path)}
+    return last, touched
+
+
+class BoundaryIdsIn(BaseModel):
+    ids: list[str] = Field(min_length=1)
+
+
+@router.post("/harnesses/{harness_id}/boundaries", response_model=CommitResult)
+async def bind_boundaries_to_harness(
+    harness_id: UUID, body: BoundaryIdsIn, request: Request, principal: Who
+) -> Json:
+    """*Bind a boundary*, on the harness page's *Applies here* (04 §5, W7-D8).
+
+    The ids are the console's composed `<node path>/<id>` (01 §6 step 7), so
+    the route knows which node's file each one is in without being told.
+    """
+    async with transaction(get_pool(request)) as connection:
+        who = await writes.authority(connection, principal)
+        await writes.node_of_harness(connection, who.org_id, harness_id)
+        plan = await _boundary_plan(connection, who=who, ids=body.ids)
+        result, bound = await _write_boundary_plan(
+            connection, who=who, plan=plan, harness_id=str(harness_id), bind=True
+        )
+        return {**result, "bound": bound}
+
+
+@router.delete(
+    "/harnesses/{harness_id}/boundaries/{boundary_id:path}", response_model=CommitResult
+)
+async def unbind_boundary_from_harness(
+    harness_id: UUID, boundary_id: str, request: Request, principal: Who
+) -> Json:
+    """The other half: this harness leaves that boundary's `scope.harnesses`.
+    An unbind that empties the list leaves it empty — the boundary is then
+    waiting for a harness again, which is a state the console has words for."""
+    async with transaction(get_pool(request)) as connection:
+        who = await writes.authority(connection, principal)
+        await writes.node_of_harness(connection, who.org_id, harness_id)
+        plan = await _boundary_plan(connection, who=who, ids=[boundary_id])
+        result, unbound = await _write_boundary_plan(
+            connection, who=who, plan=plan, harness_id=str(harness_id), bind=False
+        )
+        return {**result, "unbound": unbound}
 
 
 @router.patch("/harnesses/{harness_id}", response_model=CommitResult)

@@ -2,6 +2,7 @@ import { cache } from "react";
 import { ApiError } from "@/lib/api";
 import { serverRequest } from "@/lib/api.server";
 import { scopeQuery } from "@/lib/scope";
+import { type BoundaryRow, boundHarnesses } from "./boundaries";
 import type { PersonalChoices } from "./harness";
 import type { Scope, Viewer } from "./types";
 
@@ -72,11 +73,23 @@ export function loadViewer(scope: Scope): Promise<{ viewer: Viewer; notice?: str
  * on the viewer, so the extra read happens only where the controls do. The
  * groups are the person's own (`?scope=me`), never the level being drawn — a
  * harness on your own branch takes keys you hold, not keys a team holds.
+ *
+ * W7-D8 adds the third question's choices, read from the same scope for the
+ * same reason, and narrowed here rather than on the screen: only a
+ * **harness-scoped** boundary is a choice at all, because every other one on
+ * the chain already applies to every harness the level holds.
  */
 export async function loadPersonalChoices(viewer: Viewer): Promise<PersonalChoices | undefined> {
   if (viewer.edition !== "personal") return undefined;
-  const groups = await serverRequest<{ items: Array<{ name: string }> }>(
-    "/v1/console/groups?scope=me",
-  );
-  return { groups: groups.items.map((group) => group.name), setup: viewer.setup };
+  const [groups, boundaries] = await Promise.all([
+    serverRequest<{ items: Array<{ name: string }> }>("/v1/console/groups?scope=me"),
+    serverRequest<{ items: BoundaryRow[] }>("/v1/console/boundaries?scope=me"),
+  ]);
+  return {
+    groups: groups.items.map((group) => group.name),
+    setup: viewer.setup,
+    boundaries: boundaries.items
+      .filter((row) => boundHarnesses(row) !== null)
+      .map((row) => ({ id: row.id, value: row.value, kind: row.kind })),
+  };
 }

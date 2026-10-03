@@ -36,7 +36,8 @@ export function Header({ scope, viewer }: HeaderProps) {
         <Section />
       </span>
       <span className="ml-auto flex shrink-0 items-center gap-2">
-        <ScopeSwitcher scope={scope} viewer={viewer} />
+        {/* A personal account is one level (07 §2): there is nothing to switch to. */}
+        {viewer.edition !== "personal" && <ScopeSwitcher scope={scope} viewer={viewer} />}
         <SearchButton scope={scope} />
         <AccountMenu viewer={viewer} />
       </span>

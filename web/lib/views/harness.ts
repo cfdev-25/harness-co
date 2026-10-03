@@ -156,6 +156,11 @@ export interface BoundaryRow {
   holds: string;
   reason?: string;
   setBy?: { path?: string; kind?: string } | null;
+  /** W7-D8: the scope's harnesses half, which is what tells *Applies here*
+   *  whether a row reaches **this** harness. `HarnessView.boundaries` is every
+   *  boundary on the chain, so without it a boundary bound to one harness
+   *  would be listed on the page of every other. */
+  scope?: { harnesses?: string[] | null } | null;
 }
 
 export interface FileView {
@@ -453,6 +458,14 @@ export interface PersonalChoices {
   groups: string[];
   /** `Viewer.setup` verbatim, read defensively by `modelLine`. */
   setup: Viewer["setup"];
+  /**
+   * W7-D8: the chain's **harness-scoped** boundaries — the ones a harness can
+   * be bound to, by their composed id (`<node path>/<id>`). Every other
+   * boundary on the chain already applies to every harness the level holds, so
+   * it is not a choice and is not offered. Empty is a real answer and the
+   * modal says so in one line rather than drawing an empty control.
+   */
+  boundaries: Array<{ id: string; value: string; kind: string }>;
 }
 
 /**

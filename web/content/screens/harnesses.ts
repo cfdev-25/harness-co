@@ -70,6 +70,13 @@ export const HARNESSES_WORDS = {
   newKeys: "Outside keys",
   newKeysNone: "None",
   newKeysHint: "A group of keys this harness may use. Most first harnesses need none.",
+  /** W7-D8's third question. Only the boundaries that were added for named
+   *  harnesses are a choice: every other one applies to every harness the
+   *  level holds, so offering it would be a tick that changes nothing. */
+  newBoundaries: "Boundaries",
+  newBoundariesHint: "Things this harness may never do. You can bind more later.",
+  newBoundariesNone:
+    "Every boundary you have applies to every harness already, so there is nothing to choose.",
   /** The model that will serve it: read-only here, set under Providers. */
   newModelKey: "Model: your default key",
   newModelSignIn: "Model: your Pi sign-in",

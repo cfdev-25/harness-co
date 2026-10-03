@@ -18,7 +18,9 @@ import {
 import { ASSETS, ASSETS_TEXT } from "@/content/screens/assets";
 import Link from "next/link";
 import { Button } from "../../../ui/button";
+import { Checkbox } from "../../../ui/checkbox";
 import { Field } from "../../../ui/field";
+import { Related } from "../../../ui/related";
 import { Select } from "../../../ui/select";
 import { Table, type TableColumn } from "../../../ui/table";
 import { DeleteAsset } from "./_delete";
@@ -38,6 +40,16 @@ export interface AssetTableProps {
    *  (`PUT /v1/assets/{id}/loads`), and only for a row on the organization's
    *  branch — so the Loads cell is a control exactly there. */
   orgAdmin: boolean;
+  /** Whether this is a personal account (`viewer.edition`), which is the one
+   *  place the person's **own** copies may be required too: everything they
+   *  write lands on their branch and there is no team on the chain for the
+   *  decision to reach past (D157). The fact is passed down rather than
+   *  guessed here from a role name. */
+  personal: boolean;
+  /** The harnesses the viewer may write at this level, for the *Included in*
+   *  checklist. Fetched by `page.tsx` — a table does not fetch (01 rule 2) —
+   *  and empty where there is nothing to tick. */
+  harnesses: Array<{ id: string; name: string }>;
   /** The `?scope=` a write takes (03 §4), not the URL segment. */
   scope: string;
 }
@@ -47,10 +59,11 @@ export interface AssetTableProps {
  * change, and — for an admin of this level — Edit and Delete. The kind is
  * the tab, so there is no Type column; the row is not a link, the Name cell
  * is, because the last cell holds two buttons. Edit is in place (D109): the
- * row's Name, Description and Loads cells become controls and the two
- * buttons become Save and Cancel; Enter saves, Escape cancels.
+ * row's Name, Description, *Included in* and Loads cells become controls and
+ * the two buttons become Save and Cancel; Enter saves, Escape cancels.
  */
-export function AssetTable({ rows, query, empty, hrefFor, canEdit, orgAdmin, scope }: AssetTableProps) {
+export function AssetTable(props: AssetTableProps) {
+  const { rows, query, empty, hrefFor, canEdit, orgAdmin, personal, harnesses, scope } = props;
   const [sort, setSort] = useState({ key: "name", dir: "asc" as "asc" | "desc" });
   const edit = useAssetEdit(scope);
   const needle = query.trim().toLowerCase();
@@ -106,8 +119,37 @@ export function AssetTable({ rows, query, empty, hrefFor, canEdit, orgAdmin, sco
         onKeyDown={keys}
       />
     ),
+    usedBy: (draft, row) =>
+      // A required asset loads into every harness, so there is nothing to
+      // tick: the cell reads *all harnesses* and the rule it states cannot be
+      // contradicted by a checklist beside it. Same for a level with no
+      // harness to write.
+      draft.loads === "required" || harnesses.length === 0 ? (
+        <Related value={assetRelated(row).harnesses} />
+      ) : (
+        <span className="grid gap-1">
+          {harnesses.map((harness) => (
+            <Checkbox
+              key={harness.id}
+              label={harness.name}
+              checked={draft.included.includes(harness.id)}
+              onChange={(event) =>
+                edit.set({
+                  included: event.target.checked
+                    ? [...draft.included, harness.id]
+                    : draft.included.filter((id) => id !== harness.id),
+                })
+              }
+              onKeyDown={keys}
+            />
+          ))}
+          {said(edit.failure, "included") && (
+            <span className="text-xs text-warn">{said(edit.failure, "included")}</span>
+          )}
+        </span>
+      ),
     loads: (draft, row) =>
-      orgAdmin && row.level === "org" ? (
+      orgAdmin && (row.level === "org" || (personal && row.level === "me")) ? (
         <Select
           label={ASSETS_TEXT.loadsLabel}
           labelHidden
@@ -139,8 +181,9 @@ export function AssetTable({ rows, query, empty, hrefFor, canEdit, orgAdmin, sco
       render: (shown) => {
         const row = byId.get(shown.id);
         if (edit.draft && row && edit.draft.id === shown.id) return editor(edit.draft, row);
-        const value = shown[column.key];
         if (column.key === "name") return shown.name.value;
+        if (column.key === "usedBy") return <Related value={shown.usedBy} />;
+        const value = shown[column.key];
         return typeof value === "string" && value !== "" ? value : "—";
       },
     };

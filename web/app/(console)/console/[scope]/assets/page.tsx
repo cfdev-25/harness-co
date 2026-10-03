@@ -50,17 +50,23 @@ export default async function Page({
   const { viewer } = await loadViewer(scope);
   const store = viewer.visibility.store !== false;
   const browsing = store && asked.tab === "browse";
-  const [body, browse, harnesses, personal] = await Promise.all([
+  const level = levelOf(scope, viewer);
+  const [body, browse, harnesses, mine, personal] = await Promise.all([
     read<AssetsPage>(`/v1/console/assets?scope=${scopeQuery(scope)}`),
     browsing ? read<BrowsePage & { hidden?: Hidden }>(
       `/v1/console/assets/browse?scope=${scopeQuery(scope)}`) : null,
     browsing ? read<{ items: HarnessCard[] }>("/v1/console/harnesses?scope=me") : null,
+    // The *Included in* checklist of an editing row: the harnesses of this
+    // level, fetched here because a table does not fetch (01 rule 2), and only
+    // where the row has verbs at all.
+    !browsing && level.canEdit
+      ? read<{ items: HarnessCard[] }>(`/v1/console/harnesses?scope=${scopeQuery(scope)}`)
+      : null,
     // W7-D4: *New harness from selection* is the harnesses screen's dialog, so
     // on a personal account it asks the same two questions. Only when the
     // store is open, because that is the only tab that mounts it.
     browsing ? loadPersonalChoices(viewer) : null,
   ]);
-  const level = levelOf(scope, viewer);
   const kind = browsing ? (asked.kind ?? "") : currentKind(body.kinds, body.items, asked.kind);
   const rows = ofKind(body.items, kind);
   const empty = EMPTY[assetsEmptyId(scope)];
@@ -115,6 +121,14 @@ export default async function Page({
             hrefFor={base}
             canEdit={level.canEdit}
             orgAdmin={viewer.role.level === "org-admin"}
+            personal={viewer.edition === "personal"}
+            // At a team the read carries the chain (`scope_paths`), so the
+            // organization's harnesses come with it; the checklist offers this
+            // level's own. At *You* the whole list is the person's to write —
+            // a tick there writes their version of the harness (D93).
+            harnesses={(mine?.items ?? []).filter(
+              (card) => scope.kind !== "team" || card.team.path === scope.path,
+            )}
             scope={scopeQuery(scope)}
           />
         )}

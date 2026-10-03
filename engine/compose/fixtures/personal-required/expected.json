@@ -1,0 +1,70 @@
+{
+	"chain": [
+		{
+			"kind": "org",
+			"path": "kit",
+			"ref": "refs/heads/org",
+			"commit": "org"
+		},
+		{
+			"kind": "user",
+			"path": "kit.sam",
+			"ref": "refs/heads/users/sam",
+			"commit": "u"
+		}
+	],
+	"assets": [
+		{
+			"id": "7c1e9b44-2d6f-4a81-9b3e-5f0c8a2d7e61",
+			"kind": "skill",
+			"name": "house-style",
+			"from": {
+				"kind": "user",
+				"path": "kit.sam",
+				"ref": "refs/heads/users/sam",
+				"commit": "u"
+			},
+			"tree": "u:assets/skill/house-style",
+			"sidecar": {
+				"id": "7c1e9b44-2d6f-4a81-9b3e-5f0c8a2d7e61",
+				"kind": "skill"
+			}
+		}
+	],
+	"conflicts": [],
+	"policy": {
+		"boundaries": [],
+		"grants": [],
+		"groups": {},
+		"modelProviders": {},
+		"harnessProviders": {},
+		"routing": {
+			"defaultFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			},
+			"approvedFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			}
+		},
+		"kinds": [
+			"skill",
+			"memory"
+		],
+		"required": [
+			"7c1e9b44-2d6f-4a81-9b3e-5f0c8a2d7e61"
+		],
+		"recommended": [],
+		"reach": {
+			"mode": "off",
+			"hosts": [],
+			"setBy": "kit"
+		}
+	},
+	"harnesses": [],
+	"harnessFrom": {},
+	"tree": "<composed>"
+}

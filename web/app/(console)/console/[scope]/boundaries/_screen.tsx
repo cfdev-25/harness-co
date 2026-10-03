@@ -5,6 +5,7 @@ import { parseScope, scopeHref, scopeQuery } from "@/lib/scope";
 import { getToken } from "@/lib/token.server";
 import { fill } from "@/lib/views/refusals";
 import { type BoundaryRow, type BoundaryTab, boundaryTabs, tabOf } from "@/lib/views/boundaries";
+import type { HarnessCard, Page } from "@/lib/views/harness";
 import { readmeOf } from "@/lib/views/header";
 import { levelOf } from "@/lib/views/level";
 import { loadViewer } from "@/lib/views/viewer";
@@ -43,6 +44,9 @@ export interface BoundariesContext {
   rows: BoundaryRow[];
   hidden: boolean;
   mayAdd: boolean;
+  /** W7-D8: the harnesses this level holds, for the add form's *Applies to*.
+   *  Empty for anyone who cannot add, because only the form reads it. */
+  harnesses: Array<{ id: string; name: string }>;
 }
 
 export async function boundariesContext(
@@ -61,6 +65,15 @@ export async function boundariesContext(
   // writes; an enterprise person at *me* writes nowhere and reads everything.
   const here =
     scope.kind === "team" ? scope.path : scope.kind === "org" || personal ? orgPath : null;
+  const mayAdd = viewer.adminHere && here !== null;
+  // W7-D8: *Only harnesses I choose* needs this level's harnesses, and a
+  // dialog does not fetch (01 rule 2) — so the screen does, and only for the
+  // viewer who has the form, because nobody else reads the list.
+  const cards = mayAdd
+    ? await request<Page<HarnessCard>>(`/v1/console/harnesses?scope=${query}`, await getToken(), {
+        cache: "no-store",
+      })
+    : null;
   return {
     scope,
     viewer,
@@ -70,7 +83,8 @@ export async function boundariesContext(
     here,
     rows: body.items.filter((row) => tabOf(row) === tab),
     hidden: Boolean(body.hidden),
-    mayAdd: viewer.adminHere && here !== null,
+    mayAdd,
+    harnesses: (cards?.items ?? []).map((card) => ({ id: card.id, name: card.name })),
   };
 }
 
@@ -93,7 +107,16 @@ export function BoundariesScreen({ tab, ctx, above, offer }: BoundariesScreenPro
       tabs={boundaryTabs(scopeHref(scope), tab)}
       readme={readmeOf(title, ledeFor(scope.kind, personal, team), BOUNDARIES.about)}
       level={levelOf(scope, viewer)}
-      actions={mayAdd && here ? <AddBoundary scopePath={here} orgPath={orgPath} kind={tab} /> : undefined}
+      actions={
+        mayAdd && here ? (
+          <AddBoundary
+            scopePath={here}
+            orgPath={orgPath}
+            kind={tab}
+            harnesses={ctx.harnesses}
+          />
+        ) : undefined
+      }
     />
   );
 

@@ -151,7 +151,7 @@ One line, `flex-nowrap`, in two groups: **where you are** on the left and
 | --- | --- | --- | --- |
 | left | Drawer | hamburger, `< 960` only | opens the sidebar as a `<dialog>` (§4.1) |
 | left | Breadcrumb | `BrandMark` (small) + *Harness*, a muted `›`, then the screen's name — *Harness › Assets* | *Harness* links to `/console/me/harnesses`. The screen's name is its nav label (`navKeyOf(pathname)` into `NAV_LABELS`, *How this works* for `/console/how`, `shell/section.tsx`) and is the document's one `<h1>` (02 rule 35, D99): the page's name belongs to the chrome, because it is the sidebar row you pressed. A detail screen shows its **section** — *Harnesses*, not the harness — and names the thing it is showing in its own content (`EntityHeader`, §7.5). A route under no nav key renders neither the chevron nor the name. The name truncates; nothing wraps |
-| right | Level switcher | the current level as a button: *You* · *Marketing* · *Organization* | a menu that is a **tree** (D84): *You*, then each of `viewer.teams` with its sub-teams indented under it (a team path is dotted, so depth is the path's depth below the shallowest team on the chain), then *Organization* last; the current row is marked with §4.4's selected idiom and `aria-current`. Choosing navigates to the same screen at the new level where it exists, else that level's `/harnesses`. It is the console's **only** level control — no screen carries one. It sits on the right with the other controls, because changing level is something you *do*, not somewhere you *are* |
+| right | Level switcher | the current level as a button: *You* · *Marketing* · *Organization* | a menu that is a **tree** (D84): *You*, then each of `viewer.teams` with its sub-teams indented under it (a team path is dotted, so depth is the path's depth below the shallowest team on the chain), then *Organization* last; the current row is marked with §4.4's selected idiom and `aria-current`. Choosing navigates to the same screen at the new level where it exists, else that level's `/harnesses`. It is the console's **only** level control — no screen carries one. **Absent on a personal account** (07 §2): one person is one level, and a menu offering *You* and *Organization* is two names for the same place. It sits on the right with the other controls, because changing level is something you *do*, not somewhere you *are* |
 | right | Search | icon button, `/` focuses it | opens the **Palette** (D61): a `<dialog>` with one input; results are objects in the viewer's current scope by name — harnesses, files, groups, boundaries, people, requests — plus the command sheet's rows; Enter opens the first; arrow keys move; results come from one endpoint `/v1/console/search?q=` (00 §4.10 addition, reported) |
 | right | Account | avatar/initials button | click toggles a `role="menu"`; items: *Account*, *Theme* (steel/light), *Sign out*; arrow keys and Escape |
 
@@ -179,11 +179,11 @@ is worse than no row (P13):
 | me | Harnesses, Assets, Logs, Account | — |
 | team | Harnesses, Assets, Logs, People | Security groups, Boundaries, Providers, Teams |
 | org | Harnesses, Assets, Logs, People | Security groups, Boundaries, Providers, Key vaults, Teams |
-| personal, at any level | Harnesses, Assets, Boundaries, Logs, Account | — |
+| personal, at any level | Harnesses, Assets, Boundaries, Providers, Logs, Account | — |
 
 A personal account is one person who is their own organization (07 §2):
-there are no teams and no permissions to hand out, but reach is theirs to
-set, so Boundaries stays. As groups:
+there are no teams and no permissions to hand out, but reach and the model
+are theirs to set, so Boundaries and Providers stay. As groups:
 
 | Group | Items (`NavKey`) | Who |
 | --- | --- | --- |
@@ -201,9 +201,9 @@ set, so Boundaries stays. As groups:
 there are none — any level a viewer only reads, *me* always, and a personal
 account always — `navFor` returns **one group with no label** and the rail
 is one tight list: `harnesses · assets · logs · account` at *me*, and
-`harnesses · assets · boundaries · logs · account` on a personal account,
-whose Boundaries is a setting of their own and not somebody else's
-permission (07 §2). Where there are permission screens, all four groups are
+`harnesses · assets · boundaries · providers · logs · account` on a personal
+account, whose Boundaries and Providers are settings of their own and not
+somebody else's permission (07 §2). Where there are permission screens, all four groups are
 drawn and **every one of them carries its eyebrow**, including the single
 row under *Logs*: a group whose heading is omitted is a hairline with no
 word above it.

@@ -61,12 +61,12 @@ describe("navFor — the sidebar shows what you manage", () => {
     ]);
   });
 
-  it("personal: harnesses, assets, boundaries, logs, account — reach lives there", () => {
+  it("personal: harnesses, assets, boundaries, providers, logs, account — reach and the model live there", () => {
     const personal = { edition: "personal" as const, adminHere: true, teams: [] };
     expect(rows(ME, personal)).toEqual([
-      "Harnesses", "Assets", "Boundaries", "Logs", "Account",
+      "Harnesses", "Assets", "Boundaries", "Providers", "Logs", "Account",
     ]);
-    // The same five wherever a personal account stands: there is one person
+    // The same six wherever a personal account stands: there is one person
     // and no organization above them (07 §2).
     expect(rows(ORG, personal)).toEqual(rows(ME, personal));
   });

@@ -64,6 +64,8 @@ produce the same `expected.json` through `normalise`.
 | `boundary-union` | §6 step 7 · ids prefixed by node path, root first |
 | `always-loaded` | §6 step 12 · an id whose winning copy is not the organization's is dropped |
 | `required-and-recommended` | §6 step 12 · W5-D10's two-list `always-loaded.json`; the bare-array case is `always-loaded` |
+| `personal-required` | §6 step 12 · D157 · a personal chain (org › user, no team node) requiring a copy on the person's own branch |
+| `required-on-a-user-branch` | §6 step 12 · D157 · the same copy where a team is on the chain: dropped |
 | `harness-names-nothing` | C18 · an id that resolves to nothing stays on the definition |
 | `harness-by-ids` | §4.2 · a harness on the org and one on the person, both collected |
 | `three-level-teams` | §6 step 1 · four nodes, precedence across all of them |

@@ -63,6 +63,10 @@ SENTENCES: dict[str, tuple[str | None, str]] = {
     "boundary.set": ("permission", "{actor} added a boundary for {scope}: {value}"),
     "boundary.remove": ("permission", "{actor} lifted a boundary for {scope}: {value}"),
     "boundary.update": ("permission", "{actor} changed the boundaries at {team}"),
+    # W7-D8: a boundary bound to one harness rather than to every harness the
+    # level holds. The row names the harness, which is what the person picked.
+    "boundary.bind": ("permission", "{actor} bound {n} of {team}'s boundaries to {harness}"),
+    "boundary.unbind": ("permission", "{actor} took {n} of {team}'s boundaries off {harness}"),
     # Reach (W5 D131). One row per verb the screen has, so the log reads as the
     # screen does: the mode, a host added, a host taken away.
     "reach.set": ("permission", "{actor} set reach at {team} to {mode} ({n} hosts)"),
@@ -112,7 +116,8 @@ GIT_BACKED = {
     "request.open", "request.accept", "harness.create", "harness.delete",
     "harness.add_assets",
     "grant.create", "grant.narrow", "grant.remove", "boundary.set",
-    "boundary.remove", "reach.set", "reach.allow_host", "reach.deny_host",
+    "boundary.remove", "boundary.bind", "boundary.unbind",
+    "reach.set", "reach.allow_host", "reach.deny_host",
     "group.create", "provider.approve", "provider.beta",
     "provider.decline", "provider.delete", "provider.key_setup", "org.seed", "routing.change",
     "definitions.push", "definitions.commit",

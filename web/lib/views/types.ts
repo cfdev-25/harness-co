@@ -131,6 +131,12 @@ export interface Related {
   unit: "teams" | "harnesses" | "groups" | "secrets" | "assets" | "providers" | "people";
   items: Array<{ id: string; label: string; href: string }>;
   all?: true;
+  /** W7-D8: the cell's own sentence, drawn in place of *All …* and in place
+   *  of the dash an empty list gets. A harness-scoped boundary has two states
+   *  that are neither a list nor *all* — *only the harnesses it is bound to*,
+   *  and *none yet* — and a cell that cannot say which is a cell that reads
+   *  like a bug. */
+  word?: string;
 }
 
 /* ---- engine 00 §4 — imported by name once the contracts slice exists --- */

@@ -320,10 +320,17 @@ async def personal_world():
             "idx_nodes": nodes,
             "idx_policy": [{"node_path": "kit", "file": name, "body": body}
                            for name, body in ORG_POLICY.items()]})
+        # D157 needs one asset where a personal account's assets actually land:
+        # the person's own branch, which is the only branch they can push to.
+        asset_id = str(uuid.uuid4())
         await _write_index(connection, org, f"refs/heads/users/{kit}", "c-kit",
-                           {"idx_nodes": nodes})
+                           {"idx_nodes": nodes,
+                            "idx_assets": [{"node_path": "kit.kit", "id": asset_id,
+                                            "kind": "skill", "name": "house-style",
+                                            "tree": "t-kit", "sidecar": {"id": asset_id}}]})
         yield {"connection": connection, "org": org, "org_path": "kit",
-               "kit": Principal(kit, "kit@example.com"), "kit_unit": kit_unit}
+               "kit": Principal(kit, "kit@example.com"), "kit_unit": kit_unit,
+               "asset": asset_id}
 
 
 # W6-D6: a model provider nothing holds a key for can be routed nowhere, so a
@@ -1099,6 +1106,48 @@ async def test_recommended_is_its_own_list_and_never_required():
                 w["ana"],
             )
             assert fake.changed(len(fake.commits) - 1) == expected
+
+
+@requires_postgres
+async def test_a_personal_account_may_require_its_own_asset():
+    """D157. A personal chain is org › user with no team node, so everything
+    the person writes lands on their own branch — and compose step 12 counts
+    that copy as the organization's there. Without this the one person on the
+    account could never make their own skill required."""
+    async with personal_world() as w, fake_definitions(_files()) as fake:
+        await routes_writes.set_asset_loads(
+            uuid.UUID(w["asset"]),
+            routes_writes.LoadsIn(loads="required"),
+            _request(w["connection"]),
+            w["kit"],
+        )
+        assert fake.changed() == {"required": [w["asset"]], "recommended": []}
+        # The decision is the organization's and the file is org-only (engine
+        # 01 §4.2), so it is written on the org ref even though the asset is not.
+        assert fake.commits[0]["ref"] == ORG_REF
+
+
+@requires_postgres
+async def test_an_enterprise_user_branch_asset_still_cannot_be_required():
+    """The counter-proof: the same shape with a team on the chain is refused,
+    because the rest of the organization does not hold the person's copy. Ana
+    is the org admin, so only the personal rule is left to decide it."""
+    async with world() as w, fake_definitions(_files()) as fake:
+        connection = w["connection"]
+        asset_id = str(uuid.uuid4())
+        await _write_index(
+            connection, w["org"], f"refs/heads/users/{w['ana'].auth_user_id}", "c-ana",
+            {"idx_assets": [{"node_path": f"{TEAM}.ana", "id": asset_id, "kind": "skill",
+                             "name": "mine", "tree": "t-ana", "sidecar": {"id": asset_id}}]})
+        with pytest.raises(ApiError) as caught:
+            await routes_writes.set_asset_loads(
+                uuid.UUID(asset_id),
+                routes_writes.LoadsIn(loads="required"),
+                _request(connection),
+                w["ana"],
+            )
+        assert "Only an asset on the organization branch" in caught.value.message
+        assert fake.commits == []
 
 
 # --- editing and deleting an asset's own copy (WS3a) ------------------------

@@ -8,6 +8,7 @@ import { type BoundaryTab, scopeFor } from "@/lib/views/boundaries";
 import { SCALES } from "@/lib/views/scales";
 import { BOUNDARIES, BOUNDARIES_TEXT, BOUNDARY_KINDS } from "@/content/screens/boundaries";
 import { Button } from "../../../ui/button";
+import { Checkbox } from "../../../ui/checkbox";
 import { Field } from "../../../ui/field";
 import { Modal } from "../../../ui/modal";
 import { Notice } from "../../../ui/notice";
@@ -23,6 +24,13 @@ export interface AddBoundaryProps {
   /** The tab the form was opened from, which picks the kind it starts on
    *  (W6-D8): adding from Commands means adding a command. */
   kind: BoundaryTab;
+  /**
+   * W7-D8: the harnesses this level holds, for *Only harnesses I choose*. A
+   * prop and not a fetch, because a dialog does not fetch (01 rule 2) — the
+   * screen's server component already reads the level and hands it down. It
+   * may be empty: a boundary can be added first and bound to a harness later.
+   */
+  harnesses: Array<{ id: string; name: string }>;
 }
 
 /** W6-D8: the tab's own kind, so *Add a boundary* on Commands opens on
@@ -58,12 +66,17 @@ function patternProblem(pattern: string): string | null {
  * which rather than offering a value the api would refuse. No optimistic UI:
  * the screen refetches through `router.refresh()` and shows what is now so.
  */
-export function AddBoundary({ scopePath, orgPath, kind }: AddBoundaryProps) {
+export function AddBoundary({ scopePath, orgPath, kind, harnesses }: AddBoundaryProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<{ message: string; remedy?: string } | null>(null);
   const [form, setForm] = useState({ kind: KIND_OF[kind], value: "", holds: "enforced", reason: "" });
+  // W7-D8's *Applies to*. `all` is the shape every boundary had before it and
+  // stays the default: narrowing to named harnesses is the exception, and a
+  // form that opens on the exception teaches the wrong model.
+  const [applies, setApplies] = useState<"all" | "chosen">("all");
+  const [chosen, setChosen] = useState<string[]>([]);
   const isCommand = form.kind === "command";
   const problem = isCommand ? patternProblem(form.value) : null;
 
@@ -78,7 +91,10 @@ export function AddBoundary({ scopePath, orgPath, kind }: AddBoundaryProps) {
           // A command is refused by the runtime and by nothing else, so the
           // form never sends anything but `intercepted` for one.
           holds: isCommand ? "intercepted" : form.holds,
-          scope: scopeFor(scopePath, orgPath),
+          // W7-D8: the harnesses half is sent only when it was asked for, and
+          // an empty tick list is still sent — `[]` is a boundary waiting for
+          // a harness, and no key at all is one that reaches every harness.
+          scope: scopeFor(scopePath, orgPath, applies === "chosen" ? chosen : undefined),
           at: scopePath,
         }),
       });
@@ -146,6 +162,39 @@ export function AddBoundary({ scopePath, orgPath, kind }: AddBoundaryProps) {
               onChange={(event) => setForm({ ...form, reason: event.target.value })}
             />
             <Field label={BOUNDARIES_TEXT.scopeLabel} hint={BOUNDARIES_TEXT.scopeHint} value={scopePath} readOnly />
+            {/* W7-D8: the harnesses half of the same scope. One select, and
+                the checklist only once it has been asked for — a list of
+                every harness under a radio nobody chose is furniture (P8). */}
+            <Select
+              label={BOUNDARIES_TEXT.harnessesLabel}
+              value={applies}
+              onChange={(event) => setApplies(event.target.value as "all" | "chosen")}
+            >
+              <option value="all">{BOUNDARIES_TEXT.harnessesAll}</option>
+              <option value="chosen">{BOUNDARIES_TEXT.harnessesChosen}</option>
+            </Select>
+            {applies === "chosen" &&
+              (harnesses.length === 0 ? (
+                <p className="text-base text-muted">{BOUNDARIES_TEXT.harnessesNone}</p>
+              ) : (
+                <div className="grid gap-2">
+                  {harnesses.map((harness) => (
+                    <Checkbox
+                      key={harness.id}
+                      label={harness.name}
+                      checked={chosen.includes(harness.id)}
+                      onChange={(event) =>
+                        setChosen((was) =>
+                          event.target.checked
+                            ? [...was, harness.id]
+                            : was.filter((id) => id !== harness.id),
+                        )
+                      }
+                    />
+                  ))}
+                  <p className="text-xs text-faint">{BOUNDARIES_TEXT.harnessesHint}</p>
+                </div>
+              ))}
             {/* Said where the control is, as soon as it is typed — but never a
                 disabled button: the api is what decides, and a form that
                 pre-judges a refusal is a form that can be wrong (P13). */}

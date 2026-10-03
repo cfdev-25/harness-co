@@ -1,0 +1,86 @@
+{
+	"chain": [
+		{
+			"kind": "org",
+			"path": "acme",
+			"ref": "refs/heads/org",
+			"commit": "org"
+		},
+		{
+			"kind": "team",
+			"path": "acme.marketing",
+			"ref": "refs/heads/teams/acme.marketing",
+			"commit": "t1"
+		},
+		{
+			"kind": "user",
+			"path": "acme.marketing.dana",
+			"ref": "refs/heads/users/dana",
+			"commit": "u"
+		}
+	],
+	"assets": [
+		{
+			"id": "4d2a7f08-6b19-4c5e-8a73-1e9c0b5d4f26",
+			"kind": "skill",
+			"name": "my-style",
+			"from": {
+				"kind": "user",
+				"path": "acme.marketing.dana",
+				"ref": "refs/heads/users/dana",
+				"commit": "u"
+			},
+			"tree": "u:assets/skill/my-style",
+			"sidecar": {
+				"id": "4d2a7f08-6b19-4c5e-8a73-1e9c0b5d4f26",
+				"kind": "skill"
+			}
+		}
+	],
+	"conflicts": [
+		{
+			"kind": "malformed",
+			"path": "policy/always-loaded.json",
+			"from": {
+				"kind": "org",
+				"path": "acme",
+				"ref": "refs/heads/org",
+				"commit": "org"
+			},
+			"why": "4d2a7f08-6b19-4c5e-8a73-1e9c0b5d4f26 is not an organization asset"
+		}
+	],
+	"policy": {
+		"boundaries": [],
+		"grants": [],
+		"groups": {},
+		"modelProviders": {},
+		"harnessProviders": {},
+		"routing": {
+			"defaultFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			},
+			"approvedFor": {
+				"teams": {},
+				"harnesses": {},
+				"providers": {}
+			}
+		},
+		"kinds": [
+			"skill",
+			"memory"
+		],
+		"required": [],
+		"recommended": [],
+		"reach": {
+			"mode": "off",
+			"hosts": [],
+			"setBy": "acme"
+		}
+	},
+	"harnesses": [],
+	"harnessFrom": {},
+	"tree": "<composed>"
+}

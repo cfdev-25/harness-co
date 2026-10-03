@@ -105,7 +105,7 @@ test("a_command_row_says_which_runtime_intercepts_it", async ({ mount }) => {
 
 test("add_from_the_commands_tab_posts_a_command_at_this_level", async ({ mount, page }) => {
   const sent = await records(page);
-  await mount(<AddBoundary scopePath={TEAM} orgPath={ORG} kind="commands" />);
+  await mount(<AddBoundary scopePath={TEAM} orgPath={ORG} kind="commands" harnesses={[]} />);
   // `page`, not the mounted locator: `AddBoundary` renders a fragment and its
   // modal is a portal, so neither is inside the rig's component wrapper
   // (`boundary-writes.spec.tsx` reads the remove confirm the same way).
@@ -135,7 +135,7 @@ test("add_from_the_commands_tab_posts_a_command_at_this_level", async ({ mount, 
 });
 
 test("a_pattern_that_denies_everything_is_said_where_it_is_typed", async ({ mount, page }) => {
-  await mount(<AddBoundary scopePath={ORG} orgPath={ORG} kind="commands" />);
+  await mount(<AddBoundary scopePath={ORG} orgPath={ORG} kind="commands" harnesses={[]} />);
   await page.getByRole("button", { name: BOUNDARIES.verbs.add.label }).click();
   await page.getByLabel(WORDS.valueLabel).fill("*");
   await expect(page.getByText("A pattern of only * denies every command there is.")).toBeVisible();

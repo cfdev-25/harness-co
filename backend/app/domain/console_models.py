@@ -297,6 +297,12 @@ class BoundaryRow(Meta):
     holds: str
     reason: str = ""
     scope: Json = {}
+    # W7-D8: the harnesses `scope.harnesses` names, **by name** — a harness id
+    # is a uuid and is never shown as one. `None` is an absent `harnesses`,
+    # which is every harness the teams own, and an empty `items` is the row
+    # that is bound to none yet; the two states differ, so one field cannot be
+    # both an empty list and a missing one.
+    harnesses: Related | None = None
     setBy: BoundarySetBy
     when: str | None = None
 

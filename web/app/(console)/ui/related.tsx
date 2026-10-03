@@ -14,6 +14,11 @@ const ALL: Record<RelatedValue["unit"], string> = {
 
 /** Linked values with a named unit — never a tag (P4). */
 export function Related({ value, limit = 4 }: RelatedProps) {
+  // W7-D8: a cell with its own sentence says it, rather than *All …* or a
+  // dash — both of which would be a lie for a scope that names harnesses.
+  if (value.word && value.items.length === 0) {
+    return <span className="text-muted">{value.word}</span>;
+  }
   if (value.all) return <span className="text-muted">{ALL[value.unit]}</span>;
   if (value.items.length === 0) return <span className="text-faint">&mdash;</span>;
   const shown = value.items.slice(0, limit);

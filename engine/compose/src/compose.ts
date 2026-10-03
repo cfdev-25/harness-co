@@ -266,8 +266,19 @@ export async function compose(chain: Chain, reader: Reader): Promise<Composed> {
 	// 12. Required and recommended: the winning copy must be the organization's
 	// own, for both lists — a recommended id a new harness would copy has to
 	// name an asset every member of the organization already holds.
+	//
+	// D157: on a personal chain — org › user, no team node — a copy on the
+	// person's own branch counts as the organization's. Everything a person
+	// writes from the CLI lands on their user branch, so under the rule above a
+	// personal account could never require its own skill; and there is nobody
+	// else on the chain for the decision to reach, so *every member of the
+	// organization* and *this person* name the same set. A chain with a team on
+	// it is unchanged: a user copy there would require an asset the rest of the
+	// organization does not hold.
+	const personal = !chain.some((node) => node.kind === "team");
 	const ours = (id: string) => {
-		if (resolved.assets.some((asset) => asset.id === id && asset.from.kind === "org")) return true;
+		const winner = resolved.assets.find((asset) => asset.id === id);
+		if (winner && (winner.from.kind === "org" || (personal && winner.from.kind === "user"))) return true;
 		report({
 			kind: "malformed",
 			path: "policy/always-loaded.json",

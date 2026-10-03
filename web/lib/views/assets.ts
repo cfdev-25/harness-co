@@ -163,6 +163,27 @@ export function usedBy(row: OrgAssetRow): { all: boolean; labels: string[] } {
   return { all: links.all === true, labels: links.items.map((item) => item.label) };
 }
 
+/** The harness ids whose definition lists this copy — the *Included in*
+ *  cell's current set, and what the editing row's checklist starts ticked. An
+ *  asset every session loads reads *all harnesses* and carries no items, so
+ *  the set is empty and the row offers no checklist. */
+export function includedIn(row: OrgAssetRow): string[] {
+  return related(row.harnesses, "harnesses").items.map((item) => item.id);
+}
+
+/** What *Save* sends for the checklist: only the differences. A harness that
+ *  was ticked and stayed ticked is not a write, and nothing changed is no
+ *  write at all. */
+export function membershipDiff(
+  was: string[],
+  now: string[],
+): { add: string[]; remove: string[] } {
+  return {
+    add: now.filter((id) => !was.includes(id)),
+    remove: was.filter((id) => !now.includes(id)),
+  };
+}
+
 /** A kind is data, not a scale (01 D68) — a `Chip`, in a `Word` when the
  *  vocabulary explains it and plain when it does not. */
 export function kindWord(kind: string): WordId | null {

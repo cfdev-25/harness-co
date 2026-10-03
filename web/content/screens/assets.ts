@@ -32,7 +32,14 @@ export const ASSETS: ScreenContent<AssetsColumn, AssetsVerb, EmptyId> = {
       heading: "Loads",
       help: "Whether every session loads this, every new harness starts with it, or a harness asks for it.",
     },
-    usedBy: { heading: "Used by", unit: "harnesses", help: "Which harnesses load this asset." },
+    /** The identifier stays `usedBy`; the heading is *Included in*, because
+     *  the cell is now the harnesses whose definition lists this asset — and,
+     *  on an editing row, the checklist that changes them. */
+    usedBy: {
+      heading: "Included in",
+      unit: "harnesses",
+      help: "The harnesses whose definition lists this asset.",
+    },
     needsGroups: { heading: "Needs groups", unit: "groups", help: "Which security groups this asset needs to run." },
     lastChange: { heading: "Last change", help: "When this asset was last committed." },
   },
@@ -44,7 +51,7 @@ export const ASSETS: ScreenContent<AssetsColumn, AssetsVerb, EmptyId> = {
     edit: {
       label: "Edit",
       explain:
-        "Changes the name and the description of this copy in its row — and, for an organization admin, how it loads. The harnesses that hold it keep it.",
+        "Changes the name, the description and which harnesses include this copy, in its row — and, for an organization admin, how it loads.",
     },
     remove: {
       label: "Delete",
@@ -88,6 +95,9 @@ export const ASSETS_TEXT = {
   editName: "Name",
   editDescription: "Description",
   editSubmit: "Save",
+  /** The checklist in the *Included in* cell of an editing row. The label is
+   *  the harness's own name; this is what the group of them is called. */
+  editIncluded: "Included in",
   removeTitle: "Delete this asset",
   /** The confirmation is the preview (02 rule 22): what the asset leaves. */
   removeLeaves: "It leaves these harnesses:",

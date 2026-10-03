@@ -168,6 +168,20 @@ def name_of(node_path: str) -> str:
     return node_path.rsplit(".", 1)[-1]
 
 
+async def is_personal(connection: Any, org_id: UUID) -> bool:
+    """prd-v2 §12.1: a personal account is an organization with no team node.
+
+    Read from `idx_nodes` — the definition plane — and not from `org_units`,
+    because the records hold a team row for a personal account that nothing
+    composes (D30f), so the two planes answer differently. `idx_nodes` is the
+    chain `engine/compose` walks, so a write that turns on a personal rule
+    means by *personal* exactly what compose means by it.
+    """
+    return not await connection.fetchval(
+        "select exists(select 1 from idx_nodes where org=$1 and kind='team')", org_id
+    )
+
+
 async def unit_of(connection: Any, node_path: str) -> UUID:
     """The records id for a dotted path. Audit is chained per unit, so a write
     on a node's ref is recorded on that node."""

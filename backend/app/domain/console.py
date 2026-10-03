@@ -1188,9 +1188,9 @@ async def log_row(ctx: Ctx, row: dict) -> dict:
     if row["action"] in ("session.open", "session.refuse", "session.revoke"):
         fields["model"] = " · ".join(payload.get("model") or []) or None
         fields["harness"] = await _harness_name(ctx, payload.get("harness"))
-    if row["action"] == "harness.add_assets":
-        # W5-D15. The payload carries the id, as every harness payload does;
-        # the sentence says the name, which is this one place's job.
+    if row["action"] in ("harness.add_assets", "boundary.bind", "boundary.unbind"):
+        # W5-D15, W7-D8. The payload carries the id, as every harness payload
+        # does; the sentence says the name, which is this one place's job.
         fields["harness"] = await _harness_name(ctx, payload.get("harness"))
     if row["action"] in ("definitions.push", "definitions.commit"):
         fields["n"] = len(payload.get("paths") or [])
@@ -1941,11 +1941,21 @@ async def grant_rows(ctx: Ctx) -> list[dict]:
 
 async def boundary_rows(ctx: Ctx) -> list[dict]:
     known, commits = await nodes(ctx), await refs(ctx)
+    names = await harness_names(ctx)
     out = []
     for path, boundary in await chain_policy(ctx, "boundaries.json"):
         node = known.get(path) or {}
         written = await policy_commit(ctx, path, "boundaries.json")
-        out.append(boundary | {
+        # W7-D8: a boundary scopes by harness like every other policy object,
+        # and the row carries those harnesses by **name** — `scope.harnesses`
+        # holds uuids, which are never shown to a person. An absent list is
+        # every harness the teams own, and the field is absent with it: the
+        # empty list is its own state (*bound to none yet*) and the two must
+        # not read the same.
+        scoped = (boundary.get("scope") or {}).get("harnesses")
+        out.append(boundary | ({} if not isinstance(scoped, list) else {
+            "harnesses": link_related(ctx, "harnesses", scoped, "harnesses", labels=names),
+        }) | {
             # PRD §16 asks for the source of each line: the node, by name, and
             # the moment it was written — both of which the ref can answer.
             "setBy": {"kind": node.get("kind", "org"), "path": path,

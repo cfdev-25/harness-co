@@ -73,8 +73,8 @@ export function navKeyOf(pathname: string): NavKey | null {
  * a viewer may open only to be refused is worse than no row (P13).
  *
  * A personal account is one person who is their own organization (07 §2):
- * there are no teams, no people and no permissions to hand out, but reach is
- * theirs to set, so Boundaries stays.
+ * there are no teams, no people and no permissions to hand out, but reach and
+ * the model are theirs to set, so Boundaries and Providers stay.
  *
  * **Groups exist to separate the permission screens from the rest** (D106).
  * A viewer who administers nothing here has no second kind of row, so the
@@ -93,9 +93,13 @@ export function navFor(scope: Scope, viewer: Viewer): NavGroup[] {
   const admin = viewer.adminHere;
 
   if (viewer.edition === "personal") {
-    // Boundaries is in the one list and not under a *Permissions* heading:
-    // there is nobody else here, so it is a setting of theirs like the rest.
-    return [{ items: [item("harnesses"), item("assets"), item("boundaries"), item("logs"), item("account")] }];
+    // Boundaries and Providers are in the one list and not under a
+    // *Permissions* heading: there is nobody else here, so they are settings
+    // of theirs like the rest — and Providers is where a model is connected
+    // (07 §4), which a personal account cannot do without.
+    return [{ items: [
+      item("harnesses"), item("assets"), item("boundaries"), item("providers"), item("logs"), item("account"),
+    ] }];
   }
 
   const permissions: NavItem[] = admin && !me

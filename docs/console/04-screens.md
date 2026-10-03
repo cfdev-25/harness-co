@@ -908,7 +908,12 @@ organization. The listing carries `kinds`, the organization's
 `policy/kinds.json` in its own order, beside `items`. Writes:
 `PUT /v1/assets/{id}/loads { loads }` (org ref, 00 D9),
 `PATCH /v1/assets/{id}?scope=` `{ name?, description? }` and
-`DELETE /v1/assets/{id}?scope=` (WS3a). Nothing observed.
+`DELETE /v1/assets/{id}?scope=` (WS3a). The *Included in* checklist writes
+`POST /v1/harnesses/{id}/assets?scope=` `{ ids }` to add and
+`PATCH /v1/harnesses/{id}` `{ assets }` to remove (D110), over the harnesses
+of this level, which `page.tsx` reads with
+`GET /v1/console/harnesses?scope=` — a table does not fetch (01 rule 2).
+Nothing observed.
 
 **Tabs.** One per kind in `policy/kinds.json` order, each with its count; a
 kind with nothing on this branch still has a tab, greyed, reading `0`. A kind
@@ -920,11 +925,20 @@ opens on the first kind that has rows.
 
 **Layout.** Sub-header: title *Assets*, the level chip (01 §7.5), the lede
 for this level. Content: the tabs, the count, a filter box, the table.
-**Edit is in the row (D109)**: pressing it turns the Name, Description and
-Loads cells of that one row into controls and the two buttons into *Save*
-and *Cancel*; Enter saves, Escape cancels; nothing opens. Loads is a select
-only where the route would take it — an organization admin, on a row of the
-organization's branch — and stays the word everywhere else.
+**Edit is in the row (D109, D110)**: pressing it turns the Name, Description,
+*Included in* and Loads cells of that one row into controls and the two
+buttons into *Save* and *Cancel*; Enter saves, Escape cancels; nothing opens.
+*Included in* becomes a checklist of the harnesses the viewer may write at
+this level — at *You* their own, at a team or the organization that level's —
+ticked where the harness lists this asset today. *Save* sends the words, then
+the memberships, then loads, and only the differences the checklist shows: a
+harness that stayed ticked is not written to, and nothing changed is no write.
+A refusal lands under the *Included in* cell with the row still open. A row
+that is **required** — or whose draft loads is — reads *all harnesses* and
+offers no checklist, so the cell and the rule it states cannot disagree.
+Loads is a select only where the route would take it — an organization admin,
+on a row of the organization's branch, **or on their own row on a personal
+account** (engine D157) — and stays the word everywhere else.
 Asset page: the sidecar facts, *Loads*, then the **reverse view** —
 `Related{harnesses}` (*all harnesses* when always loaded, PRD §15),
 `Related{teams}`, `Related{groups}` it needs — then `EdgeWalk`.
@@ -932,8 +946,11 @@ Asset page: the sidecar facts, *Loads*, then the **reverse view** —
 **Columns (`OrgAssetRow` — the model keeps its name).** Name · text (default
 sort, the row's link); Description · text, from the sidecar's `description`
 (WS3a); Loads · text, the word `loadsLabel()` returns — **Required** /
-**Recommended** / **On request** (W5-D10); Used by · `Related{harnesses}` /
-*all harnesses*; Last change · date. There is no Type column: the tab is the
+**Recommended** / **On request** (W5-D10); Included in · `Related{harnesses}`
+/ *all harnesses* — the harnesses whose definition lists this asset, and the
+checklist on an editing row (the identifier stays `usedBy`; *Used by* was the
+heading until D110, and said nothing about which direction the relationship
+ran); Last change · date. There is no Type column: the tab is the
 kind. *Needs groups* stays on the asset page's reverse view, which is where a
 person asks what a single asset needs.
 
@@ -962,23 +979,34 @@ console sends the old words.
 | --- | --- | --- | --- | --- | --- |
 | Edit (name, description) | no | yes, on the team's copy | yes, on the organization's | yes, always | `PATCH /v1/assets/{id}?scope=` |
 | Delete | no | yes, on the team's copy | yes, on the organization's | yes, always | `DELETE /v1/assets/{id}?scope=` |
-| Set *Required* / *Recommended* / *On request* (confirm for required: *Preflight will refuse to launch any harness without it*) | no | no | yes | yes (they are their own org admin) | `PUT /v1/assets/{id}/loads` |
+| Set *Required* / *Recommended* / *On request* (confirm for required: *Preflight will refuse to launch any harness without it*) | no | no | yes, on the organization's copy | yes, on their own copies too, on a personal account (engine D157) | `PUT /v1/assets/{id}/loads` |
+| Tick a harness in *Included in* | no | yes, on a harness of this level | yes | yes | `POST /v1/harnesses/{id}/assets?scope=` |
+| Untick a harness in *Included in* | no | yes, on a harness of this level | yes | yes | `PATCH /v1/harnesses/{id} { assets }` |
 | Tick a row in *Browse* and **Add to harness** | yes | yes | yes | yes | `POST /v1/harnesses/{id}/assets?scope=me` |
 | Tick a row in *Browse* and **New harness from selection** | yes | yes | yes | yes | `POST /v1/harnesses { assets }` |
 
 The two row verbs are rendered when `levelOf(scope, viewer).canEdit` — the
 same fact the chip states, so a screen that says *read and use* never shows a
-verb. Edit is in place (D109): *Save* sends only what changed — the words to
-`PATCH /v1/assets/{id}?scope=`, then loads to `PUT /v1/assets/{id}/loads` —
-and stops at the first refusal; moving to *required* confirms with what it
-takes first, as the asset page's control does. Delete confirms with what it takes
-(rule 22): the harnesses of the row's *used by*, named; *It loads into every
+verb. Edit is in place (D109, D110): *Save* sends only what changed — the
+words to `PATCH /v1/assets/{id}?scope=`, then the memberships the checklist
+changed, then loads to `PUT /v1/assets/{id}/loads` — and stops at the first
+refusal; moving to *required* confirms with what it takes first, as the asset
+page's control does. Adding is the store's own write (D93): it copies a
+bundled preset and brings a tool's environment, and at *You* it writes the
+person's version of the harness. Removing has no route of its own — a
+definition's `assets` is written whole — so the harness is read with
+`GET /v1/console/harnesses/{id}?scope=` at save time and `PATCH`ed with the
+list it holds now, minus this id; authority is `PATCH /v1/harnesses/{id}`'s
+own (`node_of_harness` + `administers`, or the person's own branch), and its
+refusal is what the cell shows. Delete confirms with what it takes
+(rule 22): the harnesses of the row's *included in*, named; *It loads into every
 harness today, and would leave all of them* when the organization always
 loads it; *No harness lists it* when none does. A refusal — `asset.required`
 for something every session loads, `asset.name_taken` for a rename that
 collides — renders in the server's own words (rule 21) where the verb is:
-under Name for the words or under Loads for loads, with the row still open
-for the correction, or inside the Delete dialog. Team admin / member on the loads toggle: `PermissionNotCleared`, *How an
+under Name for the words, under *Included in* for a membership, or under
+Loads for loads, with the row still open for the correction, or inside the
+Delete dialog. Team admin / member on the loads toggle: `PermissionNotCleared`, *How an
 organization asset loads is an organization admin's decision.*
 
 ### Browse — the store (W5-D15)
@@ -1058,11 +1086,17 @@ Error: server message. Hidden: n/a.
 
 **Not on it.** *required* / *optional* wording (retired, prd-v2 §25). An
 owned/available toggle (retired). Edit of the asset's *content* (that is git,
-via the CLI — Edit here is the name, the description and how it loads).
+via the CLI — Edit here is the name, the description, which harnesses include
+it and how it loads).
 
 **Tests.** `assets_are_the_levels_own_copies` (backend, me/team/org) ·
 `edit_asset_patches_only_what_changed_at_the_scope` ·
 `edit_asset_sets_how_it_loads_in_the_row` ·
+`included_in_is_a_checklist_posting_only_the_differences` ·
+`a_required_asset_reads_all_harnesses_and_offers_no_checklist` ·
+`loads_is_offered_on_a_personal_accounts_own_row` ·
+`a_personal_account_may_require_its_own_asset` (backend and compose) ·
+`an_enterprise_user_branch_asset_still_cannot_be_required` (backend and compose) ·
 `edit_asset_shows_the_servers_refusal_under_the_cell` ·
 `delete_asset_names_the_harnesses_it_leaves_then_deletes` ·
 `delete_asset_shows_the_servers_refusal_in_place` ·
@@ -1609,6 +1643,7 @@ it takes with it, computed server-side (`RemovalPreview`,
 | D107 | **The card is three rows, and resuming is the one primary verb** (§4). A card that listed *Open in Pi*, then *Open again in ~/projects/foo on corby-mbp*, offered the same person the same harness twice and put the quieter copy on the thing they actually wanted: carrying on where they left off. So the meta facts fold into one wrapping row, the action row has two shapes and never both — **Resume** into `lastWorkspace` with the folder beside it in muted text, or *Open in* per runtime when there is nowhere to resume — and `lastHost` stops being drawn: it named the machine the reader is sitting at. A further runtime is a small secondary into the same workspace, never a second primary. | keeping both lines and promoting the second — then the card has two verbs for one intention, and the louder one is the wrong one |
 | D108 | **The pet is drawn when the harness is made** (§4). `ui/pixel-editor` moves into the *New harness* dialog under *Name* — the same component, palette and keyboard path as the harness page's **Edit** (01 §7.13), because a second editor would drift the first time either changed; the empty grid that *Clear* leaves and that both dialogs open with is the editor's own `blankIcon()`, which was written out by hand in two places before this. Skipping is a choice with its consequence shown — *Skip, I'll draw it later* leaves the grey square and says so — and not a field left blank. `icon` is posted only when the grid has a colour in it, so an untouched editor and a skipped one send the same body; `create_harness` already reads an absent icon as *none*. | an *Add an icon* step after creation — which is a second screen for a thing nobody returns to, and it is why every harness is a grey square today |
 | D109 | **An asset is edited in its row** (§12). The Edit dialog asked for the name and the description and could not ask how the asset loads — that was a control on the asset page, so the one thing the person wanted to change from the list sent them to a second screen. Now Edit turns the row's three cells into controls, *Save* sends only what changed (`PATCH` for the words, then `PUT …/loads`), a refusal lands under Name for the words or under Loads for loads, with the row still open, and moving to *required* keeps its confirmation. The loads select appears exactly where the route would take the write: an organization admin, on the organization's row; a team's copy keeps the word. `ui/field` gains `labelHidden` for a control whose column heading already names it, as `ui/select` had, and `ui/table` stops handling keys that start inside a cell's control. | a loads field in the dialog — which keeps the second screen for a one-word change, and a dialog over a table for a value the table already shows |
+| D110 | **The *Used by* column is *Included in*, and on an editing row it is a checklist** (§12; extends D109). *Used by* read as if the harnesses used the asset of their own accord; what the column actually holds is the harnesses whose definition **lists** it, which is a decision somebody made and can unmake — so the heading says so, and the cell is where it is unmade. The checklist is the harnesses the viewer may write at this level (`GET /v1/console/harnesses?scope=`, read by `page.tsx`, because a table does not fetch — 01 rule 2), ticked from the row's own `Related{harnesses}`; *Save* sends the words, then the memberships, then loads, and **only the differences**, so a harness that stayed ticked is never written to and nothing changed is no write. Adding is the store's write (D93) — it copies a preset and brings a tool's environment, and at *You* writes the person's version. Removing has no route of its own, because a definition's `assets` is written whole: the harness is read at save time and `PATCH`ed with the list it holds now minus this id, under that route's own authority. A **required** row — or a draft moved to required — reads *all harnesses* and offers no checklist, the same condition in the cell and in the save, so the control and the rule it states cannot disagree. | a *harnesses* multi-select in a dialog — which is the second screen D109 removed; or a *remove one asset* route invented for the console, which the CLI would not use and the definition does not need |
 | D45 | **The Account screen's logins come from the last session's slots**, labelled *as of*, because the console cannot probe a machine. | a browser-side probe — impossible |
 | D46 | **Boundaries' `intercepted` option is present but disabled with *not yet*** until command interception ships (engine 06 §13), so the scale is complete on the How page and honest on the form. | hiding the value |
 | D47 | **Not-approved providers are rows**, never filtered out by default. | a *show declined* toggle — rejected: PRD §9.1 |

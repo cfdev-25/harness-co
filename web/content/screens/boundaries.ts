@@ -58,6 +58,11 @@ export const BOUNDARIES_TEXT = {
   personalTitle: "What I block",
   personalLede: "Everything the assistant may never do, however it is running.",
   orgBlock: "Set by the organization",
+  /** W7-D8, the two cells a harness-scoped row needs words for: *All teams*
+   *  is true of such a row and says the wrong thing about it, and a dash in
+   *  *Only for* cannot tell *not narrowed* from *narrowed to nothing yet*. */
+  appliesToBound: "Only the harnesses it is bound to",
+  onlyForNone: "No harness yet",
   tightenOnly: "Boundaries only tighten on the way down.",
   tabs: {
     reach: "Reach",
@@ -92,8 +97,18 @@ export const BOUNDARIES_TEXT = {
   holdsLabel: "Holds",
   reasonLabel: "Reason",
   reasonHint: "Why this is denied. Everyone it reaches reads this.",
-  scopeLabel: "Applies to",
+  /** W7-D8 gave *Applies to* to the harnesses question, so the read-only node
+   *  the add is written at reads as the table's *Set by* column names it. */
+  scopeLabel: "Set at",
   scopeHint: "This team and everything below it.",
+  /** W7-D8's *Applies to*: every harness at this level, or the ones ticked.
+   *  Nothing ticked is a boundary waiting for a harness, which is a state the
+   *  table has words for and a form may leave a person in on purpose. */
+  harnessesLabel: "Applies to",
+  harnessesAll: "Every harness at this level",
+  harnessesChosen: "Only harnesses I choose",
+  harnessesHint: "Tick none and the boundary applies to nothing until you bind a harness to it.",
+  harnessesNone: "This level holds no harness yet. Add the boundary now and bind it to one later.",
   /** W6-D9. A command boundary is intercepted and nothing else: the runtime
    *  refuses the call as it is made, and nothing outside the runtime can hold
    *  a command at all. The form says so instead of offering a choice that the

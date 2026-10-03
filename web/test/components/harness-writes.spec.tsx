@@ -58,8 +58,8 @@ test("new_harness_asks_web_access_and_outside_keys_on_a_personal_account", async
       scope={{ kind: "me" }}
       cards={[]}
       canEdit
-      personal={{ groups: ["my-keys"], setup: { installed: true, loggedIn: true,
-                                                model: "key", harness: false } }}
+      personal={{ groups: ["my-keys"], boundaries: [], setup: { installed: true, loggedIn: true,
+                                                                model: "key", harness: false } }}
     />,
   );
 
@@ -104,7 +104,7 @@ test("new_harness_on_a_personal_account_writes_nothing_for_the_defaults", async 
       scope={{ kind: "me" }}
       cards={[]}
       canEdit
-      personal={{ groups: ["my-keys"], setup: undefined }}
+      personal={{ groups: ["my-keys"], boundaries: [], setup: undefined }}
     />,
   );
 

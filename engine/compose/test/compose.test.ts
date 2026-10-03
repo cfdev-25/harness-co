@@ -36,6 +36,8 @@ describe("the conformance fixtures, T1", () => {
 			"narrowed-grant-alias-not-held",
 			"boundary-union",
 			"always-loaded",
+			"personal-required",
+			"required-on-a-user-branch",
 			"harness-names-nothing",
 			"no-policy-files",
 			"reach-narrows",
@@ -98,6 +100,30 @@ it("always_loaded_must_be_an_organization_asset", async () => {
 	expect(composed.policy.required).toEqual(["0b7e4d2a-9c31-4f8e-b6a2-51d3c7e9f0a4"]);
 	expect(composed.policy.recommended).toEqual([]);
 	expect(composed.conflicts[0]).toMatchObject({ kind: "malformed", path: "policy/always-loaded.json" });
+});
+
+it("a_personal_account_may_require_its_own_asset", async () => {
+	// D157: org › user, no team node, and the required id's winning copy is
+	// the person's own — accepted, because there is nobody else on the chain
+	// for the decision to reach.
+	const { composed } = await run("personal-required");
+	expect(composed.conflicts).toEqual([]);
+	expect(composed.policy.required).toEqual(["7c1e9b44-2d6f-4a81-9b3e-5f0c8a2d7e61"]);
+});
+
+it("an_enterprise_user_branch_asset_still_cannot_be_required", async () => {
+	// The same shape one node deeper: a team on the chain means the rest of the
+	// organization does not hold the person's copy, so the id is dropped.
+	const { composed } = await run("required-on-a-user-branch");
+	expect(composed.policy.required).toEqual([]);
+	expect(composed.conflicts).toEqual([
+		{
+			kind: "malformed",
+			path: "policy/always-loaded.json",
+			from: composed.chain[0],
+			why: "4d2a7f08-6b19-4c5e-8a73-1e9c0b5d4f26 is not an organization asset",
+		},
+	]);
 });
 
 it("required_and_recommended_are_two_lists", async () => {

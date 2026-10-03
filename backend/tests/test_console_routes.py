@@ -857,6 +857,38 @@ async def test_boundaries_carry_the_node_that_set_them():
         assert rows["items"][0]["value"] == "*.pastebin.com"
         # Nothing asked `definitions`, so the moment is unknown rather than now.
         assert rows["items"][0]["when"] is None
+        # W7-D8: no `harnesses` on the scope is every harness the teams own,
+        # and the row carries no field for it either.
+        assert rows["items"][0].get("harnesses") is None
+
+
+@requires_postgres
+async def test_a_harness_scoped_boundary_names_its_harnesses_and_says_when_it_has_none():
+    """W7-D8. `scope.harnesses` holds uuids and a row never shows one, so the
+    harnesses come back as names. An empty list is its own state — the boundary
+    is bound to no harness yet — and reads differently from an absent one,
+    which applies to every harness the teams own."""
+    async with scratch_db(_all_migrations()) as connection:
+        people = await world(connection)
+        await connection.execute(
+            """update idx_policy set body = body || $1::jsonb
+                 where org=$2 and node_path=$3 and file='boundaries.json'""",
+            json.dumps([
+                {"id": "b-bound", "scope": {"teams": "all", "harnesses": [HARNESS]},
+                 "kind": "command", "value": "git push --force*",
+                 "holds": "intercepted", "reason": "Protected branches are protected."},
+                {"id": "b-waiting", "scope": {"teams": "all", "harnesses": []},
+                 "kind": "filesystem", "value": "/etc/shadow",
+                 "holds": "enforced", "reason": "Nothing a session does reads it."},
+            ]),
+            people["org"], ORG)
+        answer = await routes_console.read_boundaries(
+            await ctx_for(connection, people["dana"], scope="org"))
+        rows = {row["id"]: row for row in answer["items"]}
+        bound = rows["b-bound"]["harnesses"]
+        assert [item["label"] for item in bound["items"]] == ["Support"]
+        assert bound["items"][0]["href"] == f"/console/org/harnesses/{HARNESS}"
+        assert rows["b-waiting"]["harnesses"]["items"] == []
 
 
 @requires_postgres
